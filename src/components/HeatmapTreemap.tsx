@@ -39,7 +39,7 @@ function changeToBg(chg: number): string {
 
 // ── KR Sector Data (50 stocks) ──────────────────────────────
 
-const KR_SECTORS: Sector[] = [
+export const KR_SECTORS: Sector[] = [
   {
     name: "Semiconductors", nameKr: "반도체",
     stocks: [
@@ -205,11 +205,77 @@ const US_SECTORS: Sector[] = [
   },
 ];
 
-type Market = "KR" | "US";
+// ── JP Sector Data (40+ stocks) ──────────────────────────────
+
+const JP_SECTORS: Sector[] = [
+  {
+    name: "Technology", nameKr: "기술",
+    stocks: [
+      { ticker: "6758", name: "Sony", nameKr: "소니", cap: 150, chg: 1.3, price: "¥14,250" },
+      { ticker: "6501", name: "Hitachi", nameKr: "히타치", cap: 60, chg: 0.8, price: "¥3,850" },
+      { ticker: "6861", name: "Keyence", nameKr: "키엔스", cap: 130, chg: -0.5, price: "¥62,400" },
+      { ticker: "6723", name: "Renesas", nameKr: "르네사스", cap: 40, chg: 2.1, price: "¥2,680" },
+      { ticker: "6920", name: "Lasertec", nameKr: "레이저텍", cap: 35, chg: -1.8, price: "¥18,900" },
+      { ticker: "6857", name: "Advantest", nameKr: "어드밴테스트", cap: 45, chg: 3.0, price: "¥5,420" },
+    ],
+  },
+  {
+    name: "Automotive", nameKr: "자동차",
+    stocks: [
+      { ticker: "7203", name: "Toyota", nameKr: "도요타", cap: 300, chg: 0.5, price: "¥2,780" },
+      { ticker: "7267", name: "Honda", nameKr: "혼다", cap: 60, chg: -0.3, price: "¥1,520" },
+      { ticker: "7974", name: "Nintendo", nameKr: "닌텐도", cap: 80, chg: 1.8, price: "¥8,250" },
+      { ticker: "7269", name: "Suzuki", nameKr: "스즈키", cap: 25, chg: -0.7, price: "¥1,680" },
+      { ticker: "7201", name: "Nissan", nameKr: "닛산", cap: 15, chg: -2.5, price: "¥420" },
+    ],
+  },
+  {
+    name: "Finance", nameKr: "금융",
+    stocks: [
+      { ticker: "8306", name: "MUFG", nameKr: "미쓰비시UFJ", cap: 100, chg: 0.9, price: "¥1,820" },
+      { ticker: "8316", name: "SMFG", nameKr: "미쓰이스미토모", cap: 60, chg: 0.4, price: "¥3,250" },
+      { ticker: "8411", name: "Mizuho", nameKr: "미즈호", cap: 45, chg: -0.2, price: "¥3,180" },
+      { ticker: "8766", name: "Tokio Marine", nameKr: "도쿄해상", cap: 50, chg: 1.5, price: "¥5,620" },
+      { ticker: "8035", name: "Tokyo Electron", nameKr: "도쿄일렉트론", cap: 90, chg: 2.4, price: "¥24,800" },
+    ],
+  },
+  {
+    name: "Consumer", nameKr: "소비재",
+    stocks: [
+      { ticker: "9983", name: "Fast Retailing", nameKr: "패스트리테일링", cap: 100, chg: -0.4, price: "¥42,500" },
+      { ticker: "4452", name: "Kao", nameKr: "가오", cap: 25, chg: 0.3, price: "¥6,280" },
+      { ticker: "4911", name: "Shiseido", nameKr: "시세이도", cap: 20, chg: -1.2, price: "¥3,450" },
+      { ticker: "2914", name: "JT", nameKr: "일본담배", cap: 40, chg: 0.6, price: "¥4,180" },
+      { ticker: "9433", name: "KDDI", nameKr: "KDDI", cap: 45, chg: 0.2, price: "¥4,850" },
+    ],
+  },
+  {
+    name: "Industrial", nameKr: "산업재",
+    stocks: [
+      { ticker: "6301", name: "Komatsu", nameKr: "고마쓰", cap: 35, chg: -0.8, price: "¥4,520" },
+      { ticker: "6367", name: "Daikin", nameKr: "다이킨", cap: 55, chg: 0.7, price: "¥22,600" },
+      { ticker: "7011", name: "Mitsubishi HI", nameKr: "미쓰비시중공업", cap: 40, chg: 1.9, price: "¥2,180" },
+      { ticker: "7751", name: "Canon", nameKr: "캐논", cap: 30, chg: -0.5, price: "¥5,120" },
+      { ticker: "4568", name: "Daiichi Sankyo", nameKr: "다이이치산쿄", cap: 70, chg: 1.2, price: "¥4,680" },
+    ],
+  },
+  {
+    name: "Healthcare", nameKr: "헬스케어",
+    stocks: [
+      { ticker: "4523", name: "Eisai", nameKr: "에자이", cap: 25, chg: -2.1, price: "¥5,820" },
+      { ticker: "4519", name: "Chugai Pharma", nameKr: "추가이제약", cap: 50, chg: 1.4, price: "¥6,350" },
+      { ticker: "4502", name: "Takeda", nameKr: "다케다", cap: 45, chg: 0.3, price: "¥4,120" },
+      { ticker: "4578", name: "Otsuka", nameKr: "오츠카", cap: 30, chg: -0.6, price: "¥7,450" },
+    ],
+  },
+];
+
+type Market = "KR" | "US" | "JP";
 
 const MARKET_SECTORS: Record<Market, Sector[]> = {
   KR: KR_SECTORS,
   US: US_SECTORS,
+  JP: JP_SECTORS,
 };
 
 // ── Tooltip state ──────────────────────────────────────────
@@ -333,7 +399,7 @@ export default function HeatmapTreemap() {
   return (
     <div>
       <div className="mb-3 inline-flex gap-px rounded bg-card-border p-px">
-        {(["KR", "US"] as const).map((m) => (
+        {(["KR", "US", "JP"] as const).map((m) => (
           <button
             key={m}
             onClick={() => { setActiveMarket(m); setTooltip(null); }}
@@ -382,18 +448,20 @@ export default function HeatmapTreemap() {
         )}
       </div>
 
-      <div className="mt-2 flex items-center gap-1 text-[9px] text-muted">
-        <div className="flex items-center gap-px">
-          {[-3, -2, -1, 0, 1, 2, 3].map((v) => (
-            <div
-              key={v}
-              className="h-2.5 w-4 first:rounded-l last:rounded-r"
-              style={{ backgroundColor: changeToBg(v) }}
-            />
-          ))}
+      <div className="mt-2 flex justify-end">
+        <div className="flex items-center gap-1.5 text-[9px] text-muted">
+          <span>-3%</span>
+          <div className="flex items-center gap-px">
+            {[-3, -2, -1, 0, 1, 2, 3].map((v) => (
+              <div
+                key={v}
+                className="h-2.5 w-5 first:rounded-l last:rounded-r"
+                style={{ backgroundColor: changeToBg(v) }}
+              />
+            ))}
+          </div>
+          <span>+3%</span>
         </div>
-        <span className="ml-1">-3%</span>
-        <span className="ml-auto">+3%</span>
       </div>
     </div>
   );
@@ -434,7 +502,7 @@ function SectorTreemap({
         const innerRect = { x: sr.x + pad, y: sr.y + pad, w: sr.w - pad * 2, h: sr.h - pad * 2 };
 
         // Sector label height
-        const labelH = innerRect.h > 20 ? 14 : 0;
+        const labelH = innerRect.h > 24 ? 18 : 0;
         const stockRect = { x: innerRect.x, y: innerRect.y + labelH, w: innerRect.w, h: innerRect.h - labelH };
 
         // Layout stocks within sector
@@ -451,11 +519,11 @@ function SectorTreemap({
             {/* Sector label */}
             {labelH > 0 && innerRect.w > 30 && (
               <text
-                x={innerRect.x + 4}
-                y={innerRect.y + 10}
-                fill="#888"
-                fontSize={9}
-                fontWeight={600}
+                x={innerRect.x + 5}
+                y={innerRect.y + 13}
+                fill="#aaa"
+                fontSize={12}
+                fontWeight={700}
                 fontFamily="ui-sans-serif, system-ui, sans-serif"
               >
                 {lang === "kr" ? sector.nameKr : sector.name}
@@ -467,9 +535,9 @@ function SectorTreemap({
               const r = stockRects[idx];
               if (!r || r.w < 1 || r.h < 1) return null;
 
-              const showTicker = r.w > 30 && r.h > 18;
+              const showName = r.w > 30 && r.h > 18;
               const showChg = r.w > 30 && r.h > 30;
-              const showName = r.w > 55 && r.h > 42;
+              const displayName = lang === "kr" && stock.nameKr ? stock.nameKr : stock.name;
 
               return (
                 <g
@@ -494,35 +562,23 @@ function SectorTreemap({
                     stroke="#0b0f14"
                     strokeWidth={1}
                   />
-                  {showTicker && (
-                    <text
-                      x={r.x + r.w / 2}
-                      y={r.y + r.h / 2 + (showChg ? (showName ? -8 : -4) : 4)}
-                      textAnchor="middle"
-                      fill="#fff"
-                      fontSize={r.w > 60 ? 10 : 8}
-                      fontWeight={700}
-                      fontFamily="ui-monospace, monospace"
-                    >
-                      {stock.ticker}
-                    </text>
-                  )}
                   {showName && (
                     <text
                       x={r.x + r.w / 2}
-                      y={r.y + r.h / 2 + 3}
+                      y={r.y + r.h / 2 + (showChg ? -4 : 4)}
                       textAnchor="middle"
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize={8}
+                      fill="#fff"
+                      fontSize={r.w > 70 ? 10 : 8}
+                      fontWeight={700}
                       fontFamily="ui-sans-serif, system-ui, sans-serif"
                     >
-                      {lang === "kr" && stock.nameKr ? stock.nameKr : stock.name}
+                      {displayName}
                     </text>
                   )}
                   {showChg && (
                     <text
                       x={r.x + r.w / 2}
-                      y={r.y + r.h / 2 + (showName ? 14 : 8)}
+                      y={r.y + r.h / 2 + (showName ? 8 : 4)}
                       textAnchor="middle"
                       fill="rgba(255,255,255,0.9)"
                       fontSize={r.w > 60 ? 10 : 8}
