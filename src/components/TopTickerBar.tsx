@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+
 interface TickerItem {
   type: "NEWS" | "INDEX" | "FX" | "COM";
   label: string;
@@ -15,9 +17,7 @@ const TYPE_COLORS: Record<TickerItem["type"], string> = {
   COM: "text-foreground",
 };
 
-const DEFAULT_ITEMS: TickerItem[] = [
-  { type: "INDEX", label: "KOSPI", value: "2,687.45", changePct: 0.82 },
-  { type: "INDEX", label: "KOSDAQ", value: "868.12", changePct: -0.35 },
+const STATIC_ITEMS: TickerItem[] = [
   { type: "INDEX", label: "S&P 500", value: "5,954.50", changePct: 1.26 },
   { type: "INDEX", label: "NASDAQ", value: "19,211.10", changePct: 1.58 },
   { type: "FX", label: "USD/KRW", value: "1,378.50", changePct: -0.12 },
@@ -73,7 +73,46 @@ function TickerEntry({ item }: { item: TickerItem }) {
   return inner;
 }
 
-export default function TopTickerBar({ items = DEFAULT_ITEMS }: { items?: TickerItem[] }) {
+export default function TopTickerBar() {
+  const [items, setItems] = useState<TickerItem[]>(STATIC_ITEMS);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchIndices() {
+      try {
+        const res = await fetch("/api/krx/indices");
+        const json = await res.json();
+        if (!json.ok || !json.indices) return;
+
+        const krxItems: TickerItem[] = json.indices.map(
+          (idx: { name: string; value: string; changePct: number }) => ({
+            type: "INDEX" as const,
+            label: idx.name,
+            value: idx.value,
+            changePct: idx.changePct,
+          })
+        );
+
+        if (!cancelled) {
+          setItems((prev) => {
+            // Replace the first 3 static INDEX items (S&P, NASDAQ, ...) with KRX + those
+            const nonIndex = prev.filter((i) => i.type !== "INDEX");
+            const usIndices = prev.filter(
+              (i) => i.type === "INDEX" && !["KOSPI", "KOSDAQ", "KRX"].includes(i.label)
+            );
+            return [...krxItems, ...usIndices, ...nonIndex];
+          });
+        }
+      } catch {
+        // Keep static items on error
+      }
+    }
+
+    fetchIndices();
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className="group relative overflow-hidden border-b border-card-border/60 bg-background">
       <div className="ticker-scroll flex w-max items-center gap-6 whitespace-nowrap px-4 py-1.5 group-hover:[animation-play-state:paused]">

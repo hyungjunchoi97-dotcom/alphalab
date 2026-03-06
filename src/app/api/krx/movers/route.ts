@@ -147,7 +147,42 @@ function processRows(rows: KrxStockRow[]): {
   return { topValue: byValue, topGainers: byGain };
 }
 
-// ── Fetch from KRX Open API (with holiday retry) ────────────
+// ── Fetch single market from KRX ─────────────────────────────
+
+async function fetchMarket(
+  apiKey: string,
+  endpoint: string,
+  basDd: string
+): Promise<KrxStockRow[] | null> {
+  const url = `https://openapi.krx.co.kr/contents/OPP/APIS/sto/${endpoint}`;
+
+  console.log(`[KRX] POST ${url} basDd=${basDd}`);
+  const res = await fetchWithTimeout(url, {
+    method: "POST",
+    headers: {
+      auth_key: apiKey,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "User-Agent": "alphalab/1.0",
+    },
+    body: JSON.stringify({ basDd }),
+    redirect: "follow",
+  });
+  console.log(`[KRX] Response ${endpoint} status=${res.status}`);
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    const hint = body.length > 200 ? body.slice(0, 200) + "…" : body;
+    throw new Error(`KRX ${endpoint} returned ${res.status}: ${hint}`);
+  }
+
+  const json = await res.json();
+  const rows: KrxStockRow[] = json.OutBlock_1;
+  if (!rows || !Array.isArray(rows) || rows.length === 0) return null;
+  return rows;
+}
+
+// ── Fetch from KRX Open API (KOSPI + KOSDAQ, with holiday retry) ──
 
 async function fetchFromKrx(): Promise<{
   topValue: MoverItem[];
@@ -169,39 +204,21 @@ async function fetchFromKrx(): Promise<{
   // Retry up to 5 previous days to handle holidays
   for (let attempt = 0; attempt < 5; attempt++) {
     const basDd = attempt === 0 ? startDate : subtractDays(startDate, attempt);
-    // KRX Open API: POST https://openapi.krx.co.kr/contents/OPP/APIS/sto/stk_bydd_trd  body: { basDd }
-    const url = "https://openapi.krx.co.kr/contents/OPP/APIS/sto/stk_bydd_trd";
 
-    console.log(`[KRX] POST ${url} basDd=${basDd}`);
-    const res = await fetchWithTimeout(url, {
-      method: "POST",
-      headers: {
-        auth_key: apiKey,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "User-Agent": "project-stockmarket/1.0",
-      },
-      body: JSON.stringify({ basDd }),
-      redirect: "follow",
-    });
-    console.log(`[KRX] Response status=${res.status} url=${res.url}`);
+    // Fetch KOSPI (stk_bydd_trd) and KOSDAQ (ksq_bydd_trd) in parallel
+    const [kospiRows, kosdaqRows] = await Promise.all([
+      fetchMarket(apiKey, "stk_bydd_trd", basDd).catch(() => null),
+      fetchMarket(apiKey, "ksq_bydd_trd", basDd).catch(() => null),
+    ]);
 
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      const hint = body.length > 200 ? body.slice(0, 200) + "…" : body;
-      lastError = `KRX API returned ${res.status} (url: ${res.url || url}) body: ${hint}`;
-      throw new Error(lastError);
-    }
+    const allRows = [...(kospiRows || []), ...(kosdaqRows || [])];
 
-    const json = await res.json();
-    const rows: KrxStockRow[] = json.OutBlock_1;
-
-    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+    if (allRows.length === 0) {
       lastError = `KRX empty data for ${basDd}`;
       continue; // try previous day
     }
 
-    const data = processRows(rows);
+    const data = processRows(allRows);
 
     return {
       ...data,
