@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 
@@ -27,7 +27,6 @@ function timeAgo(ts: number): string {
   return `${Math.floor(diff / 86400)}d`;
 }
 
-// Channel color mapping
 const CHANNEL_COLORS: Record<string, string> = {
   bumgore: "bg-blue-500/20 text-blue-400",
   Yeouido_Lab: "bg-emerald-500/20 text-emerald-400",
@@ -42,7 +41,7 @@ const CHANNEL_COLORS: Record<string, string> = {
 function SkeletonMessage() {
   return (
     <div className="animate-pulse border-b border-card-border/20 py-3 px-4">
-      <div className="flex items-center gap-2 mb-2">
+      <div className="mb-2 flex items-center gap-2">
         <div className="h-4 w-16 rounded bg-card-border/40" />
         <div className="h-3 w-10 rounded bg-card-border/30" />
       </div>
@@ -54,23 +53,23 @@ function SkeletonMessage() {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function TelegramPage() {
   const { lang } = useLang();
-  const [messages, setMessages] = useState<TelegramMessage[]>([]);
+  const [allMessages, setAllMessages] = useState<TelegramMessage[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [activeChannel, setActiveChannel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const fetchFeed = useCallback(async () => {
     try {
-      const url = activeChannel
-        ? `/api/telegram/feed?channel=${activeChannel}`
-        : "/api/telegram/feed";
-      const res = await fetch(url);
+      const res = await fetch("/api/telegram/feed");
       const json = await res.json();
       if (json.ok) {
-        setMessages(json.messages || []);
+        setAllMessages(json.messages || []);
         if (json.channels) setChannels(json.channels);
         setLastUpdate(Date.now());
       }
@@ -79,18 +78,39 @@ export default function TelegramPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeChannel]);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
     fetchFeed();
-    const id = setInterval(fetchFeed, 5 * 60 * 1000); // 5min refresh
+    const id = setInterval(fetchFeed, 5 * 60 * 1000);
     return () => clearInterval(id);
   }, [fetchFeed]);
 
-  const filteredMessages = activeChannel
-    ? messages.filter((m) => m.channel === activeChannel)
-    : messages;
+  // Reset pagination when switching channels
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [activeChannel]);
+
+  const filteredMessages = useMemo(
+    () =>
+      activeChannel
+        ? allMessages.filter((m) => m.channel === activeChannel)
+        : allMessages,
+    [allMessages, activeChannel]
+  );
+
+  const displayMessages = filteredMessages.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredMessages.length;
+
+  // Channel message counts
+  const channelCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const m of allMessages) {
+      counts.set(m.channel, (counts.get(m.channel) || 0) + 1);
+    }
+    return counts;
+  }, [allMessages]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -98,7 +118,7 @@ export default function TelegramPage() {
 
       <main className="mx-auto max-w-[1400px] px-4 py-4">
         <div className="flex gap-4">
-          {/* Left sidebar — channel list */}
+          {/* Left sidebar */}
           <aside className="hidden w-56 shrink-0 md:block">
             <div className="sticky top-4 rounded-[12px] border border-card-border bg-card-bg p-3 shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
               <h2 className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted">
@@ -113,7 +133,10 @@ export default function TelegramPage() {
                       : "text-muted hover:bg-card-border/30 hover:text-foreground"
                   }`}
                 >
-                  {lang === "kr" ? "전체보기" : "All Channels"}
+                  <span className="flex items-center justify-between">
+                    <span>{lang === "kr" ? "전체보기" : "All Channels"}</span>
+                    <span className="text-[9px] text-muted/50">{allMessages.length}</span>
+                  </span>
                 </button>
                 {channels.map((ch) => (
                   <button
@@ -125,8 +148,15 @@ export default function TelegramPage() {
                         : "text-muted hover:bg-card-border/30 hover:text-foreground"
                     }`}
                   >
-                    <span className="mr-1.5 text-[10px]">@</span>
-                    {ch.title}
+                    <span className="flex items-center justify-between">
+                      <span>
+                        <span className="mr-1 text-[10px]">@</span>
+                        {ch.title}
+                      </span>
+                      <span className="text-[9px] text-muted/50">
+                        {channelCounts.get(ch.username) || 0}
+                      </span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -173,19 +203,24 @@ export default function TelegramPage() {
               <div className="flex items-center justify-between border-b border-card-border px-4 py-3">
                 <div className="flex items-center gap-2">
                   <svg className="h-4 w-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
                   </svg>
                   <h2 className="text-xs font-semibold">
                     {activeChannel
                       ? channels.find((c) => c.username === activeChannel)?.title || activeChannel
-                      : lang === "kr" ? "텔레그램 피드" : "Telegram Feed"}
+                      : lang === "kr"
+                        ? "텔레그램 피드"
+                        : "Telegram Feed"}
                   </h2>
                   <span className="rounded-full bg-card-border/40 px-2 py-0.5 text-[9px] text-muted">
                     {filteredMessages.length} {lang === "kr" ? "개" : "msgs"}
                   </span>
                 </div>
                 <button
-                  onClick={() => { setLoading(true); fetchFeed(); }}
+                  onClick={() => {
+                    setLoading(true);
+                    fetchFeed();
+                  }}
                   className="rounded px-2 py-1 text-[10px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground"
                 >
                   {lang === "kr" ? "새로고침" : "Refresh"}
@@ -194,8 +229,9 @@ export default function TelegramPage() {
 
               {/* Messages */}
               <div className="max-h-[calc(100vh-200px)] overflow-y-auto">
-                {loading && messages.length === 0 && (
+                {loading && allMessages.length === 0 && (
                   <>
+                    <SkeletonMessage />
                     <SkeletonMessage />
                     <SkeletonMessage />
                     <SkeletonMessage />
@@ -210,7 +246,7 @@ export default function TelegramPage() {
                   </div>
                 )}
 
-                {filteredMessages.map((msg) => (
+                {displayMessages.map((msg) => (
                   <a
                     key={`${msg.channel}-${msg.id}`}
                     href={msg.link}
@@ -235,6 +271,18 @@ export default function TelegramPage() {
                     </p>
                   </a>
                 ))}
+
+                {/* Load more */}
+                {hasMore && (
+                  <button
+                    onClick={() => setVisibleCount((v) => v + PAGE_SIZE)}
+                    className="w-full border-t border-card-border/20 py-3 text-center text-[11px] font-medium text-accent transition-colors hover:bg-card-border/10"
+                  >
+                    {lang === "kr"
+                      ? `더 보기 (${filteredMessages.length - visibleCount}개 남음)`
+                      : `Load more (${filteredMessages.length - visibleCount} remaining)`}
+                  </button>
+                )}
               </div>
             </div>
           </div>

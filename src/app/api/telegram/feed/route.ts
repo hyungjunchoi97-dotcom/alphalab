@@ -9,7 +9,7 @@ interface TelegramMessage {
   channel: string;
   channelTitle: string;
   text: string;
-  date: number; // unix timestamp
+  date: number;
   link: string;
 }
 
@@ -31,85 +31,90 @@ const CHANNELS = [
   { username: "decoded_narratives", title: "Decoded Narratives" },
 ];
 
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 5 * 60 * 1000;
 const cache = new Map<string, CacheEntry>();
 
-// ── Telegram Bot API fetch ────────────────────────────────────
+// ── HTML helpers ──────────────────────────────────────────────
 
-async function fetchChannelMessages(
-  botToken: string,
-  channelUsername: string,
-  channelTitle: string,
+function decodeEntities(s: string): string {
+  return s
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+}
+
+// ── t.me/s/ scraper ───────────────────────────────────────────
+
+async function scrapeChannel(
+  username: string,
+  title: string,
   limit: number
 ): Promise<TelegramMessage[]> {
   try {
-    // getUpdates doesn't work for channels; use getChat + channel forwarding
-    // Instead, we use the undocumented but working approach via getChatHistory
-    // Actually, Bot API doesn't support reading channel history directly.
-    // We need to use the "getUpdates" approach or a workaround.
-    // The most reliable approach: use the channel's public RSS/JSON feed via t.me/s/
-
-    const res = await fetch(`https://t.me/s/${channelUsername}`, {
+    const res = await fetch(`https://t.me/s/${username}`, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        Accept: "text/html,application/xhtml+xml",
       },
     });
 
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.error(`[telegram] ${username} HTTP ${res.status}`);
+      return [];
+    }
 
     const html = await res.text();
-
-    // Parse messages from the public Telegram web page
     const messages: TelegramMessage[] = [];
-    const msgRegex = /class="tgme_widget_message_wrap[^"]*"[^>]*data-post="([^"]+)"[\s\S]*?<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>\s*(?:<\/div>)/g;
 
-    let match;
-    while ((match = msgRegex.exec(html)) !== null && messages.length < limit) {
-      const postId = match[1]; // e.g. "bumgore/1234"
-      const rawText = match[2];
+    // Split by message widget blocks
+    const blocks = html.split("tgme_widget_message_wrap");
 
-      // Strip HTML tags, decode entities
-      const text = rawText
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<[^>]+>/g, "")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&nbsp;/g, " ")
-        .trim();
+    for (let i = 1; i < blocks.length; i++) {
+      const block = blocks[i];
 
-      if (!text || text.length < 5) continue;
+      // Extract post ID: data-post="channel/123"
+      const postMatch = block.match(/data-post="([^"]+)"/);
+      if (!postMatch) continue;
+      const postId = postMatch[1]; // e.g. "bumgore/4567"
+      const msgNum = parseInt(postId.split("/")[1] || "0", 10);
 
-      const msgNum = postId.split("/")[1] || "0";
+      // Extract message text
+      const textMatch = block.match(
+        /class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/
+      );
+      if (!textMatch) continue;
+      const text = decodeEntities(textMatch[1]);
+      if (!text || text.length < 3) continue;
+
+      // Extract datetime
+      const timeMatch = block.match(/<time[^>]*datetime="([^"]+)"/);
+      const date = timeMatch ? new Date(timeMatch[1]).getTime() : 0;
+
       messages.push({
-        id: parseInt(msgNum, 10),
-        channel: channelUsername,
-        channelTitle,
-        text: text.slice(0, 500), // limit text length
-        date: 0, // will extract below
+        id: msgNum,
+        channel: username,
+        channelTitle: title,
+        text: text.slice(0, 800),
+        date,
         link: `https://t.me/${postId}`,
       });
     }
 
-    // Try to extract dates from the HTML
-    const dateRegex = /data-post="([^"]+)"[\s\S]*?<time[^>]*datetime="([^"]+)"/g;
-    const dateMap = new Map<string, number>();
-    let dateMatch;
-    while ((dateMatch = dateRegex.exec(html)) !== null) {
-      dateMap.set(dateMatch[1], new Date(dateMatch[2]).getTime());
-    }
-
-    // Assign dates
-    for (const msg of messages) {
-      const postKey = `${channelUsername}/${msg.id}`;
-      msg.date = dateMap.get(postKey) || Date.now();
-    }
-
-    return messages.reverse(); // newest first
+    // Messages appear oldest-first in HTML, reverse for newest-first
+    return messages.reverse().slice(0, limit);
   } catch (err) {
-    console.error(`[telegram] Error fetching ${channelUsername}:`, err instanceof Error ? err.message : err);
+    console.error(
+      `[telegram] Error scraping ${username}:`,
+      err instanceof Error ? err.message : err
+    );
     return [];
   }
 }
@@ -119,34 +124,30 @@ async function fetchChannelMessages(
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const channelParam = searchParams.get("channel"); // optional filter
+    const channelParam = searchParams.get("channel");
 
     const cacheKey = channelParam || "all";
-    const cachedEntry = cache.get(cacheKey);
-    if (cachedEntry && Date.now() - cachedEntry.cachedAt < CACHE_TTL) {
+    const entry = cache.get(cacheKey);
+    if (entry && Date.now() - entry.cachedAt < CACHE_TTL) {
       return NextResponse.json({
         ok: true,
-        messages: cachedEntry.data,
+        messages: entry.data,
         channels: CHANNELS,
       });
     }
 
-    const botToken = process.env.TELEGRAM_BOT_TOKEN || "";
-
-    const targetChannels = channelParam
+    const targets = channelParam
       ? CHANNELS.filter((c) => c.username === channelParam)
       : CHANNELS;
 
-    const results = await Promise.all(
-      targetChannels.map((ch) =>
-        fetchChannelMessages(botToken, ch.username, ch.title, 20)
-      )
+    // Parallel fetch with allSettled (failed channels = empty)
+    const results = await Promise.allSettled(
+      targets.map((ch) => scrapeChannel(ch.username, ch.title, 15))
     );
 
     const allMessages = results
-      .flat()
-      .sort((a, b) => b.date - a.date)
-      .slice(0, 100);
+      .flatMap((r) => (r.status === "fulfilled" ? r.value : []))
+      .sort((a, b) => b.date - a.date);
 
     cache.set(cacheKey, { data: allMessages, cachedAt: Date.now() });
 
@@ -157,7 +158,12 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Unknown error", messages: [], channels: CHANNELS },
+      {
+        ok: false,
+        error: err instanceof Error ? err.message : "Unknown error",
+        messages: [],
+        channels: CHANNELS,
+      },
       { status: 500 }
     );
   }
