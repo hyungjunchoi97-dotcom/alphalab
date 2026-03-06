@@ -35,10 +35,10 @@ interface Category {
 }
 
 const CATEGORIES: Category[] = [
-  { id: "value", labelKr: "가치투자", labelEn: "Value", guruIds: ["berkshire", "pabrai", "lilu", "spier"], accent: "#60a5fa" },
-  { id: "macro", labelKr: "매크로/글로벌", labelEn: "Macro/Global", guruIds: ["druckenmiller", "dalio", "tudor", "tepper"], accent: "#34d399" },
-  { id: "growth", labelKr: "성장/테크", labelEn: "Growth/Tech", guruIds: ["ark", "laffont", "coleman"], accent: "#c084fc" },
-  { id: "activist", labelKr: "행동주의", labelEn: "Activist", guruIds: ["ackman", "loeb"], accent: "#fbbf24" },
+  { id: "value", labelKr: "가치투자", labelEn: "Value", guruIds: ["berkshire", "pabrai", "burry", "einhorn", "klarman"], accent: "#60a5fa" },
+  { id: "macro", labelKr: "매크로/글로벌", labelEn: "Macro/Global", guruIds: ["druckenmiller", "tepper", "cohen", "englander"], accent: "#34d399" },
+  { id: "growth", labelKr: "성장/테크", labelEn: "Growth/Tech", guruIds: ["ark", "coleman", "halvorsen", "twosigma"], accent: "#c084fc" },
+  { id: "activist", labelKr: "행동주의", labelEn: "Activist", guruIds: ["ackman", "griffin"], accent: "#fbbf24" },
 ];
 
 // ── Guru meta (initials, colors, style tag) ───────────────────
@@ -54,20 +54,22 @@ const GURU_META: Record<string, GuruMeta> = {
   // Value
   berkshire: { initials: "WB", accent: "#60a5fa", styleKr: "집중 가치투자", styleEn: "Concentrated Value" },
   pabrai: { initials: "MP", accent: "#60a5fa", styleKr: "딥밸류", styleEn: "Deep Value" },
-  lilu: { initials: "LL", accent: "#60a5fa", styleKr: "버핏 스타일 아시아", styleEn: "Buffett-style Asia" },
-  spier: { initials: "GS", accent: "#60a5fa", styleKr: "가치 클로닝", styleEn: "Value Cloning" },
+  burry: { initials: "MB", accent: "#60a5fa", styleKr: "역발상 가치투자", styleEn: "Contrarian Value" },
+  einhorn: { initials: "DE", accent: "#60a5fa", styleKr: "밸류 숏셀러", styleEn: "Value Short Seller" },
+  klarman: { initials: "SK", accent: "#60a5fa", styleKr: "안전마진 가치투자", styleEn: "Margin of Safety" },
   // Macro
   druckenmiller: { initials: "SD", accent: "#34d399", styleKr: "매크로 트레이딩", styleEn: "Macro Trading" },
-  dalio: { initials: "RD", accent: "#34d399", styleKr: "올웨더 매크로", styleEn: "All-Weather Macro" },
-  tudor: { initials: "PT", accent: "#34d399", styleKr: "글로벌 매크로", styleEn: "Global Macro" },
   tepper: { initials: "DT", accent: "#34d399", styleKr: "이벤트 드리븐", styleEn: "Event Driven" },
+  cohen: { initials: "SC", accent: "#34d399", styleKr: "퀀트 멀티전략", styleEn: "Quant Multi-Strategy" },
+  englander: { initials: "IE", accent: "#34d399", styleKr: "멀티매니저", styleEn: "Multi-Manager" },
   // Growth
   ark: { initials: "CW", accent: "#c084fc", styleKr: "파괴적 혁신", styleEn: "Disruptive Innovation" },
-  laffont: { initials: "PL", accent: "#c084fc", styleKr: "테크 롱숏", styleEn: "Tech Long/Short" },
   coleman: { initials: "CC", accent: "#c084fc", styleKr: "글로벌 테크", styleEn: "Global Tech" },
+  halvorsen: { initials: "AH", accent: "#c084fc", styleKr: "롱숏 펀더멘털", styleEn: "Long/Short Fundamental" },
+  twosigma: { initials: "2Σ", accent: "#c084fc", styleKr: "퀀트 시스템", styleEn: "Quant Systematic" },
   // Activist
   ackman: { initials: "BA", accent: "#fbbf24", styleKr: "행동주의 집중투자", styleEn: "Activist Concentrated" },
-  loeb: { initials: "DL", accent: "#fbbf24", styleKr: "행동주의 이벤트", styleEn: "Activist Event" },
+  griffin: { initials: "KG", accent: "#fbbf24", styleKr: "마켓메이킹 멀티전략", styleEn: "Market Making Multi-Strategy" },
 };
 
 function formatValue(v: number): string {
@@ -125,14 +127,14 @@ export default function GurusPage() {
           </h2>
           <p style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
             {lang === "kr"
-              ? "SEC 13F 공시 기반 13인의 슈퍼 투자자 포트폴리오 추적"
-              : "Track 13 super investor portfolios via SEC 13F filings"}
+              ? "SEC 13F 공시 기반 15인의 슈퍼 투자자 포트폴리오 추적"
+              : "Track 15 super investor portfolios via SEC 13F filings"}
           </p>
         </div>
 
         {loading ? (
           <div style={{ textAlign: "center", padding: 60, color: "#666" }}>
-            <div style={{ fontSize: 14 }}>{lang === "kr" ? "13명의 구루 데이터 로딩중..." : "Loading 13 guru portfolios..."}</div>
+            <div style={{ fontSize: 14 }}>{lang === "kr" ? "15명의 구루 데이터 로딩중..." : "Loading 15 guru portfolios..."}</div>
           </div>
         ) : (
           <>

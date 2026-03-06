@@ -33,20 +33,22 @@ const GURUS = [
   // Value
   { id: "berkshire", name: "Warren Buffett", fund: "Berkshire Hathaway", cik: "0001067983" },
   { id: "pabrai", name: "Mohnish Pabrai", fund: "Pabrai Funds", cik: "0001173334" },
-  { id: "lilu", name: "Li Lu", fund: "Himalaya Capital", cik: "0001709323" },
-  { id: "spier", name: "Guy Spier", fund: "Aquamarine Capital", cik: "0001541996" },
+  { id: "burry", name: "Michael Burry", fund: "Scion Asset Management", cik: "0001649339" },
+  { id: "einhorn", name: "David Einhorn", fund: "Greenlight Capital", cik: "0001079114" },
+  { id: "klarman", name: "Seth Klarman", fund: "Baupost Group", cik: "0000886068" },
   // Macro/Global
   { id: "druckenmiller", name: "Stanley Druckenmiller", fund: "Duquesne Family Office", cik: "0001536411" },
-  { id: "dalio", name: "Ray Dalio", fund: "Bridgewater Associates", cik: "0001350694" },
-  { id: "tudor", name: "Paul Tudor Jones", fund: "Tudor Investment", cik: "0000860546" },
   { id: "tepper", name: "David Tepper", fund: "Appaloosa Management", cik: "0001656456" },
+  { id: "cohen", name: "Steve Cohen", fund: "Point72 Asset Management", cik: "0001603466" },
+  { id: "englander", name: "Israel Englander", fund: "Millennium Management", cik: "0001273931" },
   // Growth/Tech
   { id: "ark", name: "Cathie Wood", fund: "ARK Invest", cik: "0001697748" },
-  { id: "laffont", name: "Philippe Laffont", fund: "Coatue Management", cik: "0001336532" },
   { id: "coleman", name: "Chase Coleman", fund: "Tiger Global", cik: "0001167483" },
+  { id: "halvorsen", name: "Andreas Halvorsen", fund: "Viking Global", cik: "0001103804" },
+  { id: "twosigma", name: "John Overdeck & David Siegel", fund: "Two Sigma", cik: "0001423053" },
   // Activist
   { id: "ackman", name: "Bill Ackman", fund: "Pershing Square", cik: "0001336528" },
-  { id: "loeb", name: "Dan Loeb", fund: "Third Point", cik: "0001040273" },
+  { id: "griffin", name: "Ken Griffin", fund: "Citadel Advisors", cik: "0001423298" },
 ];
 
 const SEC_HEADERS = {
