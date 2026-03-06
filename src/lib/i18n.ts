@@ -104,6 +104,7 @@ export const messages = {
     betAlreadyBet: "Already bet",
     betLoginRequired: "Login to bet",
     betMin: "Min 10 pts",
+    telegram: "Telegram",
   },
   kr: {
     dashboard: "대시보드",
@@ -208,6 +209,7 @@ export const messages = {
     betAlreadyBet: "이미 베팅 완료",
     betLoginRequired: "로그인 후 베팅",
     betMin: "최소 10 pts",
+    telegram: "텔레그램",
   },
 } as const;
 
