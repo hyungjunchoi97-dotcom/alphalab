@@ -11,6 +11,7 @@ interface TelegramMessage {
   text: string;
   date: number;
   link: string;
+  imageUrl?: string;
 }
 
 interface CacheEntry {
@@ -105,6 +106,31 @@ async function scrapeChannel(
       const timeMatch = block.match(/<time[^>]*datetime="([^"]+)"/);
       const date = timeMatch ? new Date(timeMatch[1]).getTime() : 0;
 
+      // Extract image URL from photo background-image or img src
+      let imageUrl: string | undefined;
+      const bgImgMatch = block.match(
+        /tgme_widget_message_photo_wrap[^>]*style="[^"]*background-image:\s*url\('([^']+)'\)/
+      );
+      if (bgImgMatch) {
+        imageUrl = bgImgMatch[1];
+      } else {
+        const imgSrcMatch = block.match(
+          /tgme_widget_message_photo[^>]*>\s*<img[^>]*src="([^"]+)"/
+        );
+        if (imgSrcMatch) {
+          imageUrl = imgSrcMatch[1];
+        }
+      }
+      // Fallback: check for link preview image
+      if (!imageUrl) {
+        const previewMatch = block.match(
+          /link_preview_image[^>]*style="[^"]*background-image:\s*url\('([^']+)'\)/
+        );
+        if (previewMatch) {
+          imageUrl = previewMatch[1];
+        }
+      }
+
       messages.push({
         id: msgNum,
         channel: username,
@@ -112,6 +138,7 @@ async function scrapeChannel(
         text: text.slice(0, 800),
         date,
         link: `https://t.me/${postId}`,
+        ...(imageUrl && { imageUrl }),
       });
     }
 

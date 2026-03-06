@@ -11,6 +11,7 @@ interface TelegramMessage {
   text: string;
   date: number;
   link: string;
+  imageUrl?: string;
 }
 
 interface Channel {
@@ -357,6 +358,26 @@ export default function TelegramPage() {
                     >
                       {linkifyText(msg.text)}
                     </p>
+                    {msg.imageUrl && (
+                      <div className="mt-3">
+                        <img
+                          src={msg.imageUrl}
+                          alt=""
+                          loading="lazy"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            window.open(msg.imageUrl, "_blank");
+                          }}
+                          className="cursor-zoom-in rounded-lg object-cover transition-opacity hover:opacity-90"
+                          style={{
+                            maxHeight: "300px",
+                            maxWidth: "100%",
+                            border: "1px solid #222222",
+                          }}
+                        />
+                      </div>
+                    )}
                   </a>
                 );
               })}
