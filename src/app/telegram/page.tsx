@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 
@@ -25,6 +25,8 @@ const CATEGORIES = [
   { key: "kr_news", label: "한국 뉴스", labelEn: "KR News" },
   { key: "global", label: "글로벌", labelEn: "Global" },
 ];
+
+const REFRESH_INTERVAL = 3 * 60 * 1000; // 3 minutes
 
 function timeAgo(ts: number): string {
   if (!ts) return "";
@@ -58,6 +60,11 @@ const CHANNEL_COLORS: Record<string, { bg: string; text: string }> = {
 
 const URL_REGEX = /(https?:\/\/[^\s<]+)/g;
 
+function truncateUrl(url: string, max: number = 50): string {
+  if (url.length <= max) return url;
+  return url.slice(0, max) + "...";
+}
+
 function linkifyText(text: string) {
   const parts = text.split(URL_REGEX);
   return parts.map((part, i) => {
@@ -71,14 +78,53 @@ function linkifyText(text: string) {
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           style={{ color: "#60a5fa" }}
-          className="underline decoration-blue-400/30 hover:decoration-blue-400/60 break-all"
+          className="hover:underline break-all"
         >
-          {part}
+          {truncateUrl(part)}
         </a>
       );
     }
     return part;
   });
+}
+
+const MAX_LINES = 5;
+
+function MessageText({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const lines = text.split("\n");
+  const isLong = lines.length > MAX_LINES;
+
+  const displayText = isLong && !expanded
+    ? lines.slice(0, MAX_LINES).join("\n")
+    : text;
+
+  return (
+    <div>
+      <p
+        className="whitespace-pre-wrap"
+        style={{ fontSize: "14px", color: "#e8e8e8", lineHeight: "1.8" }}
+      >
+        {linkifyText(displayText)}
+        {isLong && !expanded && (
+          <span style={{ color: "#555" }}>...</span>
+        )}
+      </p>
+      {isLong && (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setExpanded(!expanded);
+          }}
+          className="mt-1.5 text-[11px] font-medium transition-colors hover:opacity-80"
+          style={{ color: "#60a5fa" }}
+        >
+          {expanded ? "접기 ▲" : "더 보기 ▼"}
+        </button>
+      )}
+    </div>
+  );
 }
 
 function SkeletonMessage() {
@@ -106,6 +152,8 @@ export default function TelegramPage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [countdown, setCountdown] = useState(REFRESH_INTERVAL / 1000);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchFeed = useCallback(async () => {
     try {
@@ -115,6 +163,7 @@ export default function TelegramPage() {
         setAllMessages(json.messages || []);
         if (json.channels) setChannels(json.channels);
         setLastUpdate(Date.now());
+        setCountdown(REFRESH_INTERVAL / 1000);
       }
     } catch {
       // silent
@@ -123,12 +172,22 @@ export default function TelegramPage() {
     }
   }, []);
 
+  // Auto-refresh every 3 minutes
   useEffect(() => {
     setLoading(true);
     fetchFeed();
-    const id = setInterval(fetchFeed, 5 * 60 * 1000);
+    const id = setInterval(fetchFeed, REFRESH_INTERVAL);
     return () => clearInterval(id);
   }, [fetchFeed]);
+
+  // Countdown timer
+  useEffect(() => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => { if (countdownRef.current) clearInterval(countdownRef.current); };
+  }, [lastUpdate]);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
@@ -153,6 +212,22 @@ export default function TelegramPage() {
     return counts;
   }, [allMessages]);
 
+  // Channels with 0 messages after fetch
+  const emptyChannels = useMemo(() => {
+    if (loading || allMessages.length === 0) return new Set<string>();
+    const set = new Set<string>();
+    for (const ch of channels) {
+      if (!channelCounts.has(ch.username) || channelCounts.get(ch.username) === 0) {
+        set.add(ch.username);
+      }
+    }
+    return set;
+  }, [channels, channelCounts, loading, allMessages]);
+
+  const countdownDisplay = countdown > 0
+    ? `${Math.floor(countdown / 60)}:${String(countdown % 60).padStart(2, "0")}`
+    : "0:00";
+
   return (
     <div className="min-h-screen font-[family-name:var(--font-noto-sans-kr)]" style={{ background: "#0a0a0a" }}>
       <AppHeader active="telegram" />
@@ -161,10 +236,15 @@ export default function TelegramPage() {
         {/* Last updated bar */}
         {lastUpdate && (
           <div className="mb-3 flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <span className="inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              <span style={{ color: "#888888", fontSize: "12px" }}>
-                {lang === "kr" ? "마지막 업데이트" : "Last updated"}: {formatTime(lastUpdate)}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <span style={{ color: "#888888", fontSize: "12px" }}>
+                  {lang === "kr" ? "마지막 업데이트" : "Last updated"}: {formatTime(lastUpdate)}
+                </span>
+              </div>
+              <span style={{ color: "#555555", fontSize: "11px" }} className="tabular-nums">
+                {lang === "kr" ? `다음 새로고침: ${countdownDisplay}` : `Next refresh: ${countdownDisplay}`}
               </span>
             </div>
             <button
@@ -214,6 +294,7 @@ export default function TelegramPage() {
                       {catChannels.map((ch) => {
                         const isActive = activeChannel === ch.username;
                         const color = CHANNEL_COLORS[ch.username];
+                        const isEmpty = emptyChannels.has(ch.username);
                         return (
                           <button
                             key={ch.username}
@@ -221,13 +302,13 @@ export default function TelegramPage() {
                             className="w-full rounded-lg px-3 py-2 text-left text-[12px] transition-all"
                             style={{
                               background: isActive ? "rgba(96,165,250,0.08)" : "transparent",
-                              color: isActive ? (color?.text || "#60a5fa") : "#777777",
+                              color: isActive ? (color?.text || "#60a5fa") : isEmpty ? "#444" : "#777777",
                               borderLeft: isActive ? `2px solid ${color?.text || "#60a5fa"}` : "2px solid transparent",
                             }}
                           >
                             <span className="flex items-center justify-between">
-                              <span>{ch.title}</span>
-                              <span style={{ fontSize: "10px", color: "#444" }}>
+                              <span className={isEmpty ? "line-through opacity-50" : ""}>{ch.title}</span>
+                              <span style={{ fontSize: "10px", color: isEmpty ? "#333" : "#444" }}>
                                 {channelCounts.get(ch.username) || 0}
                               </span>
                             </span>
@@ -314,29 +395,22 @@ export default function TelegramPage() {
               )}
 
               {!loading && filteredMessages.length === 0 && (
-                <div className="py-16 text-center text-sm" style={{ color: "#555" }}>
-                  {lang === "kr" ? "메시지가 없습니다" : "No messages found"}
+                <div className="py-16 text-center" style={{ color: "#555" }}>
+                  <p className="text-sm">
+                    {activeChannel && emptyChannels.has(activeChannel)
+                      ? (lang === "kr" ? "채널 비공개 또는 접근 불가" : "Channel is private or inaccessible")
+                      : (lang === "kr" ? "메시지가 없습니다" : "No messages found")}
+                  </p>
                 </div>
               )}
 
               {displayMessages.map((msg) => {
                 const color = CHANNEL_COLORS[msg.channel];
                 return (
-                  <a
+                  <div
                     key={`${msg.channel}-${msg.id}`}
-                    href={msg.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block px-5 py-4 transition-colors"
-                    style={{ borderBottom: "1px solid #222222" }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.borderColor = "#333333";
-                      (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.02)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.borderColor = "#222222";
-                      (e.currentTarget as HTMLElement).style.background = "transparent";
-                    }}
+                    className="px-5 py-4 transition-colors hover:bg-white/[0.02]"
+                    style={{ borderBottom: "1px solid #1e1e1e" }}
                   >
                     <div className="mb-2 flex items-center gap-2.5">
                       <span
@@ -351,24 +425,24 @@ export default function TelegramPage() {
                       <span style={{ fontSize: "11px", color: "#888888" }}>
                         {msg.date ? timeAgo(msg.date) : ""}
                       </span>
+                      <a
+                        href={msg.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-auto text-[10px] transition-colors hover:opacity-80"
+                        style={{ color: "#555" }}
+                      >
+                        {lang === "kr" ? "원문" : "Link"} &rarr;
+                      </a>
                     </div>
-                    <p
-                      className="whitespace-pre-wrap leading-[1.7]"
-                      style={{ fontSize: "15px", color: "#e8e8e8" }}
-                    >
-                      {linkifyText(msg.text)}
-                    </p>
+                    <MessageText text={msg.text} />
                     {msg.imageUrl && (
                       <div className="mt-3">
                         <img
                           src={msg.imageUrl}
                           alt=""
                           loading="lazy"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            window.open(msg.imageUrl, "_blank");
-                          }}
+                          onClick={() => window.open(msg.imageUrl, "_blank")}
                           className="cursor-zoom-in rounded-lg object-cover transition-opacity hover:opacity-90"
                           style={{
                             maxHeight: "300px",
@@ -378,7 +452,7 @@ export default function TelegramPage() {
                         />
                       </div>
                     )}
-                  </a>
+                  </div>
                 );
               })}
 

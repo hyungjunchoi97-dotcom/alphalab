@@ -39,7 +39,7 @@ const CHANNELS = [
   { username: "daegurr", title: "Daegurr", category: "global" },
 ];
 
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 3 * 60 * 1000;
 const cache = new Map<string, CacheEntry>();
 
 // ── HTML helpers ──────────────────────────────────────────────
@@ -59,27 +59,46 @@ function decodeEntities(s: string): string {
 
 // ── t.me/s/ scraper ───────────────────────────────────────────
 
+async function fetchTelegramHtml(username: string): Promise<string | null> {
+  const urls = [
+    `https://t.me/s/${username}`,
+    `https://t.me/s/${username.toLowerCase()}`,
+  ];
+  const headers = {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    Accept: "text/html,application/xhtml+xml",
+  };
+
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { headers });
+      if (res.ok) {
+        const html = await res.text();
+        if (html.includes("tgme_widget_message_wrap")) return html;
+        console.warn(`[telegram] ${username} from ${url}: no message blocks`);
+      } else {
+        console.warn(`[telegram] ${username} HTTP ${res.status} from ${url}`);
+      }
+    } catch (err) {
+      console.warn(`[telegram] ${username} fetch error from ${url}:`, err instanceof Error ? err.message : err);
+    }
+  }
+  return null;
+}
+
 async function scrapeChannel(
   username: string,
   title: string,
   limit: number
 ): Promise<TelegramMessage[]> {
   try {
-    const res = await fetch(`https://t.me/s/${username}`, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-        Accept: "text/html,application/xhtml+xml",
-      },
-    });
-
-    if (!res.ok) {
-      console.error(`[telegram] ${username} HTTP ${res.status}`);
+    const html = await fetchTelegramHtml(username);
+    if (!html) {
+      console.error(`[telegram] ${username}: no accessible public feed`);
       return [];
     }
-
-    const html = await res.text();
     const messages: TelegramMessage[] = [];
 
     // Split by message widget blocks
