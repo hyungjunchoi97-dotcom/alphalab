@@ -794,108 +794,6 @@ function KrUsRateChart({
   );
 }
 
-// ── FX Model Chart (Spread vs DEXKOUS) ───────────────────────
-
-function FxModelChart({
-  bokRate,
-  fedRate,
-  usdkrw,
-  lang,
-}: {
-  bokRate: { date: string; value: number }[];
-  fedRate: { date: string; value: number }[];
-  usdkrw: { date: string; value: number }[];
-  lang: string;
-}) {
-  const W = 420, H = 200;
-  const PAD = { top: 16, right: 46, bottom: 24, left: 36 };
-  const cw = W - PAD.left - PAD.right;
-  const ch = H - PAD.top - PAD.bottom;
-
-  if (bokRate.length < 2 || usdkrw.length < 2) return null;
-
-  const cutoff = new Date();
-  cutoff.setFullYear(cutoff.getFullYear() - 3);
-  const cutStr = cutoff.toISOString().slice(0, 7);
-  const bok = bokRate.filter(o => o.date >= cutStr);
-  const fedMap = new Map(fedRate.map(o => [o.date, o.value]));
-  const fxMap = new Map(usdkrw.map(o => [o.date, o.value]));
-
-  // Compute spread = Fed - BOK for each date, pair with closest FX
-  const spread: { date: string; value: number }[] = [];
-  const fx: { date: string; value: number }[] = [];
-  for (const o of bok) {
-    const f = fedMap.get(o.date);
-    const k = fxMap.get(o.date);
-    if (f !== undefined && k !== undefined) {
-      spread.push({ date: o.date, value: f - o.value });
-      fx.push({ date: o.date, value: k });
-    }
-  }
-
-  if (spread.length < 2) return null;
-
-  const sMin = Math.min(...spread.map(o => o.value));
-  const sMax = Math.max(...spread.map(o => o.value));
-  const sRange = sMax - sMin || 1;
-  const fxMin = Math.min(...fx.map(o => o.value));
-  const fxMax = Math.max(...fx.map(o => o.value));
-  const fxRange = fxMax - fxMin || 1;
-
-  const toPath = (data: { date: string; value: number }[], minV: number, rangeV: number) =>
-    data.map((o, i) => {
-      const x = PAD.left + (i / (data.length - 1)) * cw;
-      const y = PAD.top + ch - ((o.value - minV) / rangeV) * ch;
-      return `${i === 0 ? "M" : "L"}${x},${y}`;
-    }).join("");
-
-  const zoneY = (v: number) => PAD.top + ch - ((v - sMin) / sRange) * ch;
-  const step = Math.max(1, Math.floor(spread.length / 5));
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-      {/* Zone bands */}
-      {sMax > 2 && <rect x={PAD.left} y={zoneY(Math.min(sMax, 10))} width={cw} height={Math.max(0, zoneY(2) - zoneY(Math.min(sMax, 10)))} fill="rgba(248,113,113,0.06)" />}
-      {sMax > 0 && sMin < 2 && <rect x={PAD.left} y={zoneY(Math.min(2, sMax))} width={cw} height={Math.max(0, zoneY(Math.max(0, sMin)) - zoneY(Math.min(2, sMax)))} fill="rgba(250,204,21,0.04)" />}
-      {sMin < 0 && <rect x={PAD.left} y={zoneY(Math.min(0, sMax))} width={cw} height={Math.max(0, zoneY(sMin) - zoneY(Math.min(0, sMax)))} fill="rgba(74,222,128,0.06)" />}
-
-      {/* Grid + left axis (spread) */}
-      {Array.from({ length: 5 }, (_, i) => {
-        const y = PAD.top + ch - (i / 4) * ch;
-        const v = sMin + (sRange * i) / 4;
-        return (
-          <g key={i}>
-            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#1a1a1a" />
-            <text x={PAD.left - 4} y={y + 3} textAnchor="end" fill="#555" fontSize="8">{v.toFixed(1)}</text>
-          </g>
-        );
-      })}
-
-      {/* Right axis (FX) */}
-      {Array.from({ length: 5 }, (_, i) => {
-        const y = PAD.top + ch - (i / 4) * ch;
-        const v = fxMin + (fxRange * i) / 4;
-        return <text key={`r${i}`} x={W - PAD.right + 4} y={y + 3} textAnchor="start" fill="#555" fontSize="8">{v.toFixed(0)}</text>;
-      })}
-
-      {/* Dashed reference lines */}
-      {sMin <= 0 && sMax >= 0 && <line x1={PAD.left} y1={zoneY(0)} x2={W - PAD.right} y2={zoneY(0)} stroke="#555" strokeDasharray="4,3" />}
-      {sMin <= 2 && sMax >= 2 && <line x1={PAD.left} y1={zoneY(2)} x2={W - PAD.right} y2={zoneY(2)} stroke="#555" strokeDasharray="4,3" />}
-
-      <path d={toPath(spread, sMin, sRange)} fill="none" stroke="#facc15" strokeWidth="2" />
-      <path d={toPath(fx, fxMin, fxRange)} fill="none" stroke="#fb923c" strokeWidth="1.5" opacity="0.7" />
-
-      {spread.filter((_, i) => i % step === 0).map((o, i) => (
-        <text key={i} x={PAD.left + ((i * step) / (spread.length - 1)) * cw} y={H - 6} textAnchor="middle" fill="#444" fontSize="8">{o.date}</text>
-      ))}
-
-      <rect x={PAD.left} y={4} width="6" height="2" rx="1" fill="#facc15" />
-      <text x={PAD.left + 10} y={8} fill="#facc15" fontSize="8">{lang === "kr" ? "금리차 (%p)" : "Spread (%p)"}</text>
-      <rect x={PAD.left + 80} y={4} width="6" height="2" rx="1" fill="#fb923c" />
-      <text x={PAD.left + 90} y={8} fill="#fb923c" fontSize="8">USD/KRW</text>
-    </svg>
-  );
-}
 
 // ── CPI Comparison Chart ──────────────────────────────────────
 
@@ -1453,7 +1351,7 @@ export default function MacroPage() {
           )}
 
           {/* 3 charts grid */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* Chart 1: BOK vs Fed rate */}
             <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
               <h3 className="mb-3 text-xs font-semibold" style={{ color: "#ccc" }}>
@@ -1472,26 +1370,7 @@ export default function MacroPage() {
               )}
             </div>
 
-            {/* Chart 2: Rate spread → USD/KRW */}
-            <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
-              <h3 className="mb-3 text-xs font-semibold" style={{ color: "#ccc" }}>
-                {lang === "kr" ? "금리차 → USD/KRW" : "Rate Spread → USD/KRW"}
-              </h3>
-              {bokLoading || loading ? (
-                <div className="flex h-[200px] items-center justify-center animate-pulse rounded-lg" style={{ background: "#0d0d0d" }}>
-                  <span style={{ color: "#444" }}>Loading...</span>
-                </div>
-              ) : (
-                <FxModelChart
-                  bokRate={bokSeries["BASE_RATE"]?.observations || []}
-                  fedRate={(series["FEDFUNDS"]?.observations || []).map(o => ({ date: o.date.slice(0, 7), value: o.value }))}
-                  usdkrw={bokSeries["USDKRW"]?.observations || []}
-                  lang={lang}
-                />
-              )}
-            </div>
-
-            {/* Chart 3: Korea CPI vs US CPI */}
+            {/* Chart 2: Korea CPI vs US CPI */}
             <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
               <h3 className="mb-3 text-xs font-semibold" style={{ color: "#ccc" }}>
                 {lang === "kr" ? "한국 CPI vs 미국 CPI (YoY%)" : "Korea CPI vs US CPI (YoY%)"}
