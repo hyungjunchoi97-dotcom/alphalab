@@ -8,7 +8,6 @@ import type { MessageKey } from "@/lib/i18n";
 const NAV_ITEMS: { href: string; key: MessageKey }[] = [
   { href: "/", key: "dashboard" },
   { href: "/macro", key: "macro" },
-  { href: "/portfolio", key: "portfolio" },
   { href: "/flow", key: "flow" },
   { href: "/ideas", key: "ideas" },
   { href: "/ai-trading", key: "aiTrading" },
