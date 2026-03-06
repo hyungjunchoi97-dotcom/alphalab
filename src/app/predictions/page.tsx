@@ -39,6 +39,8 @@ const CAT_COLORS: Record<PredictionCategory, { bg: string; text: string }> = {
   other: { bg: "bg-gray-500/15", text: "text-gray-400" },
 };
 
+const POINT_PRESETS = [10, 50, 100, 500, 1000];
+
 // ── Types ──────────────────────────────────────────────────────
 
 interface PredictionStats {
@@ -47,6 +49,7 @@ interface PredictionStats {
   noCount: number;
   yesPct: number;
   noPct: number;
+  volume: number;
 }
 
 interface Prediction {
@@ -61,9 +64,9 @@ interface Prediction {
   stats: PredictionStats;
 }
 
-interface UserVote {
-  predictionId: string;
-  optionId: "yes" | "no";
+interface UserBet {
+  choice: "yes" | "no";
+  points: number;
 }
 
 interface LeaderboardEntry {
@@ -89,14 +92,6 @@ function timeLeft(iso: string): { text: string; urgent: boolean } {
   return { text: `${mins}m`, urgent: true };
 }
 
-function mockVolume(id: string): number {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) {
-    h = ((h << 5) - h + id.charCodeAt(i)) | 0;
-  }
-  return (Math.abs(h) % 9000) + 1000;
-}
-
 // ── Page ───────────────────────────────────────────────────────
 
 export default function PredictionsPage() {
@@ -105,9 +100,14 @@ export default function PredictionsPage() {
   const [tab, setTab] = useState<"markets" | "leaderboard">("markets");
   const [category, setCategory] = useState<"all" | PredictionCategory>("all");
   const [predictions, setPredictions] = useState<Prediction[]>([]);
-  const [userVotes, setUserVotes] = useState<Record<string, UserVote>>({});
+  const [userBets, setUserBets] = useState<Record<string, UserBet>>({});
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [lbLoading, setLbLoading] = useState(false);
+
+  // Bet modal state
+  const [betModal, setBetModal] = useState<{ predId: string; choice: "yes" | "no" } | null>(null);
+  const [betPoints, setBetPoints] = useState(100);
+  const [betSubmitting, setBetSubmitting] = useState(false);
 
   // New form
   const [showNew, setShowNew] = useState(false);
@@ -125,6 +125,27 @@ export default function PredictionsPage() {
 
   useEffect(() => { reload(); }, [reload]);
 
+  // Fetch user bets for all predictions
+  useEffect(() => {
+    if (!session?.access_token) return;
+    const fetchBets = async () => {
+      const betsMap: Record<string, UserBet> = {};
+      for (const pred of predictions) {
+        try {
+          const res = await fetch(`/api/predictions/${pred.id}/bet`, {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          const json = await res.json();
+          if (json.ok && json.bet) {
+            betsMap[pred.id] = { choice: json.bet.choice, points: json.bet.points };
+          }
+        } catch { /* */ }
+      }
+      setUserBets(betsMap);
+    };
+    if (predictions.length > 0) fetchBets();
+  }, [session?.access_token, predictions.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (tab !== "leaderboard") return;
     setLbLoading(true);
@@ -135,36 +156,40 @@ export default function PredictionsPage() {
       .finally(() => setLbLoading(false));
   }, [tab]);
 
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    const raw = localStorage.getItem(`pb_votes_${session.user.id}`);
-    if (raw) try { setUserVotes(JSON.parse(raw)); } catch { /* */ }
-  }, [session?.user?.id]);
-
-  const saveUserVote = (predId: string, optionId: "yes" | "no") => {
-    const updated = { ...userVotes, [predId]: { predictionId: predId, optionId } };
-    setUserVotes(updated);
-    if (session?.user?.id) localStorage.setItem(`pb_votes_${session.user.id}`, JSON.stringify(updated));
-  };
-
   const requireAuth = useRequireAuth();
 
-  const handleVote = (predId: string, optionId: "yes" | "no") => {
-    requireAuth(async () => {
-      if (!session?.access_token) return;
-      try {
-        const res = await fetch(`/api/predictions/${predId}/vote`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ optionId }),
-        });
-        const json = await res.json();
-        if (json.ok) {
-          saveUserVote(predId, optionId);
-          setPredictions((prev) => prev.map((p) => (p.id === predId ? { ...p, stats: json.stats } : p)));
-        }
-      } catch { /* */ }
+  const openBetModal = (predId: string, choice: "yes" | "no") => {
+    requireAuth(() => {
+      setBetModal({ predId, choice });
+      setBetPoints(100);
     });
+  };
+
+  const submitBet = async () => {
+    if (!betModal || !session?.access_token || betPoints < 10) return;
+    setBetSubmitting(true);
+    try {
+      const res = await fetch(`/api/predictions/${betModal.predId}/bet`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ choice: betModal.choice, points: betPoints }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setUserBets((prev) => ({
+          ...prev,
+          [betModal.predId]: { choice: betModal.choice, points: betPoints },
+        }));
+        setPredictions((prev) =>
+          prev.map((p) => (p.id === betModal.predId ? { ...p, stats: json.stats } : p))
+        );
+        setBetModal(null);
+      }
+    } catch { /* */ }
+    finally { setBetSubmitting(false); }
   };
 
   const handleNewSubmit = () => {
@@ -192,8 +217,10 @@ export default function PredictionsPage() {
   const openPreds = predictions.filter((p) => p.status === "open");
   const displayed = category === "all" ? openPreds : openPreds.filter((p) => p.category === category);
 
-  // Sort by participants desc
-  const sorted = [...displayed].sort((a, b) => (b.stats?.participants ?? 0) - (a.stats?.participants ?? 0));
+  // Sort by volume desc, then participants
+  const sorted = [...displayed].sort(
+    (a, b) => (b.stats?.volume ?? 0) - (a.stats?.volume ?? 0) || (b.stats?.participants ?? 0) - (a.stats?.participants ?? 0)
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -313,10 +340,12 @@ export default function PredictionsPage() {
                 <MarketCard
                   key={pred.id}
                   pred={pred}
-                  userVote={userVotes[pred.id]}
+                  userBet={userBets[pred.id]}
                   lang={lang}
                   t={t}
-                  onVote={handleVote}
+                  onBet={openBetModal}
+                  isLoggedIn={!!session}
+                  requireAuth={requireAuth}
                 />
               ))}
               {sorted.length === 0 && (
@@ -379,6 +408,98 @@ export default function PredictionsPage() {
           </div>
         )}
       </main>
+
+      {/* ── Bet Modal Overlay ── */}
+      {betModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setBetModal(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-card-border bg-card-bg p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(() => {
+              const pred = predictions.find((p) => p.id === betModal.predId);
+              if (!pred) return null;
+              const isYes = betModal.choice === "yes";
+              return (
+                <>
+                  <h3 className="text-sm font-semibold mb-1">{pred.title[lang]}</h3>
+                  <p className="text-[10px] text-muted mb-4">{pred.description[lang]}</p>
+
+                  {/* Choice badge */}
+                  <div className="mb-4 flex items-center gap-2">
+                    <span className="text-xs text-muted">{lang === "kr" ? "선택:" : "Choice:"}</span>
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${
+                      isYes ? "bg-gain/15 text-gain" : "bg-loss/15 text-loss"
+                    }`}>
+                      {isYes ? t("predYes") : t("predNo")}
+                    </span>
+                  </div>
+
+                  {/* Points input */}
+                  <div className="mb-3">
+                    <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted">
+                      {t("betPoints")}
+                    </label>
+                    <input
+                      type="number"
+                      min={10}
+                      max={10000}
+                      value={betPoints}
+                      onChange={(e) => setBetPoints(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full rounded-lg border border-card-border bg-background px-3 py-2.5 text-center text-lg font-bold tabular-nums text-foreground focus:border-accent focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Preset buttons */}
+                  <div className="mb-4 flex flex-wrap gap-1.5">
+                    {POINT_PRESETS.map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setBetPoints(p)}
+                        className={`rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                          betPoints === p
+                            ? "bg-accent text-white"
+                            : "bg-card-border/50 text-muted hover:text-foreground"
+                        }`}
+                      >
+                        {p.toLocaleString()} pts
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="mb-4 text-[9px] text-muted">{t("betMin")}</p>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={submitBet}
+                      disabled={betPoints < 10 || betSubmitting}
+                      className={`flex-1 rounded-lg py-2.5 text-xs font-bold transition-all disabled:opacity-40 ${
+                        isYes
+                          ? "bg-gain text-white hover:bg-gain/90"
+                          : "bg-loss text-white hover:bg-loss/90"
+                      }`}
+                    >
+                      {betSubmitting
+                        ? "..."
+                        : `${t("betConfirm")} (${betPoints.toLocaleString()} pts)`}
+                    </button>
+                    <button
+                      onClick={() => setBetModal(null)}
+                      className="rounded-lg border border-card-border px-4 py-2.5 text-xs text-muted transition-colors hover:text-foreground"
+                    >
+                      {t("cancel")}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -387,23 +508,26 @@ export default function PredictionsPage() {
 
 function MarketCard({
   pred,
-  userVote,
+  userBet,
   lang,
   t,
-  onVote,
+  onBet,
+  isLoggedIn,
+  requireAuth,
 }: {
   pred: Prediction;
-  userVote: UserVote | undefined;
+  userBet: UserBet | undefined;
   lang: "en" | "kr";
   t: (key: MessageKey) => string;
-  onVote: (predId: string, optionId: "yes" | "no") => void;
+  onBet: (predId: string, choice: "yes" | "no") => void;
+  isLoggedIn: boolean;
+  requireAuth: (fn: () => void) => void;
 }) {
   const s = pred.stats;
   const tl = timeLeft(pred.closesAt);
   const expired = !tl.text;
-  const canVote = pred.status === "open" && !expired && !userVote;
+  const canBet = pred.status === "open" && !expired && !userBet;
   const catColor = CAT_COLORS[pred.category] || CAT_COLORS.other;
-  const volume = mockVolume(pred.id);
 
   return (
     <div className="group relative flex flex-col rounded-xl border border-card-border bg-card-bg p-4 transition-all hover:border-foreground/15 hover:shadow-md">
@@ -467,31 +591,42 @@ function MarketCard({
           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
           </svg>
-          {volume.toLocaleString()} pts
+          {(s?.volume ?? 0).toLocaleString()} pts
         </span>
       </div>
 
-      {/* Vote buttons */}
-      {canVote ? (
+      {/* Bet buttons */}
+      {canBet ? (
         <div className="flex gap-2">
           <button
-            onClick={() => onVote(pred.id, "yes")}
+            onClick={() => {
+              if (!isLoggedIn) { requireAuth(() => {}); return; }
+              onBet(pred.id, "yes");
+            }}
             className="flex-1 rounded-lg border border-gain/30 bg-gain/5 py-2 text-xs font-bold text-gain transition-all hover:bg-gain/15 hover:border-gain/50"
           >
             {t("predYes")} {s?.yesPct}%
           </button>
           <button
-            onClick={() => onVote(pred.id, "no")}
+            onClick={() => {
+              if (!isLoggedIn) { requireAuth(() => {}); return; }
+              onBet(pred.id, "no");
+            }}
             className="flex-1 rounded-lg border border-loss/30 bg-loss/5 py-2 text-xs font-bold text-loss transition-all hover:bg-loss/15 hover:border-loss/50"
           >
             {t("predNo")} {s?.noPct}%
           </button>
         </div>
-      ) : userVote ? (
-        <div className="flex items-center justify-center gap-2 rounded-lg border border-card-border bg-background py-2">
-          <span className="text-[10px] text-muted">{t("predYourVote")}:</span>
-          <span className={`text-xs font-bold ${userVote.optionId === "yes" ? "text-gain" : "text-loss"}`}>
-            {userVote.optionId === "yes" ? t("predYes") : t("predNo")}
+      ) : userBet ? (
+        <div className="flex items-center justify-between rounded-lg border border-card-border bg-background px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted">{t("betMyBet")}:</span>
+            <span className={`text-xs font-bold ${userBet.choice === "yes" ? "text-gain" : "text-loss"}`}>
+              {userBet.choice === "yes" ? t("predYes") : t("predNo")}
+            </span>
+          </div>
+          <span className="text-[10px] font-medium tabular-nums text-accent">
+            {userBet.points.toLocaleString()} pts
           </span>
         </div>
       ) : (
