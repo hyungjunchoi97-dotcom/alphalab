@@ -20,6 +20,16 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment Variables
+
+Add to `.env.local`:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...    # Required for AI Trading chart analysis
+KRX_API_KEY=...                 # Optional: KRX Open API key for live Korea market data
+PB_ADMIN_TOKEN=...              # Optional: admin token for health endpoint
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
