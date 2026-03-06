@@ -24,22 +24,13 @@ interface SeriesData {
 
 type Range = "6M" | "1Y" | "2Y" | "5Y";
 
-interface FxModelData {
-  actual: { date: string; value: number }[];
-  predicted: { date: string; value: number }[];
-  forwardProjection: { date: string; high: number; low: number; mid: number }[];
-  currentPredicted: number;
-  currentActual: number;
-  confidenceHigh: number;
-  confidenceLow: number;
-  r2: number;
-  coefficients: { intercept: number; spread: number; vix: number };
-  signals: {
-    spread: number;
-    spreadDirection: string;
-    vix: number;
-    vixSignal: string;
-  };
+interface FearGreedData {
+  score: number;
+  rating: string;
+  previousClose: number;
+  oneWeekAgo: number;
+  oneMonthAgo: number;
+  history: { date: string; score: number }[];
 }
 
 // ── Indicator config ──────────────────────────────────────────
@@ -996,88 +987,134 @@ function CpiComparisonChart({
   );
 }
 
-// ── FX Prediction Chart ──────────────────────────────────────
+// ── Fear & Greed helpers ─────────────────────────────────────
 
-function FxPredictionChart({ model, lang }: { model: FxModelData; lang: string }) {
-  const W = 560, H = 260;
-  const PAD = { top: 20, right: 50, bottom: 28, left: 50 };
+function fgColor(score: number): string {
+  if (score <= 25) return "#ef4444";
+  if (score <= 45) return "#f97316";
+  if (score <= 55) return "#eab308";
+  if (score <= 75) return "#84cc16";
+  return "#22c55e";
+}
+
+function fgLabelKr(score: number): string {
+  if (score <= 25) return "극도 공포";
+  if (score <= 45) return "공포";
+  if (score <= 55) return "중립";
+  if (score <= 75) return "탐욕";
+  return "극도 탐욕";
+}
+
+function fgLabelEn(score: number): string {
+  if (score <= 25) return "Extreme Fear";
+  if (score <= 45) return "Fear";
+  if (score <= 55) return "Neutral";
+  if (score <= 75) return "Greed";
+  return "Extreme Greed";
+}
+
+// ── Fear & Greed Gauge (speedometer) ─────────────────────────
+
+function FearGreedGauge({ score, lang }: { score: number; lang: string }) {
+  const W = 280, H = 170;
+  const cx = W / 2, cy = 140;
+  const r = 110;
+  // Arc from 180° to 0° (left to right)
+  const startAngle = Math.PI;
+  const endAngle = 0;
+  const needleAngle = startAngle - (score / 100) * Math.PI;
+
+  // Gradient arcs: 5 zones
+  const zones = [
+    { from: 0, to: 25, color: "#ef4444" },
+    { from: 25, to: 45, color: "#f97316" },
+    { from: 45, to: 55, color: "#eab308" },
+    { from: 55, to: 75, color: "#84cc16" },
+    { from: 75, to: 100, color: "#22c55e" },
+  ];
+
+  const arcPath = (s: number, e: number) => {
+    const a1 = startAngle - (s / 100) * Math.PI;
+    const a2 = startAngle - (e / 100) * Math.PI;
+    const x1 = cx + r * Math.cos(a1);
+    const y1 = cy - r * Math.sin(a1);
+    const x2 = cx + r * Math.cos(a2);
+    const y2 = cy - r * Math.sin(a2);
+    const largeArc = (a1 - a2) > Math.PI ? 1 : 0;
+    return `M${x1},${y1} A${r},${r} 0 ${largeArc} 0 ${x2},${y2}`;
+  };
+
+  const nx = cx + (r - 20) * Math.cos(needleAngle);
+  const ny = cy - (r - 20) * Math.sin(needleAngle);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxWidth: 280 }}>
+      {/* Zone arcs */}
+      {zones.map((z, i) => (
+        <path key={i} d={arcPath(z.from, z.to)} fill="none" stroke={z.color} strokeWidth="18" strokeLinecap="butt" opacity="0.7" />
+      ))}
+      {/* Needle */}
+      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#e8e8e8" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx={cx} cy={cy} r="5" fill="#e8e8e8" />
+      {/* Score text */}
+      <text x={cx} y={cy - 30} textAnchor="middle" fill={fgColor(score)} fontSize="36" fontWeight="800">{score}</text>
+      <text x={cx} y={cy - 10} textAnchor="middle" fill={fgColor(score)} fontSize="13" fontWeight="600">
+        {lang === "kr" ? fgLabelKr(score) : fgLabelEn(score)}
+      </text>
+      {/* Min/Max labels */}
+      <text x={cx - r + 5} y={cy + 14} textAnchor="middle" fill="#555" fontSize="9">0</text>
+      <text x={cx + r - 5} y={cy + 14} textAnchor="middle" fill="#555" fontSize="9">100</text>
+    </svg>
+  );
+}
+
+// ── Fear & Greed History Chart ───────────────────────────────
+
+function FearGreedHistoryChart({ history }: { history: { date: string; score: number }[] }) {
+  const W = 420, H = 200;
+  const PAD = { top: 12, right: 16, bottom: 24, left: 32 };
   const cw = W - PAD.left - PAD.right;
   const ch = H - PAD.top - PAD.bottom;
 
-  const actual = model.actual;
-  const predicted = model.predicted;
-  const proj = model.forwardProjection;
+  if (history.length < 2) return null;
 
-  if (actual.length < 2) return null;
+  const toX = (i: number) => PAD.left + (i / (history.length - 1)) * cw;
+  const toY = (v: number) => PAD.top + ch - (v / 100) * ch;
 
-  const allVals = [...actual.map(o => o.value), ...predicted.map(o => o.value), ...proj.map(o => o.high), ...proj.map(o => o.low)];
-  const min = Math.min(...allVals) - 20;
-  const max = Math.max(...allVals) + 20;
-  const range = max - min || 1;
+  const linePath = history.map((p, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(p.score)}`).join("");
+  const last = history[history.length - 1];
+  const step = Math.max(1, Math.floor(history.length / 5));
 
-  const totalLen = actual.length + proj.length;
-  const toX = (i: number) => PAD.left + (i / (totalLen - 1)) * cw;
-  const toY = (v: number) => PAD.top + ch - ((v - min) / range) * ch;
-
-  const actualPath = actual.map((o, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(o.value)}`).join("");
-  const predictedPath = predicted.map((o, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(o.value)}`).join("");
-
-  // Projection zone
-  const projStartX = toX(actual.length - 1);
-  const projPoints = proj.map((o, i) => ({ x: toX(actual.length + i), high: toY(o.high), low: toY(o.low), mid: toY(o.mid) }));
-  const projMidPath = `M${projStartX},${toY(model.currentPredicted)} ` + projPoints.map(p => `L${p.x},${p.mid}`).join(" ");
-  const projAreaPath = `M${projStartX},${toY(model.confidenceHigh)} ` +
-    projPoints.map(p => `L${p.x},${p.high}`).join(" ") + " " +
-    [...projPoints].reverse().map(p => `L${p.x},${p.low}`).join(" ") +
-    ` L${projStartX},${toY(model.confidenceLow)} Z`;
-
-  const yLabels = Array.from({ length: 5 }, (_, i) => Math.round(min + (range * i) / 4));
-  const step = Math.max(1, Math.floor(actual.length / 6));
+  // Zone bands
+  const zones = [
+    { from: 0, to: 25, color: "rgba(239,68,68,0.08)" },
+    { from: 25, to: 45, color: "rgba(249,115,22,0.06)" },
+    { from: 45, to: 55, color: "rgba(234,179,8,0.05)" },
+    { from: 55, to: 75, color: "rgba(132,204,22,0.06)" },
+    { from: 75, to: 100, color: "rgba(34,197,94,0.08)" },
+  ];
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-      {/* Grid */}
-      {yLabels.map((v, i) => {
-        const y = PAD.top + ch - (i / 4) * ch;
-        return (
-          <g key={i}>
-            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#1a1a1a" />
-            <text x={PAD.left - 4} y={y + 3} textAnchor="end" fill="#555" fontSize="9">{v}</text>
-          </g>
-        );
-      })}
-      {/* Divider line between actual and projection */}
-      <line x1={projStartX} y1={PAD.top} x2={projStartX} y2={PAD.top + ch} stroke="#333" strokeDasharray="3,3" />
-      {/* Projection zone */}
-      <path d={projAreaPath} fill="rgba(96,165,250,0.08)" />
-      {/* Predicted line */}
-      <path d={predictedPath} fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.8" />
-      {/* Projection mid line */}
-      <path d={projMidPath} fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.6" />
-      {/* Actual line */}
-      <path d={actualPath} fill="none" stroke="#e8e8e8" strokeWidth="2" />
-      {/* Current predicted dot */}
-      <circle cx={projStartX} cy={toY(model.currentPredicted)} r="4" fill="#60a5fa" stroke="#111" strokeWidth="1.5" />
-      <text x={projStartX + 6} y={toY(model.currentPredicted) - 6} fill="#60a5fa" fontSize="9" fontWeight="600">
-        {model.currentPredicted.toLocaleString()}
-      </text>
-      {/* Current actual dot */}
-      <circle cx={projStartX} cy={toY(model.currentActual)} r="3" fill="#e8e8e8" stroke="#111" strokeWidth="1.5" />
-      {/* X labels */}
-      {actual.filter((_, i) => i % step === 0).map((o, idx) => (
-        <text key={idx} x={toX(idx * step)} y={H - 6} textAnchor="middle" fill="#444" fontSize="8">{o.date.slice(0, 7)}</text>
+      {/* Zone bands */}
+      {zones.map((z, i) => (
+        <rect key={i} x={PAD.left} y={toY(z.to)} width={cw} height={toY(z.from) - toY(z.to)} fill={z.color} />
       ))}
-      <text x={projPoints[projPoints.length - 1]?.x || 0} y={H - 6} textAnchor="middle" fill="#60a5fa" fontSize="8">
-        {lang === "kr" ? "+1M" : "+1M"}
-      </text>
-      {/* Legend */}
-      <line x1={PAD.left} y1={6} x2={PAD.left + 12} y2={6} stroke="#e8e8e8" strokeWidth="2" />
-      <text x={PAD.left + 16} y={9} fill="#e8e8e8" fontSize="8">{lang === "kr" ? "실제" : "Actual"}</text>
-      <line x1={PAD.left + 50} y1={6} x2={PAD.left + 62} y2={6} stroke="#60a5fa" strokeWidth="1.5" strokeDasharray="4,3" />
-      <text x={PAD.left + 66} y={9} fill="#60a5fa" fontSize="8">{lang === "kr" ? "모델" : "Model"}</text>
-      {/* R² badge */}
-      <rect x={W - PAD.right - 50} y={2} width="48" height="14" rx="3" fill="rgba(96,165,250,0.15)" />
-      <text x={W - PAD.right - 26} y={12} textAnchor="middle" fill="#60a5fa" fontSize="8" fontWeight="600">R² = {model.r2.toFixed(2)}</text>
+      {/* Grid lines */}
+      {[0, 25, 50, 75, 100].map((v) => (
+        <g key={v}>
+          <line x1={PAD.left} y1={toY(v)} x2={W - PAD.right} y2={toY(v)} stroke="#1a1a1a" />
+          <text x={PAD.left - 4} y={toY(v) + 3} textAnchor="end" fill="#555" fontSize="9">{v}</text>
+        </g>
+      ))}
+      {/* Line */}
+      <path d={linePath} fill="none" stroke="#e8e8e8" strokeWidth="2" />
+      {/* Current dot */}
+      <circle cx={toX(history.length - 1)} cy={toY(last.score)} r="4" fill={fgColor(last.score)} stroke="#111" strokeWidth="1.5" />
+      {/* X labels */}
+      {history.filter((_, i) => i % step === 0).map((p, idx) => (
+        <text key={idx} x={toX(idx * step)} y={H - 6} textAnchor="middle" fill="#444" fontSize="8">{p.date.slice(5)}</text>
+      ))}
     </svg>
   );
 }
@@ -1107,10 +1144,8 @@ export default function MacroPage() {
   const [showExplain, setShowExplain] = useState(false);
   const [bokSeries, setBokSeries] = useState<Record<string, { observations: { date: string; value: number }[]; latest: number; previous: number; change: number }>>({});
   const [bokLoading, setBokLoading] = useState(true);
-  const [fxModel, setFxModel] = useState<FxModelData | null>(null);
-  const [fxLoading, setFxLoading] = useState(true);
-  const [fxCommentary, setFxCommentary] = useState<string>("");
-  const [fxCommentaryLoading, setFxCommentaryLoading] = useState(false);
+  const [fearGreed, setFearGreed] = useState<FearGreedData | null>(null);
+  const [fgLoading, setFgLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1137,44 +1172,21 @@ export default function MacroPage() {
     }
   }, []);
 
-  const fetchFxModel = useCallback(async () => {
+  const fetchFearGreed = useCallback(async () => {
     try {
-      const res = await fetch("/api/macro/fx-model");
+      const res = await fetch("/api/macro/fear-greed");
       const json = await res.json();
-      if (json.ok) setFxModel(json.model);
+      if (json.ok) setFearGreed(json.data);
     } catch { /* silent */ } finally {
-      setFxLoading(false);
+      setFgLoading(false);
     }
   }, []);
-
-  const requestFxCommentary = useCallback(async () => {
-    if (fxCommentaryLoading || fxCommentary) return;
-    if (!fxModel) return;
-    setFxCommentaryLoading(true);
-    try {
-      const res = await fetch("/api/macro/fx-commentary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          usdkrw: fxModel.currentActual,
-          spread: fxModel.signals.spread,
-          vix: fxModel.signals.vix,
-          krCpi: bokSeries["KR_CPI_YOY"]?.latest || 0,
-          usCpi: series["CPI_YOY"]?.latest || 0,
-        }),
-      });
-      const json = await res.json();
-      if (json.ok) setFxCommentary(json.commentary);
-    } catch { /* silent */ } finally {
-      setFxCommentaryLoading(false);
-    }
-  }, [fxCommentaryLoading, fxCommentary, fxModel, bokSeries, series]);
 
   useEffect(() => {
     fetchData();
     fetchBok();
-    fetchFxModel();
-  }, [fetchData, fetchBok, fetchFxModel]);
+    fetchFearGreed();
+  }, [fetchData, fetchBok, fetchFearGreed]);
 
   const chartData = useMemo(() => filterByRange(netLiquidity, range), [netLiquidity, range]);
 
@@ -1511,159 +1523,73 @@ export default function MacroPage() {
           </div>
         </div>
 
-        {/* ── FX Prediction Model Section ─────────────────────── */}
+        {/* ── Fear & Greed Index Section ─────────────────────── */}
         <div className="mb-4">
           <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
-            {lang === "kr" ? "환율 예측 모델" : "FX Prediction Model"}
+            {lang === "kr" ? "시장 심리 지수" : "Market Sentiment Index"}
           </h2>
 
-          {fxLoading ? (
-            <div className="flex h-[300px] items-center justify-center rounded-xl animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
-              <span style={{ color: "#444" }}>{lang === "kr" ? "모델 데이터 로딩중..." : "Loading model data..."}</span>
+          {fgLoading ? (
+            <div className="flex h-[260px] items-center justify-center rounded-xl animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+              <span style={{ color: "#444" }}>{lang === "kr" ? "심리 지수 로딩중..." : "Loading sentiment data..."}</span>
             </div>
-          ) : fxModel ? (
+          ) : fearGreed ? (
             <>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                {/* Left: Chart (2 cols) */}
-                <div className="lg:col-span-2 rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
-                  <h3 className="mb-3 text-xs font-semibold" style={{ color: "#ccc" }}>
-                    {lang === "kr" ? "실제 vs 모델 예측 USD/KRW" : "Actual vs Model Predicted USD/KRW"}
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {/* Left: Gauge */}
+                <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+                  <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
+                    CNN Fear & Greed Index
                   </h3>
-                  <FxPredictionChart model={fxModel} lang={lang} />
-                  <div className="mt-2 flex items-center gap-3 text-[10px]" style={{ color: "#555" }}>
-                    <span>{lang === "kr" ? "회귀 변수: 한미 금리차, VIX" : "Regression: Rate Spread, VIX"}</span>
-                    <span>|</span>
-                    <span>R² = {fxModel.r2.toFixed(2)}</span>
-                    <span>|</span>
-                    <span>{lang === "kr" ? "음영: 1개월 전망 신뢰구간" : "Shaded: 1M projection confidence"}</span>
+                  <div className="flex justify-center">
+                    <FearGreedGauge score={fearGreed.score} lang={lang} />
+                  </div>
+                  {/* Previous values */}
+                  <div className="mt-3 flex justify-center gap-6">
+                    {[
+                      { label: lang === "kr" ? "전일" : "Prev Close", value: fearGreed.previousClose },
+                      { label: lang === "kr" ? "1주전" : "1W Ago", value: fearGreed.oneWeekAgo },
+                      { label: lang === "kr" ? "1개월전" : "1M Ago", value: fearGreed.oneMonthAgo },
+                    ].map((item, i) => (
+                      <div key={i} className="text-center">
+                        <div className="text-[10px]" style={{ color: "#666" }}>{item.label}</div>
+                        <div className="text-sm font-bold" style={{ color: fgColor(item.value) }}>{item.value}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Right: Signals card */}
-                <div className="rounded-xl p-4 flex flex-col gap-3" style={{ background: "#111", border: "1px solid #222" }}>
-                  <h3 className="text-xs font-semibold" style={{ color: "#ccc" }}>
-                    {lang === "kr" ? "현재 시그널" : "Current Signals"}
+                {/* Right: 30-day history */}
+                <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+                  <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
+                    {lang === "kr" ? "30일 추이" : "30-Day History"}
                   </h3>
-
-                  {/* Signal items */}
-                  <div className="space-y-3 flex-1">
-                    {/* Rate spread */}
-                    <div className="rounded-lg p-3" style={{ background: "#0d0d0d", border: "1px solid #1a1a1a" }}>
-                      <div className="text-[10px] mb-1" style={{ color: "#666" }}>
-                        {lang === "kr" ? "한미 금리차" : "KR-US Rate Spread"}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold" style={{ color: fxModel.signals.spread > 0 ? "#f87171" : "#4ade80" }}>
-                          {fxModel.signals.spread > 0 ? "+" : ""}{fxModel.signals.spread}%p
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded" style={{
-                          background: fxModel.signals.spread > 0 ? "rgba(248,113,113,0.1)" : "rgba(74,222,128,0.1)",
-                          color: fxModel.signals.spread > 0 ? "#f87171" : "#4ade80",
-                        }}>
-                          {fxModel.signals.spread > 0 ? "▲" : "▼"} {lang === "kr" ? fxModel.signals.spreadDirection : (fxModel.signals.spread > 0 ? "KRW Weakness" : "KRW Strength")}
-                        </span>
-                      </div>
+                  {fearGreed.history.length > 1 ? (
+                    <FearGreedHistoryChart history={fearGreed.history} />
+                  ) : (
+                    <div className="flex h-[200px] items-center justify-center" style={{ color: "#555" }}>
+                      <span className="text-xs">{lang === "kr" ? "히스토리 데이터 없음" : "No history data"}</span>
                     </div>
-
-                    {/* VIX */}
-                    <div className="rounded-lg p-3" style={{ background: "#0d0d0d", border: "1px solid #1a1a1a" }}>
-                      <div className="text-[10px] mb-1" style={{ color: "#666" }}>VIX</div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold" style={{ color: fxModel.signals.vix > 20 ? "#f87171" : "#4ade80" }}>
-                          {fxModel.signals.vix}
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded" style={{
-                          background: fxModel.signals.vix > 20 ? "rgba(248,113,113,0.1)" : "rgba(74,222,128,0.1)",
-                          color: fxModel.signals.vix > 20 ? "#f87171" : "#4ade80",
-                        }}>
-                          {lang === "kr" ? (fxModel.signals.vix > 20 ? "위험회피 → 달러강세" : "안정 → 달러약세") : (fxModel.signals.vix > 20 ? "Risk-off → USD Strong" : "Calm → USD Weak")}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Model prediction */}
-                    <div className="rounded-lg p-3" style={{ background: "#0d0d0d", border: "1px solid #1a1a1a" }}>
-                      <div className="text-[10px] mb-1" style={{ color: "#666" }}>
-                        {lang === "kr" ? "모델 예측" : "Model Prediction"}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold" style={{ color: "#60a5fa" }}>
-                          {fxModel.currentPredicted.toLocaleString()}{lang === "kr" ? "원" : " KRW"}
-                        </span>
-                        <span className="text-[10px]" style={{
-                          color: fxModel.currentPredicted > fxModel.currentActual ? "#f87171" : "#4ade80",
-                        }}>
-                          {lang === "kr" ? "현재 대비" : "vs actual"}{" "}
-                          {fxModel.currentPredicted > fxModel.currentActual ? "+" : ""}
-                          {((fxModel.currentPredicted - fxModel.currentActual) / fxModel.currentActual * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Confidence interval */}
-                    <div className="rounded-lg p-3" style={{ background: "#0d0d0d", border: "1px solid #1a1a1a" }}>
-                      <div className="text-[10px] mb-1" style={{ color: "#666" }}>
-                        {lang === "kr" ? "신뢰구간" : "Confidence Range"}
-                      </div>
-                      <div className="text-sm font-bold" style={{ color: "#a78bfa" }}>
-                        {fxModel.confidenceLow.toLocaleString()}{lang === "kr" ? "원" : ""} ~ {fxModel.confidenceHigh.toLocaleString()}{lang === "kr" ? "원" : " KRW"}
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
-              {/* AI Commentary button + result */}
-              <div className="mt-3">
-                <button
-                  onClick={requestFxCommentary}
-                  disabled={fxCommentaryLoading}
-                  className="rounded-lg px-4 py-2 text-xs font-medium transition-colors"
-                  style={{
-                    background: fxCommentary ? "rgba(96,165,250,0.08)" : "rgba(96,165,250,0.15)",
-                    color: "#60a5fa",
-                    border: "1px solid rgba(96,165,250,0.3)",
-                    cursor: fxCommentaryLoading ? "wait" : "pointer",
-                    opacity: fxCommentaryLoading ? 0.6 : 1,
-                  }}
-                >
-                  {fxCommentaryLoading
-                    ? (lang === "kr" ? "분석 생성중..." : "Generating...")
-                    : fxCommentary
-                      ? (lang === "kr" ? "AI 환율 분석 완료" : "AI FX Analysis Done")
-                      : (lang === "kr" ? "AI 환율 분석" : "AI FX Analysis")}
-                </button>
-
-                {fxCommentaryLoading && (
-                  <div className="mt-3 rounded-lg p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
-                    <div className="h-3 w-3/4 rounded" style={{ background: "#1a1a1a" }} />
-                    <div className="mt-2 h-3 w-1/2 rounded" style={{ background: "#1a1a1a" }} />
-                  </div>
-                )}
-
-                {fxCommentary && (
-                  <div className="mt-3 rounded-lg p-4" style={{ background: "rgba(96,165,250,0.03)", border: "1px solid rgba(96,165,250,0.1)", borderLeft: "3px solid rgba(96,165,250,0.4)" }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded" style={{ background: "rgba(96,165,250,0.15)", color: "#60a5fa" }}>
-                        AI Analysis
-                      </span>
-                    </div>
-                    <p className="text-[12px] leading-[1.8]" style={{ color: "#bbb" }}>{fxCommentary}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Disclaimer */}
-              <div className="mt-3 text-[10px]" style={{ color: "#444" }}>
-                {lang === "kr"
-                  ? "* 본 모델은 참고용이며 투자 조언이 아닙니다. 과거 데이터 기반 회귀분석으로, 미래 환율을 보장하지 않습니다."
-                  : "* This model is for reference only and does not constitute investment advice. Based on historical regression analysis; does not guarantee future exchange rates."}
+              {/* Explanation */}
+              <div
+                className="mt-3 rounded-lg p-3"
+                style={{ background: "rgba(234,179,8,0.03)", border: "1px solid rgba(234,179,8,0.1)", borderLeft: "3px solid rgba(234,179,8,0.3)" }}
+              >
+                <p className="text-[11px] leading-[1.7]" style={{ color: "#999" }}>
+                  {lang === "kr"
+                    ? "극도공포 구간은 역사적으로 매수 기회였으며, 극도탐욕 구간은 조정 경계 신호로 활용됩니다. CNN이 산출하는 7개 지표(모멘텀, 강도, 폭, 풋/콜 비율, 정크본드 수요, VIX, 안전자산 수요) 기반입니다."
+                    : "Extreme Fear has historically been a buying opportunity, while Extreme Greed signals caution. Based on 7 CNN indicators: momentum, strength, breadth, put/call ratio, junk bond demand, VIX, and safe haven demand."}
+                </p>
               </div>
             </>
           ) : (
             <div className="rounded-xl p-6 text-center" style={{ background: "#111", border: "1px solid #222" }}>
               <span className="text-xs" style={{ color: "#666" }}>
-                {lang === "kr" ? "FX 모델 데이터를 불러올 수 없습니다." : "Unable to load FX model data."}
+                {lang === "kr" ? "심리 지수 데이터를 불러올 수 없습니다." : "Unable to load sentiment data."}
               </span>
             </div>
           )}
