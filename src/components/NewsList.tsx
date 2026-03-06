@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLang } from "@/lib/LangContext";
 
 interface NewsItem {
@@ -12,6 +12,26 @@ interface NewsItem {
   symbol?: string;
 }
 
+// ── Tab definitions ───────────────────────────────────────────
+
+interface Tab {
+  key: string;
+  labelEn: string;
+  labelKr: string;
+  type: "kr" | "us";
+  category?: string;
+}
+
+const TABS: Tab[] = [
+  { key: "breaking", labelEn: "Breaking", labelKr: "속보", type: "kr", category: "breaking" },
+  { key: "stocks", labelEn: "Stocks", labelKr: "주식", type: "kr", category: "stocks" },
+  { key: "economy", labelEn: "Economy", labelKr: "경제", type: "kr", category: "economy" },
+  { key: "global", labelEn: "Global", labelKr: "해외", type: "us" },
+  { key: "politics", labelEn: "Politics", labelKr: "정치", type: "kr", category: "politics" },
+];
+
+// ── Helpers ───────────────────────────────────────────────────
+
 function timeAgo(ts: number): string {
   const diff = Math.floor((Date.now() - ts) / 1000);
   if (diff < 60) return `${diff}s`;
@@ -20,172 +40,103 @@ function timeAgo(ts: number): string {
   return `${Math.floor(diff / 86400)}d`;
 }
 
-// ── Keyword extraction for trending topics ────────────────────
+// ── Component ─────────────────────────────────────────────────
 
-const STOP_WORDS = new Set([
-  "the", "a", "an", "is", "are", "was", "were", "in", "on", "at", "to", "for",
-  "of", "with", "by", "from", "up", "about", "into", "through", "during",
-  "and", "or", "but", "not", "this", "that", "it", "its", "be", "has", "have",
-  "had", "do", "does", "did", "will", "would", "could", "should", "may",
-  "can", "than", "as", "so", "if", "no", "all", "each", "more", "after",
-  "before", "between", "new", "says", "said", "report", "reports", "year",
-  // Korean stop words
-  "위", "이", "가", "을", "를", "의", "에", "에서", "는", "은", "도", "로",
-  "된", "한", "및", "대", "등", "수", "것", "중", "후", "전", "년", "월",
-]);
+export default function NewsList() {
+  const { lang } = useLang();
+  const [activeTab, setActiveTab] = useState("breaking");
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-function extractKeywords(headlines: string[]): string[] {
-  const freq = new Map<string, number>();
-
-  for (const h of headlines) {
-    // Split by spaces and special chars, filter short/stop words
-    const words = h
-      .replace(/["""''·…\-–—,.:;!?()[\]{}]/g, " ")
-      .split(/\s+/)
-      .filter((w) => w.length >= 2)
-      .map((w) => w.replace(/['"]$/g, ""));
-
-    // Also extract 2-gram Korean compound words
-    const seen = new Set<string>();
-    for (const w of words) {
-      const lower = w.toLowerCase();
-      if (STOP_WORDS.has(lower) || lower.length < 2) continue;
-      if (seen.has(lower)) continue;
-      seen.add(lower);
-      freq.set(lower, (freq.get(lower) || 0) + 1);
+  const fetchNews = useCallback(async (tab: Tab) => {
+    setLoading(true);
+    try {
+      let url: string;
+      if (tab.type === "us") {
+        url = "/api/news";
+      } else {
+        url = `/api/news/kr?category=${tab.category || "breaking"}`;
+      }
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.news) setNews(json.news);
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
     }
-  }
+  }, []);
 
-  return [...freq.entries()]
-    .filter(([, count]) => count >= 2)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([word]) => word);
-}
+  useEffect(() => {
+    const tab = TABS.find((t) => t.key === activeTab) || TABS[0];
+    fetchNews(tab);
+  }, [activeTab, fetchNews]);
 
-// ── News column component ─────────────────────────────────────
-
-function NewsColumn({
-  flag,
-  label,
-  news,
-  filterKeyword,
-}: {
-  flag: string;
-  label: string;
-  news: NewsItem[];
-  filterKeyword: string | null;
-}) {
-  const filtered = filterKeyword
-    ? news.filter((n) => n.headline.toLowerCase().includes(filterKeyword.toLowerCase()))
-    : news;
-
-  const display = filtered.slice(0, 6);
+  const handleTabClick = (key: string) => {
+    if (key !== activeTab) {
+      setActiveTab(key);
+      setNews([]);
+    }
+  };
 
   return (
-    <div className="min-w-0 flex-1">
-      <div className="mb-2 flex items-center gap-1.5">
-        <span className="text-sm">{flag}</span>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-          {label}
-        </span>
+    <div>
+      {/* Tabs */}
+      <div className="mb-3 flex gap-px overflow-x-auto rounded bg-card-border/50 p-px">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => handleTabClick(tab.key)}
+            className={`shrink-0 px-3 py-1.5 text-[11px] font-medium transition-colors ${
+              activeTab === tab.key
+                ? "bg-accent text-white"
+                : "bg-card-bg text-muted hover:text-foreground"
+            }`}
+          >
+            {lang === "kr" ? tab.labelKr : tab.labelEn}
+          </button>
+        ))}
       </div>
-      <div className="space-y-0">
-        {display.length === 0 && (
-          <p className="py-2 text-[10px] text-muted">Loading...</p>
+
+      {/* News list */}
+      <div className="min-h-[200px]">
+        {loading && news.length === 0 && (
+          <div className="space-y-0">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="animate-pulse border-b border-card-border/20 py-2">
+                <div className="h-3.5 w-full rounded bg-card-border/30" />
+                <div className="mt-1 flex gap-2">
+                  <div className="h-2.5 w-16 rounded bg-card-border/20" />
+                  <div className="h-2.5 w-8 rounded bg-card-border/20" />
+                </div>
+              </div>
+            ))}
+          </div>
         )}
-        {display.map((item) => (
+
+        {!loading && news.length === 0 && (
+          <p className="py-6 text-center text-[10px] text-muted">
+            {lang === "kr" ? "뉴스를 불러올 수 없습니다" : "No news available"}
+          </p>
+        )}
+
+        {news.slice(0, 10).map((item) => (
           <a
             key={item.id}
             href={item.url}
             target={item.url !== "#" ? "_blank" : undefined}
             rel={item.url !== "#" ? "noopener noreferrer" : undefined}
-            className="block border-b border-card-border/20 py-1.5 transition-colors hover:bg-card-border/10"
+            className="flex items-start gap-3 border-b border-card-border/20 py-2 transition-colors hover:bg-card-border/10"
           >
-            <p className="truncate text-xs leading-tight">{item.headline}</p>
-            <div className="mt-0.5 flex items-center gap-2 text-[9px] text-muted">
-              <span>{item.source}</span>
-              <span>{timeAgo(item.datetime)}</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs leading-tight line-clamp-2">{item.headline}</p>
+              <div className="mt-0.5 flex items-center gap-2 text-[9px] text-muted">
+                <span>{item.source}</span>
+                <span>{timeAgo(item.datetime)}</span>
+              </div>
             </div>
           </a>
         ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Main component ────────────────────────────────────────────
-
-export default function NewsList() {
-  const { lang } = useLang();
-  const [krNews, setKrNews] = useState<NewsItem[]>([]);
-  const [usNews, setUsNews] = useState<NewsItem[]>([]);
-  const [filterKeyword, setFilterKeyword] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/news/kr")
-      .then((r) => r.json())
-      .then((j) => { if (j.news) setKrNews(j.news); })
-      .catch(() => {});
-
-    fetch("/api/news")
-      .then((r) => r.json())
-      .then((j) => { if (j.news) setUsNews(j.news); })
-      .catch(() => {});
-  }, []);
-
-  const trendingKeywords = useMemo(() => {
-    const allHeadlines = [...krNews, ...usNews].map((n) => n.headline);
-    return extractKeywords(allHeadlines);
-  }, [krNews, usNews]);
-
-  return (
-    <div>
-      {/* Trending topics bar */}
-      {trendingKeywords.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] font-semibold text-muted">
-            {lang === "kr" ? "핵심 이슈" : "Trending"}
-          </span>
-          {trendingKeywords.map((kw) => (
-            <button
-              key={kw}
-              onClick={() => setFilterKeyword(filterKeyword === kw ? null : kw)}
-              className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                filterKeyword === kw
-                  ? "bg-accent text-white"
-                  : "bg-card-border/40 text-muted hover:bg-card-border/60 hover:text-foreground"
-              }`}
-            >
-              {kw}
-            </button>
-          ))}
-          {filterKeyword && (
-            <button
-              onClick={() => setFilterKeyword(null)}
-              className="text-[9px] text-muted hover:text-foreground"
-            >
-              {lang === "kr" ? "초기화" : "Clear"}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Split KR / US columns */}
-      <div className="flex gap-4">
-        <NewsColumn
-          flag="\uD83C\uDDF0\uD83C\uDDF7"
-          label={lang === "kr" ? "한국 뉴스" : "Korea News"}
-          news={krNews}
-          filterKeyword={filterKeyword}
-        />
-        <div className="w-px shrink-0 bg-card-border/30" />
-        <NewsColumn
-          flag="\uD83C\uDDFA\uD83C\uDDF8"
-          label={lang === "kr" ? "해외 뉴스" : "US News"}
-          news={usNews}
-          filterKeyword={filterKeyword}
-        />
       </div>
     </div>
   );
