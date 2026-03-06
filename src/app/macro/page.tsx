@@ -879,37 +879,37 @@ export default function MacroPage() {
               }}
             >
               <h3 className="mb-2 text-[13px] font-bold" style={{ color: "#e8e8e8" }}>
-                {lang === "kr" ? "왜 순유동성이 중요한가?" : "Why does Net Liquidity matter?"}
+                {lang === "kr"
+                  ? "Net Liquidity — 시장을 움직이는 유동성"
+                  : "Net Liquidity — The liquidity that moves markets"}
               </h3>
-              <div className="space-y-2 text-[12px] leading-[1.8]" style={{ color: "#bbb" }}>
+              <div className="space-y-2.5 text-[12px] leading-[1.8]" style={{ color: "#bbb" }}>
                 <p>
-                  <span className="font-medium" style={{ color: "#4ade80" }}>
-                    {lang === "kr"
-                      ? "순유동성 = 연준 총자산 − TGA − 역레포"
-                      : "Net Liquidity = Fed Assets − TGA − Reverse Repo"}
-                  </span>
+                  {lang === "kr"
+                    ? "Fed 총자산에서 TGA(재무부 계좌)와 역레포 잔고를 차감한 값으로, 금융 시스템에 실제로 공급된 유동성을 나타냅니다."
+                    : "Calculated by subtracting the TGA (Treasury General Account) and reverse repo balances from total Fed assets, representing the actual liquidity supplied to the financial system."}
                 </p>
                 <p>
                   {lang === "kr"
-                    ? "시장에 실제로 풀린 돈의 양입니다. 연준이 돈을 풀면(QE) 순유동성↑, 거두면(QT) 순유동성↓. 역사적으로 S&P500과 강한 양의 상관관계를 보여왔습니다."
-                    : "The actual amount of money flowing in markets. When the Fed injects money (QE), net liquidity rises. When it tightens (QT), it falls. Historically shows strong positive correlation with S&P 500."}
+                    ? "이 지표는 S&P500과 구조적 상관관계를 보여왔으며, 통화정책의 실질적 영향을 가늠하는 데 활용됩니다."
+                    : "This metric has shown a structural correlation with the S&P 500 and is used to gauge the real-world impact of monetary policy."}
                 </p>
-                <div className="space-y-1">
-                  <p style={{ color: "#4ade80" }}>
+                <div className="space-y-1" style={{ color: "#ccc" }}>
+                  <p>
                     {lang === "kr"
-                      ? "✅ 순유동성 증가 → 시중에 돈이 넘침 → 주식 상승 압력"
-                      : "✅ Net Liquidity rising → excess money in markets → upward pressure on stocks"}
+                      ? "— 잔고 확대 시 위험자산 선호 환경 조성"
+                      : "— Expanding balance fosters a risk-on environment"}
                   </p>
-                  <p style={{ color: "#facc15" }}>
+                  <p>
                     {lang === "kr"
-                      ? "⚠️ 순유동성 감소 → 유동성 긴축 → 주식 하락 압력"
-                      : "⚠️ Net Liquidity falling → liquidity tightening → downward pressure on stocks"}
+                      ? "— 잔고 축소 시 금융 여건 긴축, 밸류에이션 압박"
+                      : "— Contracting balance tightens financial conditions, pressuring valuations"}
                   </p>
                 </div>
                 <p style={{ color: "#999" }}>
                   {lang === "kr"
-                    ? "현재 연준은 QT(양적긴축) 진행 중. 순유동성 추이를 주간 단위로 모니터링하세요."
-                    : "The Fed is currently running QT. Monitor net liquidity trends on a weekly basis."}
+                    ? "현재 Fed는 QT(양적긴축)를 지속 중이며, 순유동성은 고점 대비 유의미하게 감소한 상태입니다."
+                    : "The Fed continues QT, and net liquidity has declined meaningfully from its peak."}
                 </p>
               </div>
             </div>
