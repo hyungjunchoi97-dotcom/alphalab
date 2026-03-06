@@ -33,10 +33,10 @@ const CHANNELS = [
   { username: "decoded_narratives", title: "Decoded Narratives", category: "kr_news" },
   { username: "bzcftel", title: "BZCF", category: "kr_news" },
   // 글로벌
-  { username: "unusualwhales", title: "Unusual Whales", category: "global" },
-  { username: "zerohedge", title: "ZeroHedge", category: "global" },
-  { username: "markets", title: "Markets", category: "global" },
-  { username: "financialtimes", title: "Financial Times", category: "global" },
+  { username: "NittanyLionLand", title: "NittanyLionLand", category: "global" },
+  { username: "hedgehara", title: "Hedgehara", category: "global" },
+  { username: "aetherjapanresearch", title: "Aether Japan Research", category: "global" },
+  { username: "daegurr", title: "Daegurr", category: "global" },
 ];
 
 const CACHE_TTL = 5 * 60 * 1000;

@@ -50,10 +50,10 @@ const CHANNEL_COLORS: Record<string, { bg: string; text: string }> = {
   slowstockT: { bg: "rgba(236,72,153,0.15)", text: "#f472b6" },
   pef_news: { bg: "rgba(239,68,68,0.15)", text: "#f87171" },
   decoded_narratives: { bg: "rgba(234,179,8,0.15)", text: "#facc15" },
-  unusualwhales: { bg: "rgba(120,120,120,0.15)", text: "#a3a3a3" },
-  zerohedge: { bg: "rgba(100,100,100,0.15)", text: "#9ca3af" },
-  markets: { bg: "rgba(140,140,140,0.15)", text: "#b0b0b0" },
-  financialtimes: { bg: "rgba(110,110,110,0.15)", text: "#a8a8a8" },
+  NittanyLionLand: { bg: "rgba(99,102,241,0.15)", text: "#818cf8" },
+  hedgehara: { bg: "rgba(6,182,212,0.15)", text: "#22d3ee" },
+  aetherjapanresearch: { bg: "rgba(16,185,129,0.15)", text: "#34d399" },
+  daegurr: { bg: "rgba(139,92,246,0.15)", text: "#a78bfa" },
 };
 
 const URL_REGEX = /(https?:\/\/[^\s<]+)/g;
