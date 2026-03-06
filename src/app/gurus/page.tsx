@@ -225,6 +225,31 @@ export default function GurusPage() {
                           {lang === "kr" ? m.styleKr : m.styleEn}
                         </div>
 
+                        {/* Recent filing badge */}
+                        {(() => {
+                          if (!guru?.lastFiled) return null;
+                          const filed = new Date(guru.lastFiled);
+                          const now = new Date();
+                          const diffDays = Math.floor((now.getTime() - filed.getTime()) / (1000 * 60 * 60 * 24));
+                          if (diffDays > 30) return null;
+                          return (
+                            <div
+                              style={{
+                                display: "inline-block",
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                                fontSize: 9,
+                                fontWeight: 600,
+                                background: "#22c55e22",
+                                color: "#22c55e",
+                                marginBottom: 6,
+                              }}
+                            >
+                              {lang === "kr" ? "최근 변동" : "Recently Updated"}
+                            </div>
+                          );
+                        })()}
+
                         {/* Stats row */}
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 4 }}>
                           <div>
