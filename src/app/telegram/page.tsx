@@ -16,7 +16,14 @@ interface TelegramMessage {
 interface Channel {
   username: string;
   title: string;
+  category?: string;
 }
+
+const CATEGORIES = [
+  { key: "kr_invest", label: "한국 투자", labelEn: "KR Investment" },
+  { key: "kr_news", label: "한국 뉴스", labelEn: "KR News" },
+  { key: "global", label: "글로벌", labelEn: "Global" },
+];
 
 function timeAgo(ts: number): string {
   if (!ts) return "";
@@ -36,6 +43,10 @@ const CHANNEL_COLORS: Record<string, string> = {
   slowstockT: "bg-cyan-500/20 text-cyan-400",
   pef_news: "bg-amber-500/20 text-amber-400",
   decoded_narratives: "bg-indigo-500/20 text-indigo-400",
+  unusualwhales: "bg-red-500/20 text-red-400",
+  zerohedge: "bg-yellow-500/20 text-yellow-400",
+  markets: "bg-teal-500/20 text-teal-400",
+  financialtimes: "bg-rose-500/20 text-rose-400",
 };
 
 function SkeletonMessage() {
@@ -121,9 +132,6 @@ export default function TelegramPage() {
           {/* Left sidebar */}
           <aside className="hidden w-56 shrink-0 md:block">
             <div className="sticky top-4 rounded-[12px] border border-card-border bg-card-bg p-3 shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
-              <h2 className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                {lang === "kr" ? "채널 목록" : "Channels"}
-              </h2>
               <div className="space-y-0.5">
                 <button
                   onClick={() => setActiveChannel(null)}
@@ -138,28 +146,42 @@ export default function TelegramPage() {
                     <span className="text-[9px] text-muted/50">{allMessages.length}</span>
                   </span>
                 </button>
-                {channels.map((ch) => (
-                  <button
-                    key={ch.username}
-                    onClick={() => setActiveChannel(ch.username)}
-                    className={`w-full rounded px-3 py-2 text-left text-xs transition-colors ${
-                      activeChannel === ch.username
-                        ? "bg-accent/15 font-medium text-accent"
-                        : "text-muted hover:bg-card-border/30 hover:text-foreground"
-                    }`}
-                  >
-                    <span className="flex items-center justify-between">
-                      <span>
-                        <span className="mr-1 text-[10px]">@</span>
-                        {ch.title}
-                      </span>
-                      <span className="text-[9px] text-muted/50">
-                        {channelCounts.get(ch.username) || 0}
-                      </span>
-                    </span>
-                  </button>
-                ))}
               </div>
+
+              {CATEGORIES.map((cat) => {
+                const catChannels = channels.filter((ch) => ch.category === cat.key);
+                if (catChannels.length === 0) return null;
+                return (
+                  <div key={cat.key} className="mt-3">
+                    <h3 className="mb-1 px-1 text-[9px] font-semibold uppercase tracking-wider text-muted/60">
+                      {lang === "kr" ? cat.label : cat.labelEn}
+                    </h3>
+                    <div className="space-y-0.5">
+                      {catChannels.map((ch) => (
+                        <button
+                          key={ch.username}
+                          onClick={() => setActiveChannel(ch.username)}
+                          className={`w-full rounded px-3 py-2 text-left text-xs transition-colors ${
+                            activeChannel === ch.username
+                              ? "bg-accent/15 font-medium text-accent"
+                              : "text-muted hover:bg-card-border/30 hover:text-foreground"
+                          }`}
+                        >
+                          <span className="flex items-center justify-between">
+                            <span>
+                              <span className="mr-1 text-[10px]">@</span>
+                              {ch.title}
+                            </span>
+                            <span className="text-[9px] text-muted/50">
+                              {channelCounts.get(ch.username) || 0}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
 
               {lastUpdate && (
                 <div className="mt-4 border-t border-card-border/30 pt-2 text-[9px] text-muted/50">
@@ -183,19 +205,22 @@ export default function TelegramPage() {
               >
                 {lang === "kr" ? "전체" : "All"}
               </button>
-              {channels.map((ch) => (
-                <button
-                  key={ch.username}
-                  onClick={() => setActiveChannel(ch.username)}
-                  className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-medium transition-colors ${
-                    activeChannel === ch.username
-                      ? "bg-accent text-white"
-                      : "bg-card-border/40 text-muted"
-                  }`}
-                >
-                  {ch.title}
-                </button>
-              ))}
+              {CATEGORIES.map((cat) => {
+                const catChannels = channels.filter((ch) => ch.category === cat.key);
+                return catChannels.map((ch) => (
+                  <button
+                    key={ch.username}
+                    onClick={() => setActiveChannel(ch.username)}
+                    className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-medium transition-colors ${
+                      activeChannel === ch.username
+                        ? "bg-accent text-white"
+                        : "bg-card-border/40 text-muted"
+                    }`}
+                  >
+                    {ch.title}
+                  </button>
+                ));
+              })}
             </div>
 
             <div className="rounded-[12px] border border-card-border bg-card-bg shadow-[0_1px_2px_rgba(0,0,0,0.3)]">

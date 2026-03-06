@@ -21,14 +21,21 @@ interface CacheEntry {
 // ── Config ────────────────────────────────────────────────────
 
 const CHANNELS = [
-  { username: "bumgore", title: "범고래" },
-  { username: "Yeouido_Lab", title: "여의도 랩" },
-  { username: "YeouidoStory2", title: "여의도 스토리" },
-  { username: "corevalue", title: "Core Value" },
-  { username: "bzcftel", title: "BZCF" },
-  { username: "slowstockT", title: "슬로우스탁" },
-  { username: "pef_news", title: "PEF News" },
-  { username: "decoded_narratives", title: "Decoded Narratives" },
+  // 한국 투자
+  { username: "bumgore", title: "범고래", category: "kr_invest" },
+  { username: "Yeouido_Lab", title: "여의도 랩", category: "kr_invest" },
+  { username: "YeouidoStory2", title: "여의도 스토리", category: "kr_invest" },
+  { username: "corevalue", title: "Core Value", category: "kr_invest" },
+  { username: "slowstockT", title: "슬로우스탁", category: "kr_invest" },
+  // 한국 뉴스
+  { username: "pef_news", title: "PEF News", category: "kr_news" },
+  { username: "decoded_narratives", title: "Decoded Narratives", category: "kr_news" },
+  { username: "bzcftel", title: "BZCF", category: "kr_news" },
+  // 글로벌
+  { username: "unusualwhales", title: "Unusual Whales", category: "global" },
+  { username: "zerohedge", title: "ZeroHedge", category: "global" },
+  { username: "markets", title: "Markets", category: "global" },
+  { username: "financialtimes", title: "Financial Times", category: "global" },
 ];
 
 const CACHE_TTL = 5 * 60 * 1000;
