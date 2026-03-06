@@ -27,6 +27,8 @@ const CHANNELS = [
   { username: "corevalue", title: "Core Value" },
   { username: "bzcftel", title: "BZCF" },
   { username: "slowstockT", title: "슬로우스탁" },
+  { username: "pef_news", title: "PEF News" },
+  { username: "decoded_narratives", title: "Decoded Narratives" },
 ];
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes

@@ -35,6 +35,8 @@ const CHANNEL_COLORS: Record<string, string> = {
   corevalue: "bg-orange-500/20 text-orange-400",
   bzcftel: "bg-pink-500/20 text-pink-400",
   slowstockT: "bg-cyan-500/20 text-cyan-400",
+  pef_news: "bg-amber-500/20 text-amber-400",
+  decoded_narratives: "bg-indigo-500/20 text-indigo-400",
 };
 
 function SkeletonMessage() {
