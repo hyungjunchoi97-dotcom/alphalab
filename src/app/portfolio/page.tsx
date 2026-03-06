@@ -57,7 +57,7 @@ export default function PortfolioPage() {
               {t("viewAll")}
             </span>
           </div>
-          <NewsList symbols={stableSymbols.length > 0 ? stableSymbols : undefined} />
+          <NewsList />
         </section>
       </main>
     </div>

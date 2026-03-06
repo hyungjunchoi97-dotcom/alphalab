@@ -35,7 +35,7 @@ interface IndexPrices {
 }
 
 export default function Home() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [indices, setIndices] = useState<IndexPrices>({});
   const [lastRefresh, setLastRefresh] = useState<number | null>(null);
   const [secondsAgo, setSecondsAgo] = useState<number | null>(null);
@@ -123,7 +123,7 @@ export default function Home() {
           {/* Right column */}
           <div className="space-y-3">
             <section className="rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
-              <SectionHeader title="Market News" />
+              <SectionHeader title={lang === "kr" ? "시장 뉴스" : "Market News"} />
               <NewsList />
             </section>
 
