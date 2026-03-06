@@ -1313,6 +1313,78 @@ export default function MacroPage() {
           </div>
         </div>
 
+        {/* ── Fear & Greed Index Section ─────────────────────── */}
+        <div className="mb-4">
+          <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
+            {lang === "kr" ? "시장 심리 지수" : "Market Sentiment Index"}
+          </h2>
+
+          {fgLoading ? (
+            <div className="flex h-[260px] items-center justify-center rounded-xl animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+              <span style={{ color: "#444" }}>{lang === "kr" ? "심리 지수 로딩중..." : "Loading sentiment data..."}</span>
+            </div>
+          ) : fearGreed ? (
+            <>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {/* Left: Gauge */}
+                <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+                  <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
+                    CNN Fear & Greed Index
+                  </h3>
+                  <div className="flex justify-center">
+                    <FearGreedGauge score={fearGreed.score} lang={lang} />
+                  </div>
+                  {/* Previous values */}
+                  <div className="mt-3 flex justify-center gap-6">
+                    {[
+                      { label: lang === "kr" ? "전일" : "Prev Close", value: fearGreed.previousClose },
+                      { label: lang === "kr" ? "1주전" : "1W Ago", value: fearGreed.oneWeekAgo },
+                      { label: lang === "kr" ? "1개월전" : "1M Ago", value: fearGreed.oneMonthAgo },
+                    ].map((item, i) => (
+                      <div key={i} className="text-center">
+                        <div className="text-[10px]" style={{ color: "#666" }}>{item.label}</div>
+                        <div className="text-sm font-bold" style={{ color: fgColor(item.value) }}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right: 30-day history */}
+                <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+                  <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
+                    {lang === "kr" ? "30일 추이" : "30-Day History"}
+                  </h3>
+                  {fearGreed.history.length > 1 ? (
+                    <FearGreedHistoryChart history={fearGreed.history} />
+                  ) : (
+                    <div className="flex h-[200px] items-center justify-center" style={{ color: "#555" }}>
+                      <span className="text-xs">{lang === "kr" ? "히스토리 데이터 없음" : "No history data"}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Explanation */}
+              <div
+                className="mt-3 rounded-lg p-3"
+                style={{ background: "rgba(234,179,8,0.03)", border: "1px solid rgba(234,179,8,0.1)", borderLeft: "3px solid rgba(234,179,8,0.3)" }}
+              >
+                <p className="text-[11px] leading-[1.7]" style={{ color: "#999" }}>
+                  {lang === "kr"
+                    ? "극도공포 구간은 역사적으로 매수 기회였으며, 극도탐욕 구간은 조정 경계 신호로 활용됩니다. CNN이 산출하는 7개 지표(모멘텀, 강도, 폭, 풋/콜 비율, 정크본드 수요, VIX, 안전자산 수요) 기반입니다."
+                    : "Extreme Fear has historically been a buying opportunity, while Extreme Greed signals caution. Based on 7 CNN indicators: momentum, strength, breadth, put/call ratio, junk bond demand, VIX, and safe haven demand."}
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-xl p-6 text-center" style={{ background: "#111", border: "1px solid #222" }}>
+              <span className="text-xs" style={{ color: "#666" }}>
+                {lang === "kr" ? "심리 지수 데이터를 불러올 수 없습니다." : "Unable to load sentiment data."}
+              </span>
+            </div>
+          )}
+        </div>
+
         {/* Hero Chart */}
         <div className="mb-4 rounded-xl p-4" style={{ background: "#111111", border: "1px solid #222222" }}>
           <div className="mb-3 flex items-center justify-between">
@@ -1734,77 +1806,6 @@ export default function MacroPage() {
           )}
         </div>
 
-        {/* ── Fear & Greed Index Section ─────────────────────── */}
-        <div className="mb-4">
-          <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
-            {lang === "kr" ? "시장 심리 지수" : "Market Sentiment Index"}
-          </h2>
-
-          {fgLoading ? (
-            <div className="flex h-[260px] items-center justify-center rounded-xl animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
-              <span style={{ color: "#444" }}>{lang === "kr" ? "심리 지수 로딩중..." : "Loading sentiment data..."}</span>
-            </div>
-          ) : fearGreed ? (
-            <>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {/* Left: Gauge */}
-                <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
-                  <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
-                    CNN Fear & Greed Index
-                  </h3>
-                  <div className="flex justify-center">
-                    <FearGreedGauge score={fearGreed.score} lang={lang} />
-                  </div>
-                  {/* Previous values */}
-                  <div className="mt-3 flex justify-center gap-6">
-                    {[
-                      { label: lang === "kr" ? "전일" : "Prev Close", value: fearGreed.previousClose },
-                      { label: lang === "kr" ? "1주전" : "1W Ago", value: fearGreed.oneWeekAgo },
-                      { label: lang === "kr" ? "1개월전" : "1M Ago", value: fearGreed.oneMonthAgo },
-                    ].map((item, i) => (
-                      <div key={i} className="text-center">
-                        <div className="text-[10px]" style={{ color: "#666" }}>{item.label}</div>
-                        <div className="text-sm font-bold" style={{ color: fgColor(item.value) }}>{item.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Right: 30-day history */}
-                <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
-                  <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
-                    {lang === "kr" ? "30일 추이" : "30-Day History"}
-                  </h3>
-                  {fearGreed.history.length > 1 ? (
-                    <FearGreedHistoryChart history={fearGreed.history} />
-                  ) : (
-                    <div className="flex h-[200px] items-center justify-center" style={{ color: "#555" }}>
-                      <span className="text-xs">{lang === "kr" ? "히스토리 데이터 없음" : "No history data"}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Explanation */}
-              <div
-                className="mt-3 rounded-lg p-3"
-                style={{ background: "rgba(234,179,8,0.03)", border: "1px solid rgba(234,179,8,0.1)", borderLeft: "3px solid rgba(234,179,8,0.3)" }}
-              >
-                <p className="text-[11px] leading-[1.7]" style={{ color: "#999" }}>
-                  {lang === "kr"
-                    ? "극도공포 구간은 역사적으로 매수 기회였으며, 극도탐욕 구간은 조정 경계 신호로 활용됩니다. CNN이 산출하는 7개 지표(모멘텀, 강도, 폭, 풋/콜 비율, 정크본드 수요, VIX, 안전자산 수요) 기반입니다."
-                    : "Extreme Fear has historically been a buying opportunity, while Extreme Greed signals caution. Based on 7 CNN indicators: momentum, strength, breadth, put/call ratio, junk bond demand, VIX, and safe haven demand."}
-                </p>
-              </div>
-            </>
-          ) : (
-            <div className="rounded-xl p-6 text-center" style={{ background: "#111", border: "1px solid #222" }}>
-              <span className="text-xs" style={{ color: "#666" }}>
-                {lang === "kr" ? "심리 지수 데이터를 불러올 수 없습니다." : "Unable to load sentiment data."}
-              </span>
-            </div>
-          )}
-        </div>
       </main>
 
       {/* FX Chart Modal */}
