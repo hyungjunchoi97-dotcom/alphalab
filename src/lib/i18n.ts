@@ -106,6 +106,7 @@ export const messages = {
     betMin: "Min 10 pts",
     telegram: "Telegram",
     macro: "Macro",
+    gurus: "Gurus",
   },
   kr: {
     dashboard: "대시보드",
@@ -212,6 +213,7 @@ export const messages = {
     betMin: "최소 10 pts",
     telegram: "텔레그램",
     macro: "매크로",
+    gurus: "구루",
   },
 } as const;
 
