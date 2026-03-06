@@ -1,6 +1,6 @@
 // ── Types ──────────────────────────────────────────────────────
 
-export type PredictionCategory = "stocks" | "realestate" | "politics" | "other";
+export type PredictionCategory = "stocks" | "politics" | "economy" | "entertainment" | "crypto" | "other";
 
 export interface Prediction {
   id: string;
@@ -184,7 +184,7 @@ export function seedPredictionsIfEmpty(): void {
   const day = 86400000;
 
   const seeds: Prediction[] = [
-    // ── Stocks (3) ──
+    // ── Stocks ──
     {
       id: "seed-1",
       title: { en: "March: KOSPI 2,800 reached?", kr: "3월: 코스피 2,800 도달?" },
@@ -224,49 +224,22 @@ export function seedPredictionsIfEmpty(): void {
       createdAt: new Date(now - 4 * day).toISOString(),
       resolvedOptionId: null,
     },
-    // ── Real Estate (2) ──
+    // ── Politics ──
     {
       id: "seed-4",
-      title: { en: "Seoul apt prices up 5%+ in H1 2026?", kr: "2026 상반기 서울 아파트 5%+ 상승?" },
+      title: { en: "Lee Jae-myung wins 2027 presidential election?", kr: "2027 대선 이재명 당선?" },
       description: {
-        en: "Will average Seoul apartment prices rise more than 5% in the first half of 2026?",
-        kr: "2026년 상반기 서울 아파트 평균 가격이 5% 이상 오를까요?",
+        en: "Will Lee Jae-myung win the 2027 South Korean presidential election?",
+        kr: "2027년 대한민국 대통령 선거에서 이재명이 당선될까요?",
       },
-      category: "realestate",
+      category: "politics",
       status: "open",
-      closesAt: new Date(now + 90 * day).toISOString(),
+      closesAt: new Date(now + 365 * day).toISOString(),
       createdAt: new Date(now - 1 * day).toISOString(),
       resolvedOptionId: null,
     },
     {
       id: "seed-5",
-      title: { en: "Jeonse index drops below 90 by June?", kr: "6월까지 전세지수 90 이하 하락?" },
-      description: {
-        en: "Will the KB Jeonse Price Index fall below 90 before June 30, 2026?",
-        kr: "2026년 6월 30일 전에 KB 전세가격지수가 90 아래로 떨어질까요?",
-      },
-      category: "realestate",
-      status: "open",
-      closesAt: new Date(now + 80 * day).toISOString(),
-      createdAt: new Date(now - 2 * day).toISOString(),
-      resolvedOptionId: null,
-    },
-    // ── Politics (2) ──
-    {
-      id: "seed-6",
-      title: { en: "Next FOMC: rate cut happens?", kr: "다음 FOMC: 금리 인하?" },
-      description: {
-        en: "Will the Federal Reserve announce a rate cut at the next FOMC meeting?",
-        kr: "다음 FOMC 회의에서 연준이 금리 인하를 발표할까요?",
-      },
-      category: "politics",
-      status: "open",
-      closesAt: new Date(now + 35 * day).toISOString(),
-      createdAt: new Date(now - 1 * day).toISOString(),
-      resolvedOptionId: null,
-    },
-    {
-      id: "seed-7",
       title: { en: "Korea snap election called before July?", kr: "7월 전 한국 조기선거 실시?" },
       description: {
         en: "Will a snap presidential election be called in South Korea before July 2026?",
@@ -278,28 +251,69 @@ export function seedPredictionsIfEmpty(): void {
       createdAt: new Date(now - 3 * day).toISOString(),
       resolvedOptionId: null,
     },
-    // ── Other (2) ──
+    // ── Economy ──
     {
-      id: "seed-8",
+      id: "seed-6",
+      title: { en: "BOK April rate cut?", kr: "한국은행 4월 금리 인하?" },
+      description: {
+        en: "Will the Bank of Korea cut the base rate at the April 2026 monetary policy meeting?",
+        kr: "한국은행이 2026년 4월 통화정책회의에서 기준금리를 인하할까요?",
+      },
+      category: "economy",
+      status: "open",
+      closesAt: new Date(now + 35 * day).toISOString(),
+      createdAt: new Date(now - 1 * day).toISOString(),
+      resolvedOptionId: null,
+    },
+    {
+      id: "seed-7",
       title: { en: "USD/KRW below 1,350 by end of March?", kr: "3월 말까지 달러/원 1,350 이하?" },
       description: {
         en: "Will the USD/KRW exchange rate trade below 1,350 before March 31, 2026?",
         kr: "2026년 3월 31일 전에 달러/원 환율이 1,350 아래로 거래될까요?",
       },
-      category: "other",
+      category: "economy",
       status: "open",
       closesAt: new Date(now + 28 * day).toISOString(),
       createdAt: new Date(now - 5 * day).toISOString(),
       resolvedOptionId: null,
     },
+    // ── Entertainment ──
+    {
+      id: "seed-8",
+      title: { en: "BTS full group comeback in 2026?", kr: "BTS 완전체 컴백 2026년 내?" },
+      description: {
+        en: "Will BTS have a full group comeback (all 7 members) before the end of 2026?",
+        kr: "2026년 말까지 BTS 완전체(7명 전원) 컴백이 이루어질까요?",
+      },
+      category: "entertainment",
+      status: "open",
+      closesAt: new Date(now + 270 * day).toISOString(),
+      createdAt: new Date(now - 2 * day).toISOString(),
+      resolvedOptionId: null,
+    },
+    // ── Crypto ──
     {
       id: "seed-9",
-      title: { en: "Bitcoin above $120k before May?", kr: "5월 전 비트코인 $120k 돌파?" },
+      title: { en: "Bitcoin breaks ₩1억 before April?", kr: "비트코인 1억 돌파 4월 전?" },
       description: {
-        en: "Will Bitcoin reach $120,000 USD before May 1, 2026?",
-        kr: "2026년 5월 1일 전에 비트코인이 12만 달러를 돌파할까요?",
+        en: "Will Bitcoin price on Korean exchanges break 100 million KRW before April 1, 2026?",
+        kr: "2026년 4월 1일 전에 국내 거래소 비트코인 가격이 1억원을 돌파할까요?",
       },
-      category: "other",
+      category: "crypto",
+      status: "open",
+      closesAt: new Date(now + 28 * day).toISOString(),
+      createdAt: new Date(now - 1 * day).toISOString(),
+      resolvedOptionId: null,
+    },
+    {
+      id: "seed-10",
+      title: { en: "Ethereum above $5,000 before May?", kr: "5월 전 이더리움 $5,000 돌파?" },
+      description: {
+        en: "Will Ethereum reach $5,000 USD before May 1, 2026?",
+        kr: "2026년 5월 1일 전에 이더리움이 5,000달러를 돌파할까요?",
+      },
+      category: "crypto",
       status: "open",
       closesAt: new Date(now + 55 * day).toISOString(),
       createdAt: new Date(now - 2 * day).toISOString(),
