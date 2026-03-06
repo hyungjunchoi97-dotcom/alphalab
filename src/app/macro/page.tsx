@@ -49,7 +49,6 @@ interface CommodityData {
   id: string;
   label: string;
   labelKr: string;
-  emoji: string;
   unit: string;
   category: string;
   current: number;
@@ -1587,41 +1586,49 @@ export default function MacroPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {fxData.map((pair) => (
-                <button
-                  key={pair.id}
-                  onClick={() => setFxModal(pair)}
-                  className="rounded-xl p-4 text-left transition-colors hover:border-accent/40"
-                  style={{ background: "#111", border: "1px solid #222" }}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base">{pair.flag}</span>
-                    <span className="text-[11px] font-medium" style={{ color: "#aaa" }}>
-                      {lang === "kr" ? pair.labelKr : pair.label}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 text-lg font-bold" style={{ color: "#e8e8e8" }}>
-                    {pair.current >= 100 ? pair.current.toLocaleString(undefined, { maximumFractionDigits: 0 }) : pair.current.toFixed(2)}
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    <span
-                      className="text-[11px] font-medium"
-                      style={{ color: pair.changePercent > 0 ? "#f87171" : pair.changePercent < 0 ? "#4ade80" : "#888" }}
-                    >
-                      {pair.changePercent > 0 ? "+" : ""}{pair.changePercent.toFixed(2)}%
-                    </span>
-                    <span className="text-[10px]" style={{ color: "#555" }}>
-                      ({pair.change > 0 ? "+" : ""}{pair.change >= 100 ? pair.change.toFixed(0) : pair.change.toFixed(2)})
-                    </span>
-                  </div>
-                  <div className="mt-2">
-                    <MiniSparkline
-                      data={pair.sparkline}
-                      color={pair.changePercent >= 0 ? "#f87171" : "#4ade80"}
-                    />
-                  </div>
-                </button>
-              ))}
+              {fxData.map((pair) => {
+                const tag = pair.id === "USDKRW" ? "USD" : pair.id === "JPYKRW" ? "JPY" : pair.id === "CNYKRW" ? "CNY" : pair.id === "EURKRW" ? "EUR" : "CHF";
+                return (
+                  <button
+                    key={pair.id}
+                    onClick={() => setFxModal(pair)}
+                    className="rounded-xl p-4 text-left transition-all hover:border-accent/40"
+                    style={{ background: "#111", border: "1px solid #222" }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide"
+                        style={{ background: "rgba(96,165,250,0.12)", color: "#60a5fa", fontFamily: "monospace" }}
+                      >
+                        {tag}
+                      </span>
+                      <span className="text-[11px] font-medium" style={{ color: "#888" }}>
+                        {lang === "kr" ? pair.labelKr : pair.label}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-lg font-bold" style={{ color: "#e8e8e8" }}>
+                      {pair.current >= 100 ? pair.current.toLocaleString(undefined, { maximumFractionDigits: 0 }) : pair.current.toFixed(4)}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      <span
+                        className="text-[11px] font-medium"
+                        style={{ color: pair.changePercent > 0 ? "#f87171" : pair.changePercent < 0 ? "#4ade80" : "#888" }}
+                      >
+                        {pair.changePercent > 0 ? "+" : ""}{pair.changePercent.toFixed(2)}%
+                      </span>
+                      <span className="text-[10px]" style={{ color: "#555" }}>
+                        ({pair.change > 0 ? "+" : ""}{pair.change >= 100 ? pair.change.toFixed(0) : pair.change.toFixed(2)})
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <MiniSparkline
+                        data={pair.sparkline}
+                        color={pair.changePercent >= 0 ? "#f87171" : "#4ade80"}
+                      />
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1633,7 +1640,7 @@ export default function MacroPage() {
           </h2>
 
           {comLoading ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="rounded-xl p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
                   <div className="h-4 w-20 rounded" style={{ background: "#1a1a1a" }} />
@@ -1652,55 +1659,59 @@ export default function MacroPage() {
                   : cat === "precious"
                   ? (lang === "kr" ? "귀금속" : "Precious Metals")
                   : (lang === "kr" ? "산업금속" : "Industrial Metals");
+                const borderColor = cat === "energy" ? "#fb923c" : cat === "precious" ? "#facc15" : "#60a5fa";
                 return (
                   <div key={cat} className="mb-3">
                     <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#666" }}>
                       {catLabel}
                     </h3>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {items.map((com) => (
                         <div
                           key={com.id}
-                          className="group relative rounded-xl p-4"
-                          style={{ background: "#111", border: "1px solid #222" }}
+                          className="group relative overflow-hidden rounded-xl p-4"
+                          style={{ background: "#111", border: "1px solid #222", borderLeft: `3px solid ${borderColor}` }}
                           onMouseEnter={() => setComTooltip(com.id)}
                           onMouseLeave={() => setComTooltip(null)}
                         >
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-base">{com.emoji}</span>
-                            <span className="text-[11px] font-medium" style={{ color: "#aaa" }}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold" style={{ color: "#ccc" }}>
                               {lang === "kr" ? com.labelKr : com.label}
                             </span>
+                            <span className="text-[10px]" style={{ color: "#555" }}>{com.unit}</span>
                           </div>
-                          <div className="mt-1.5 text-lg font-bold" style={{ color: "#e8e8e8" }}>
-                            ${com.current.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                          </div>
-                          <div className="mt-0.5 text-[10px]" style={{ color: "#555" }}>{com.unit}</div>
-                          <div className="mt-1 flex items-center gap-2">
+                          <div className="mt-1.5 flex items-end justify-between">
                             <div>
-                              <span className="text-[10px]" style={{ color: "#555" }}>{lang === "kr" ? "전일" : "1D"} </span>
-                              <span
-                                className="text-[11px] font-medium"
-                                style={{ color: com.changePercent > 0 ? "#f87171" : com.changePercent < 0 ? "#4ade80" : "#888" }}
-                              >
-                                {com.changePercent > 0 ? "+" : ""}{com.changePercent.toFixed(2)}%
-                              </span>
+                              <div className="text-xl font-bold" style={{ color: "#e8e8e8" }}>
+                                ${com.current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="mt-1 flex items-center gap-3">
+                                <div>
+                                  <span className="text-[10px]" style={{ color: "#555" }}>{lang === "kr" ? "전일" : "1D"} </span>
+                                  <span
+                                    className="text-[11px] font-medium"
+                                    style={{ color: com.changePercent > 0 ? "#f87171" : com.changePercent < 0 ? "#4ade80" : "#888" }}
+                                  >
+                                    {com.changePercent > 0 ? "+" : ""}{com.changePercent.toFixed(2)}%
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[10px]" style={{ color: "#555" }}>{lang === "kr" ? "전주" : "1W"} </span>
+                                  <span
+                                    className="text-[11px] font-medium"
+                                    style={{ color: com.weekChangePercent > 0 ? "#f87171" : com.weekChangePercent < 0 ? "#4ade80" : "#888" }}
+                                  >
+                                    {com.weekChangePercent > 0 ? "+" : ""}{com.weekChangePercent.toFixed(2)}%
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <span className="text-[10px]" style={{ color: "#555" }}>{lang === "kr" ? "전주" : "1W"} </span>
-                              <span
-                                className="text-[11px] font-medium"
-                                style={{ color: com.weekChangePercent > 0 ? "#f87171" : com.weekChangePercent < 0 ? "#4ade80" : "#888" }}
-                              >
-                                {com.weekChangePercent > 0 ? "+" : ""}{com.weekChangePercent.toFixed(2)}%
-                              </span>
+                            <div className="shrink-0">
+                              <MiniSparkline
+                                data={com.sparkline}
+                                color={com.changePercent >= 0 ? "#f87171" : "#4ade80"}
+                              />
                             </div>
-                          </div>
-                          <div className="mt-2">
-                            <MiniSparkline
-                              data={com.sparkline}
-                              color={com.changePercent >= 0 ? "#f87171" : "#4ade80"}
-                            />
                           </div>
                           {/* Tooltip */}
                           {comTooltip === com.id && (
