@@ -743,6 +743,7 @@ export default function MacroPage() {
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<Range>("1Y");
   const [modalId, setModalId] = useState<string | null>(null);
+  const [showExplain, setShowExplain] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -827,9 +828,21 @@ export default function MacroPage() {
         {/* Hero Chart */}
         <div className="mb-4 rounded-xl p-4" style={{ background: "#111111", border: "1px solid #222222" }}>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold" style={{ color: "#e8e8e8" }}>
-              {lang === "kr" ? "순유동성 vs S&P 500" : "Net Liquidity vs S&P 500"}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold" style={{ color: "#e8e8e8" }}>
+                {lang === "kr" ? "순유동성 vs S&P 500" : "Net Liquidity vs S&P 500"}
+              </h2>
+              <button
+                onClick={() => setShowExplain((v) => !v)}
+                className="flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-white/10"
+                style={{ color: showExplain ? "#60a5fa" : "#555" }}
+                title={lang === "kr" ? "해설 보기" : "Show explanation"}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+                </svg>
+              </button>
+            </div>
             <div className="flex gap-1">
               {ranges.map((r) => (
                 <button
@@ -845,6 +858,60 @@ export default function MacroPage() {
                   {r}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Collapsible explanation */}
+          <div
+            className="overflow-hidden transition-all duration-300 ease-in-out"
+            style={{
+              maxHeight: showExplain ? "400px" : "0",
+              opacity: showExplain ? 1 : 0,
+              marginBottom: showExplain ? "12px" : "0",
+            }}
+          >
+            <div
+              className="rounded-lg p-4"
+              style={{
+                background: "rgba(74,222,128,0.03)",
+                border: "1px solid rgba(74,222,128,0.1)",
+                borderLeft: "3px solid rgba(74,222,128,0.4)",
+              }}
+            >
+              <h3 className="mb-2 text-[13px] font-bold" style={{ color: "#e8e8e8" }}>
+                {lang === "kr" ? "왜 순유동성이 중요한가?" : "Why does Net Liquidity matter?"}
+              </h3>
+              <div className="space-y-2 text-[12px] leading-[1.8]" style={{ color: "#bbb" }}>
+                <p>
+                  <span className="font-medium" style={{ color: "#4ade80" }}>
+                    {lang === "kr"
+                      ? "순유동성 = 연준 총자산 − TGA − 역레포"
+                      : "Net Liquidity = Fed Assets − TGA − Reverse Repo"}
+                  </span>
+                </p>
+                <p>
+                  {lang === "kr"
+                    ? "시장에 실제로 풀린 돈의 양입니다. 연준이 돈을 풀면(QE) 순유동성↑, 거두면(QT) 순유동성↓. 역사적으로 S&P500과 강한 양의 상관관계를 보여왔습니다."
+                    : "The actual amount of money flowing in markets. When the Fed injects money (QE), net liquidity rises. When it tightens (QT), it falls. Historically shows strong positive correlation with S&P 500."}
+                </p>
+                <div className="space-y-1">
+                  <p style={{ color: "#4ade80" }}>
+                    {lang === "kr"
+                      ? "✅ 순유동성 증가 → 시중에 돈이 넘침 → 주식 상승 압력"
+                      : "✅ Net Liquidity rising → excess money in markets → upward pressure on stocks"}
+                  </p>
+                  <p style={{ color: "#facc15" }}>
+                    {lang === "kr"
+                      ? "⚠️ 순유동성 감소 → 유동성 긴축 → 주식 하락 압력"
+                      : "⚠️ Net Liquidity falling → liquidity tightening → downward pressure on stocks"}
+                  </p>
+                </div>
+                <p style={{ color: "#999" }}>
+                  {lang === "kr"
+                    ? "현재 연준은 QT(양적긴축) 진행 중. 순유동성 추이를 주간 단위로 모니터링하세요."
+                    : "The Fed is currently running QT. Monitor net liquidity trends on a weekly basis."}
+                </p>
+              </div>
             </div>
           </div>
 
