@@ -135,6 +135,30 @@ export async function GET() {
       seriesMap[SERIES[i].id] = toSeriesResult(SERIES[i].id, SERIES[i].label, SERIES[i].unit, obs);
     }
 
+    // Compute KR CPI YoY %
+    const krCpiObs = seriesMap["KR_CPI"]?.observations || [];
+    if (krCpiObs.length > 12) {
+      const yoyObs: { date: string; value: number }[] = [];
+      for (let i = 12; i < krCpiObs.length; i++) {
+        const cur = krCpiObs[i].value;
+        const prev = krCpiObs[i - 12].value;
+        if (prev > 0) {
+          yoyObs.push({ date: krCpiObs[i].date, value: parseFloat(((cur / prev - 1) * 100).toFixed(2)) });
+        }
+      }
+      const yoyLatest = yoyObs.length > 0 ? yoyObs[yoyObs.length - 1].value : 0;
+      const yoyPrev = yoyObs.length > 1 ? yoyObs[yoyObs.length - 2].value : yoyLatest;
+      seriesMap["KR_CPI_YOY"] = {
+        id: "KR_CPI_YOY",
+        label: "한국 CPI YoY",
+        unit: "%",
+        observations: yoyObs,
+        latest: yoyLatest,
+        previous: yoyPrev,
+        change: yoyLatest - yoyPrev,
+      };
+    }
+
     cache = { data: seriesMap, cachedAt: Date.now() };
     return NextResponse.json({ ok: true, series: seriesMap });
   } catch (err) {

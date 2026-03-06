@@ -41,6 +41,7 @@ const SERIES = [
   { id: "T10Y2Y", label: "10Y-2Y Spread", unit: "%" },
   { id: "CPIAUCSL", label: "CPI", unit: "index" },
   { id: "UNRATE", label: "Unemployment Rate", unit: "%" },
+  { id: "DEXKOUS", label: "USD/KRW", unit: "KRW" },
 ];
 
 // ── Fetch helper ──────────────────────────────────────────────
@@ -142,6 +143,31 @@ export async function GET() {
         SERIES[i].unit,
         obs
       );
+    }
+
+    // Compute CPI YoY %
+    const cpiObs = seriesMap["CPIAUCSL"]?.observations || [];
+    if (cpiObs.length > 12) {
+      const yoyObs: { date: string; value: number }[] = [];
+      for (let i = 12; i < cpiObs.length; i++) {
+        const cur = cpiObs[i].value;
+        const prev = cpiObs[i - 12].value;
+        if (prev > 0) {
+          yoyObs.push({ date: cpiObs[i].date, value: parseFloat(((cur / prev - 1) * 100).toFixed(2)) });
+        }
+      }
+      const yoyLatest = yoyObs.length > 0 ? yoyObs[yoyObs.length - 1].value : 0;
+      const yoyPrev = yoyObs.length > 1 ? yoyObs[yoyObs.length - 2].value : yoyLatest;
+      seriesMap["CPI_YOY"] = {
+        id: "CPI_YOY",
+        label: "CPI YoY",
+        unit: "%",
+        observations: yoyObs,
+        latest: yoyLatest,
+        previous: yoyPrev,
+        change: yoyLatest - yoyPrev,
+        changePercent: yoyPrev !== 0 ? ((yoyLatest - yoyPrev) / Math.abs(yoyPrev)) * 100 : 0,
+      };
     }
 
     const netLiquidity = calcNetLiquidity(
