@@ -24,13 +24,50 @@ interface GuruData {
   lastFiled: string;
 }
 
-// ── Guru avatars / colors ─────────────────────────────────────
+// ── Categories ────────────────────────────────────────────────
 
-const GURU_META: Record<string, { initials: string; bg: string; accent: string }> = {
-  berkshire: { initials: "WB", bg: "#1a1a2e", accent: "#60a5fa" },
-  druckenmiller: { initials: "SD", bg: "#1a2e1a", accent: "#34d399" },
-  ark: { initials: "CW", bg: "#2e1a2e", accent: "#c084fc" },
-  ackman: { initials: "BA", bg: "#2e2a1a", accent: "#fbbf24" },
+interface Category {
+  id: string;
+  labelKr: string;
+  labelEn: string;
+  guruIds: string[];
+  accent: string;
+}
+
+const CATEGORIES: Category[] = [
+  { id: "value", labelKr: "가치투자", labelEn: "Value", guruIds: ["berkshire", "pabrai", "lilu", "spier"], accent: "#60a5fa" },
+  { id: "macro", labelKr: "매크로/글로벌", labelEn: "Macro/Global", guruIds: ["druckenmiller", "dalio", "tudor", "tepper"], accent: "#34d399" },
+  { id: "growth", labelKr: "성장/테크", labelEn: "Growth/Tech", guruIds: ["ark", "laffont", "coleman"], accent: "#c084fc" },
+  { id: "activist", labelKr: "행동주의", labelEn: "Activist", guruIds: ["ackman", "loeb"], accent: "#fbbf24" },
+];
+
+// ── Guru meta (initials, colors, style tag) ───────────────────
+
+interface GuruMeta {
+  initials: string;
+  accent: string;
+  styleKr: string;
+  styleEn: string;
+}
+
+const GURU_META: Record<string, GuruMeta> = {
+  // Value
+  berkshire: { initials: "WB", accent: "#60a5fa", styleKr: "집중 가치투자", styleEn: "Concentrated Value" },
+  pabrai: { initials: "MP", accent: "#60a5fa", styleKr: "딥밸류", styleEn: "Deep Value" },
+  lilu: { initials: "LL", accent: "#60a5fa", styleKr: "버핏 스타일 아시아", styleEn: "Buffett-style Asia" },
+  spier: { initials: "GS", accent: "#60a5fa", styleKr: "가치 클로닝", styleEn: "Value Cloning" },
+  // Macro
+  druckenmiller: { initials: "SD", accent: "#34d399", styleKr: "매크로 트레이딩", styleEn: "Macro Trading" },
+  dalio: { initials: "RD", accent: "#34d399", styleKr: "올웨더 매크로", styleEn: "All-Weather Macro" },
+  tudor: { initials: "PT", accent: "#34d399", styleKr: "글로벌 매크로", styleEn: "Global Macro" },
+  tepper: { initials: "DT", accent: "#34d399", styleKr: "이벤트 드리븐", styleEn: "Event Driven" },
+  // Growth
+  ark: { initials: "CW", accent: "#c084fc", styleKr: "파괴적 혁신", styleEn: "Disruptive Innovation" },
+  laffont: { initials: "PL", accent: "#c084fc", styleKr: "테크 롱숏", styleEn: "Tech Long/Short" },
+  coleman: { initials: "CC", accent: "#c084fc", styleKr: "글로벌 테크", styleEn: "Global Tech" },
+  // Activist
+  ackman: { initials: "BA", accent: "#fbbf24", styleKr: "행동주의 집중투자", styleEn: "Activist Concentrated" },
+  loeb: { initials: "DL", accent: "#fbbf24", styleKr: "행동주의 이벤트", styleEn: "Activist Event" },
 };
 
 function formatValue(v: number): string {
@@ -44,8 +81,6 @@ function formatShares(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toLocaleString();
 }
-
-// ── Sparkline bar chart for weight ────────────────────────────
 
 function WeightBar({ weight, color }: { weight: number; color: string }) {
   return (
@@ -74,7 +109,8 @@ export default function GurusPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const selected = gurus.find((g) => g.id === selectedId) || null;
+  const guruMap = new Map(gurus.map((g) => [g.id, g]));
+  const selected = selectedId ? guruMap.get(selectedId) || null : null;
   const meta = selectedId ? GURU_META[selectedId] : null;
 
   return (
@@ -89,104 +125,133 @@ export default function GurusPage() {
           </h2>
           <p style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
             {lang === "kr"
-              ? "SEC 13F 공시 기반 상위 투자자 포트폴리오 추적"
-              : "Track top investor portfolios via SEC 13F filings"}
+              ? "SEC 13F 공시 기반 13인의 슈퍼 투자자 포트폴리오 추적"
+              : "Track 13 super investor portfolios via SEC 13F filings"}
           </p>
         </div>
 
-        {/* Guru Cards */}
         {loading ? (
           <div style={{ textAlign: "center", padding: 60, color: "#666" }}>
-            <div style={{ fontSize: 14 }}>{lang === "kr" ? "데이터 로딩중..." : "Loading data..."}</div>
+            <div style={{ fontSize: 14 }}>{lang === "kr" ? "13명의 구루 데이터 로딩중..." : "Loading 13 guru portfolios..."}</div>
           </div>
         ) : (
           <>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                gap: 16,
-                marginBottom: 32,
-              }}
-            >
-              {gurus.map((guru) => {
-                const m = GURU_META[guru.id] || { initials: "??", bg: "#1a1a1a", accent: "#888" };
-                const isSelected = selectedId === guru.id;
-                return (
-                  <button
-                    key={guru.id}
-                    onClick={() => {
-                      setSelectedId(isSelected ? null : guru.id);
-                      setTab("holdings");
-                    }}
-                    style={{
-                      background: isSelected ? m.bg : "#111",
-                      border: `1px solid ${isSelected ? m.accent : "#222"}`,
-                      borderRadius: 12,
-                      padding: 20,
-                      textAlign: "left",
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                      outline: "none",
-                    }}
-                  >
-                    {/* Avatar + Info */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                      <div
+            {/* Category sections */}
+            {CATEGORIES.map((cat) => (
+              <div key={cat.id} style={{ marginBottom: 28 }}>
+                {/* Category header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <div style={{ width: 3, height: 18, borderRadius: 2, background: cat.accent }} />
+                  <h3 style={{ fontSize: 14, fontWeight: 600, color: "#e8e8e8", margin: 0 }}>
+                    {lang === "kr" ? cat.labelKr : cat.labelEn}
+                  </h3>
+                  <span style={{ fontSize: 11, color: "#555" }}>({cat.guruIds.length})</span>
+                </div>
+
+                {/* Guru cards grid - 4 columns */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, 1fr)",
+                    gap: 12,
+                  }}
+                  className="guru-grid"
+                >
+                  {cat.guruIds.map((gid) => {
+                    const guru = guruMap.get(gid);
+                    const m = GURU_META[gid] || { initials: "??", accent: "#888", styleKr: "", styleEn: "" };
+                    const isSelected = selectedId === gid;
+                    return (
+                      <button
+                        key={gid}
+                        onClick={() => {
+                          setSelectedId(isSelected ? null : gid);
+                          setTab("holdings");
+                        }}
                         style={{
-                          width: 48,
-                          height: 48,
-                          borderRadius: "50%",
-                          background: `linear-gradient(135deg, ${m.accent}33, ${m.accent}11)`,
-                          border: `2px solid ${m.accent}`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 16,
-                          fontWeight: 700,
-                          color: m.accent,
-                          flexShrink: 0,
+                          background: isSelected ? `${m.accent}08` : "#111",
+                          border: `1px solid ${isSelected ? m.accent : "#222"}`,
+                          borderRadius: 10,
+                          padding: 16,
+                          textAlign: "left",
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                          outline: "none",
                         }}
                       >
-                        {m.initials}
-                      </div>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 15, fontWeight: 600, color: "#fff" }}>{guru.name}</div>
-                        <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{guru.fund}</div>
-                      </div>
-                    </div>
+                        {/* Top row: avatar + name */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                          <div
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: "50%",
+                              background: `linear-gradient(135deg, ${m.accent}33, ${m.accent}11)`,
+                              border: `2px solid ${m.accent}`,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 14,
+                              fontWeight: 700,
+                              color: m.accent,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {m.initials}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {guru?.name || gid}
+                            </div>
+                            <div style={{ fontSize: 11, color: "#666", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {guru?.fund || ""}
+                            </div>
+                          </div>
+                        </div>
 
-                    {/* Stats */}
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
-                      <div>
-                        <div style={{ fontSize: 11, color: "#666", marginBottom: 2 }}>
-                          {lang === "kr" ? "총 자산" : "AUM"}
+                        {/* Style tag */}
+                        <div
+                          style={{
+                            display: "inline-block",
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 500,
+                            background: `${m.accent}15`,
+                            color: m.accent,
+                            marginBottom: 10,
+                          }}
+                        >
+                          {lang === "kr" ? m.styleKr : m.styleEn}
                         </div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: m.accent }}>
-                          {guru.totalValue > 0 ? formatValue(guru.totalValue) : "N/A"}
+
+                        {/* Stats row */}
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 4 }}>
+                          <div>
+                            <div style={{ fontSize: 10, color: "#555" }}>{lang === "kr" ? "AUM" : "AUM"}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: m.accent }}>
+                              {guru && guru.totalValue > 0 ? formatValue(guru.totalValue) : "N/A"}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: "#555" }}>{lang === "kr" ? "종목" : "Holdings"}</div>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: "#ccc" }}>
+                              {guru?.holdings.length || 0}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: "#555" }}>{lang === "kr" ? "공시" : "Filed"}</div>
+                            <div style={{ fontSize: 11, fontWeight: 500, color: "#888" }}>
+                              {guru?.lastFiled?.slice(5) || "—"}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 11, color: "#666", marginBottom: 2 }}>
-                          {lang === "kr" ? "종목 수" : "Holdings"}
-                        </div>
-                        <div style={{ fontSize: 16, fontWeight: 600, color: "#fff" }}>
-                          {guru.holdings.length}
-                        </div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 11, color: "#666", marginBottom: 2 }}>
-                          {lang === "kr" ? "공시일" : "Filed"}
-                        </div>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: "#aaa" }}>
-                          {guru.lastFiled || "—"}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
 
             {/* Portfolio Detail */}
             {selected && meta && (
@@ -196,13 +261,14 @@ export default function GurusPage() {
                   border: `1px solid ${meta.accent}33`,
                   borderRadius: 12,
                   overflow: "hidden",
+                  marginTop: 8,
                 }}
               >
                 {/* Detail Header */}
                 <div
                   style={{
                     padding: "16px 20px",
-                    borderBottom: `1px solid #222`,
+                    borderBottom: "1px solid #222",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
@@ -231,11 +297,24 @@ export default function GurusPage() {
                     <div>
                       <span style={{ fontSize: 15, fontWeight: 600, color: "#fff" }}>{selected.name}</span>
                       <span style={{ fontSize: 12, color: "#888", marginLeft: 8 }}>{selected.fund}</span>
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                          fontSize: 10,
+                          fontWeight: 500,
+                          background: `${meta.accent}15`,
+                          color: meta.accent,
+                        }}
+                      >
+                        {lang === "kr" ? meta.styleKr : meta.styleEn}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Tabs */}
-                  <div style={{ display: "flex", gap: 4 }}>
+                  {/* Tabs + Close */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     {(["holdings", "changes"] as const).map((t) => (
                       <button
                         key={t}
@@ -257,6 +336,21 @@ export default function GurusPage() {
                           : lang === "kr" ? "변동사항" : "Changes"}
                       </button>
                     ))}
+                    <button
+                      onClick={() => setSelectedId(null)}
+                      style={{
+                        marginLeft: 8,
+                        padding: "4px 8px",
+                        borderRadius: 4,
+                        fontSize: 12,
+                        border: "none",
+                        cursor: "pointer",
+                        background: "#222",
+                        color: "#888",
+                      }}
+                    >
+                      X
+                    </button>
                   </div>
                 </div>
 
@@ -322,14 +416,9 @@ export default function GurusPage() {
                             <td style={{ padding: "10px 16px", textAlign: "center" }}>
                               <a
                                 href={`/ideas?ticker=${encodeURIComponent(h.ticker || h.company)}`}
-                                style={{
-                                  fontSize: 11,
-                                  color: meta.accent,
-                                  textDecoration: "none",
-                                  opacity: 0.7,
-                                }}
+                                style={{ fontSize: 11, color: meta.accent, textDecoration: "none", opacity: 0.7 }}
                               >
-                                →
+                                {"→"}
                               </a>
                             </td>
                           </tr>
@@ -338,7 +427,6 @@ export default function GurusPage() {
                     </table>
                   </div>
                 ) : (
-                  /* Changes Tab - Placeholder until we have QoQ data */
                   <div style={{ padding: "40px 20px", textAlign: "center", color: "#666" }}>
                     <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}>
                       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ display: "inline-block" }}>
@@ -369,18 +457,27 @@ export default function GurusPage() {
                     color: "#666",
                   }}
                 >
-                  <span>
-                    {lang === "kr" ? "출처: SEC EDGAR 13F 공시" : "Source: SEC EDGAR 13F Filings"}
-                  </span>
-                  <span>
-                    {lang === "kr" ? "공시일" : "Filed"}: {selected.lastFiled || "—"}
-                  </span>
+                  <span>{lang === "kr" ? "출처: SEC EDGAR 13F 공시" : "Source: SEC EDGAR 13F Filings"}</span>
+                  <span>{lang === "kr" ? "공시일" : "Filed"}: {selected.lastFiled || "—"}</span>
                 </div>
               </div>
             )}
           </>
         )}
       </main>
+
+      {/* Responsive grid CSS */}
+      <style>{`
+        @media (max-width: 1024px) {
+          .guru-grid { grid-template-columns: repeat(3, 1fr) !important; }
+        }
+        @media (max-width: 768px) {
+          .guru-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        @media (max-width: 480px) {
+          .guru-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   );
 }

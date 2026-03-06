@@ -29,10 +29,23 @@ const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 let cache: CacheEntry | null = null;
 
 const GURUS = [
+  // Value
   { id: "berkshire", name: "Warren Buffett", fund: "Berkshire Hathaway", cik: "0001067983" },
+  { id: "pabrai", name: "Mohnish Pabrai", fund: "Pabrai Funds", cik: "0001173334" },
+  { id: "lilu", name: "Li Lu", fund: "Himalaya Capital", cik: "0001709323" },
+  { id: "spier", name: "Guy Spier", fund: "Aquamarine Capital", cik: "0001541996" },
+  // Macro/Global
   { id: "druckenmiller", name: "Stanley Druckenmiller", fund: "Duquesne Family Office", cik: "0001536411" },
+  { id: "dalio", name: "Ray Dalio", fund: "Bridgewater Associates", cik: "0001350694" },
+  { id: "tudor", name: "Paul Tudor Jones", fund: "Tudor Investment", cik: "0000860546" },
+  { id: "tepper", name: "David Tepper", fund: "Appaloosa Management", cik: "0001656456" },
+  // Growth/Tech
   { id: "ark", name: "Cathie Wood", fund: "ARK Invest", cik: "0001697748" },
+  { id: "laffont", name: "Philippe Laffont", fund: "Coatue Management", cik: "0001336532" },
+  { id: "coleman", name: "Chase Coleman", fund: "Tiger Global", cik: "0001167483" },
+  // Activist
   { id: "ackman", name: "Bill Ackman", fund: "Pershing Square", cik: "0001336528" },
+  { id: "loeb", name: "Dan Loeb", fund: "Third Point", cik: "0001040273" },
 ];
 
 const SEC_HEADERS = {
