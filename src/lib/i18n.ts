@@ -105,6 +105,7 @@ export const messages = {
     betLoginRequired: "Login to bet",
     betMin: "Min 10 pts",
     telegram: "Telegram",
+    macro: "Macro",
   },
   kr: {
     dashboard: "대시보드",
@@ -210,6 +211,7 @@ export const messages = {
     betLoginRequired: "로그인 후 베팅",
     betMin: "최소 10 pts",
     telegram: "텔레그램",
+    macro: "매크로",
   },
 } as const;
 

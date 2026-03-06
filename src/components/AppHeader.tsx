@@ -15,6 +15,7 @@ const NAV_ITEMS: { href: string; key: MessageKey }[] = [
   { href: "/predictions", key: "predictions" },
   { href: "/community", key: "community" },
   { href: "/telegram", key: "telegram" },
+  { href: "/macro", key: "macro" },
 ];
 
 export default function AppHeader({
