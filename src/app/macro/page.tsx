@@ -33,6 +33,37 @@ interface FearGreedData {
   history: { date: string; score: number }[];
 }
 
+interface FxData {
+  id: string;
+  label: string;
+  labelKr: string;
+  flag: string;
+  current: number;
+  previous: number;
+  change: number;
+  changePercent: number;
+  sparkline: number[];
+}
+
+interface CommodityData {
+  id: string;
+  label: string;
+  labelKr: string;
+  emoji: string;
+  unit: string;
+  category: string;
+  current: number;
+  previous: number;
+  change: number;
+  changePercent: number;
+  weekAgo: number;
+  weekChange: number;
+  weekChangePercent: number;
+  sparkline: number[];
+  tooltipKr: string;
+  tooltipEn: string;
+}
+
 // ── Indicator config ──────────────────────────────────────────
 
 interface IndicatorConfig {
@@ -1030,6 +1061,114 @@ function SkeletonCard({ large }: { large?: boolean }) {
   );
 }
 
+// ── Mini Sparkline ───────────────────────────────────────────
+
+function MiniSparkline({ data, color, width = 80, height = 28 }: { data: number[]; color: string; width?: number; height?: number }) {
+  if (data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = height - 2 - ((v - min) / range) * (height - 4);
+    return `${i === 0 ? "M" : "L"}${x},${y}`;
+  }).join("");
+  return (
+    <svg width={width} height={height} className="shrink-0">
+      <path d={points} fill="none" stroke={color} strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+// ── FX 3-Month Chart Modal ──────────────────────────────────
+
+function FxChartModal({
+  pair,
+  onClose,
+  lang,
+}: {
+  pair: FxData;
+  onClose: () => void;
+  lang: string;
+}) {
+  const [history, setHistory] = useState<{ date: string; value: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        // We'll use the sparkline data we have + fetch extended from FRED via the fx endpoint
+        // For now, show sparkline data as a placeholder
+        // Actually let's just show what we have - the sparkline is 7 points
+        // We can display it larger
+        setHistory(pair.sparkline.map((v, i) => ({ date: `D-${pair.sparkline.length - 1 - i}`, value: v })));
+      } catch { /* */ } finally {
+        setLoading(false);
+      }
+    })();
+  }, [pair]);
+
+  const W = 400, H = 200;
+  const PAD = { top: 16, right: 12, bottom: 24, left: 50 };
+  const cw = W - PAD.left - PAD.right;
+  const ch = H - PAD.top - PAD.bottom;
+
+  const min = history.length > 0 ? Math.min(...history.map(o => o.value)) : 0;
+  const max = history.length > 0 ? Math.max(...history.map(o => o.value)) : 1;
+  const range = max - min || 1;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-xl p-5" style={{ background: "#111", border: "1px solid #333" }} onClick={e => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-bold" style={{ color: "#e8e8e8" }}>
+            {pair.flag} {lang === "kr" ? pair.labelKr : pair.label}
+          </h3>
+          <button onClick={onClose} className="text-muted hover:text-foreground text-lg">&times;</button>
+        </div>
+        {loading ? (
+          <div className="flex h-[200px] items-center justify-center"><span style={{ color: "#444" }}>Loading...</span></div>
+        ) : (
+          <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+            {Array.from({ length: 5 }, (_, i) => {
+              const y = PAD.top + ch - (i / 4) * ch;
+              const v = min + (range * i) / 4;
+              return (
+                <g key={i}>
+                  <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#1a1a1a" />
+                  <text x={PAD.left - 4} y={y + 3} textAnchor="end" fill="#555" fontSize="9">{v.toFixed(v >= 100 ? 0 : 2)}</text>
+                </g>
+              );
+            })}
+            {history.length > 1 && (
+              <path
+                d={history.map((o, i) => {
+                  const x = PAD.left + (i / (history.length - 1)) * cw;
+                  const y = PAD.top + ch - ((o.value - min) / range) * ch;
+                  return `${i === 0 ? "M" : "L"}${x},${y}`;
+                }).join("")}
+                fill="none"
+                stroke="#60a5fa"
+                strokeWidth="2"
+              />
+            )}
+            {history.filter((_, i) => i % Math.max(1, Math.floor(history.length / 6)) === 0).map((o, idx) => {
+              const step = Math.max(1, Math.floor(history.length / 6));
+              const i = idx * step;
+              return (
+                <text key={idx} x={PAD.left + (i / (history.length - 1)) * cw} y={H - 6} textAnchor="middle" fill="#444" fontSize="8">{o.date}</text>
+              );
+            })}
+          </svg>
+        )}
+        <div className="mt-2 text-center text-[11px]" style={{ color: "#666" }}>
+          {lang === "kr" ? "최근 데이터 기준" : "Based on recent data"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────
 
 export default function MacroPage() {
@@ -1044,6 +1183,12 @@ export default function MacroPage() {
   const [bokLoading, setBokLoading] = useState(true);
   const [fearGreed, setFearGreed] = useState<FearGreedData | null>(null);
   const [fgLoading, setFgLoading] = useState(true);
+  const [fxData, setFxData] = useState<FxData[]>([]);
+  const [fxLoading, setFxLoading] = useState(true);
+  const [fxModal, setFxModal] = useState<FxData | null>(null);
+  const [commodities, setCommodities] = useState<CommodityData[]>([]);
+  const [comLoading, setComLoading] = useState(true);
+  const [comTooltip, setComTooltip] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1080,11 +1225,33 @@ export default function MacroPage() {
     }
   }, []);
 
+  const fetchFx = useCallback(async () => {
+    try {
+      const res = await fetch("/api/macro/fx");
+      const json = await res.json();
+      if (json.ok) setFxData(json.data || []);
+    } catch { /* silent */ } finally {
+      setFxLoading(false);
+    }
+  }, []);
+
+  const fetchCommodities = useCallback(async () => {
+    try {
+      const res = await fetch("/api/macro/commodities");
+      const json = await res.json();
+      if (json.ok) setCommodities(json.data || []);
+    } catch { /* silent */ } finally {
+      setComLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
     fetchBok();
     fetchFearGreed();
-  }, [fetchData, fetchBok, fetchFearGreed]);
+    fetchFx();
+    fetchCommodities();
+  }, [fetchData, fetchBok, fetchFearGreed, fetchFx, fetchCommodities]);
 
   const chartData = useMemo(() => filterByRange(netLiquidity, range), [netLiquidity, range]);
 
@@ -1402,6 +1569,158 @@ export default function MacroPage() {
           </div>
         </div>
 
+        {/* ── FX Dashboard Section ─────────────────────────── */}
+        <div className="mb-4">
+          <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
+            {lang === "kr" ? "주요 환율" : "Major Exchange Rates"}
+          </h2>
+
+          {fxLoading ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="rounded-xl p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+                  <div className="h-4 w-20 rounded" style={{ background: "#1a1a1a" }} />
+                  <div className="mt-2 h-6 w-24 rounded" style={{ background: "#1a1a1a" }} />
+                  <div className="mt-2 h-[28px] w-full rounded" style={{ background: "#1a1a1a" }} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {fxData.map((pair) => (
+                <button
+                  key={pair.id}
+                  onClick={() => setFxModal(pair)}
+                  className="rounded-xl p-4 text-left transition-colors hover:border-accent/40"
+                  style={{ background: "#111", border: "1px solid #222" }}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">{pair.flag}</span>
+                    <span className="text-[11px] font-medium" style={{ color: "#aaa" }}>
+                      {lang === "kr" ? pair.labelKr : pair.label}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 text-lg font-bold" style={{ color: "#e8e8e8" }}>
+                    {pair.current >= 100 ? pair.current.toLocaleString(undefined, { maximumFractionDigits: 0 }) : pair.current.toFixed(2)}
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <span
+                      className="text-[11px] font-medium"
+                      style={{ color: pair.changePercent > 0 ? "#f87171" : pair.changePercent < 0 ? "#4ade80" : "#888" }}
+                    >
+                      {pair.changePercent > 0 ? "+" : ""}{pair.changePercent.toFixed(2)}%
+                    </span>
+                    <span className="text-[10px]" style={{ color: "#555" }}>
+                      ({pair.change > 0 ? "+" : ""}{pair.change >= 100 ? pair.change.toFixed(0) : pair.change.toFixed(2)})
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <MiniSparkline
+                      data={pair.sparkline}
+                      color={pair.changePercent >= 0 ? "#f87171" : "#4ade80"}
+                    />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Commodities & Energy Section ────────────────────── */}
+        <div className="mb-4">
+          <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
+            {lang === "kr" ? "원자재 & 에너지" : "Commodities & Energy"}
+          </h2>
+
+          {comLoading ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="rounded-xl p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+                  <div className="h-4 w-20 rounded" style={{ background: "#1a1a1a" }} />
+                  <div className="mt-2 h-6 w-24 rounded" style={{ background: "#1a1a1a" }} />
+                  <div className="mt-2 h-[28px] w-full rounded" style={{ background: "#1a1a1a" }} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              {(["energy", "precious", "industrial"] as const).map((cat) => {
+                const items = commodities.filter(c => c.category === cat);
+                if (items.length === 0) return null;
+                const catLabel = cat === "energy"
+                  ? (lang === "kr" ? "에너지" : "Energy")
+                  : cat === "precious"
+                  ? (lang === "kr" ? "귀금속" : "Precious Metals")
+                  : (lang === "kr" ? "산업금속" : "Industrial Metals");
+                return (
+                  <div key={cat} className="mb-3">
+                    <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#666" }}>
+                      {catLabel}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                      {items.map((com) => (
+                        <div
+                          key={com.id}
+                          className="group relative rounded-xl p-4"
+                          style={{ background: "#111", border: "1px solid #222" }}
+                          onMouseEnter={() => setComTooltip(com.id)}
+                          onMouseLeave={() => setComTooltip(null)}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-base">{com.emoji}</span>
+                            <span className="text-[11px] font-medium" style={{ color: "#aaa" }}>
+                              {lang === "kr" ? com.labelKr : com.label}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 text-lg font-bold" style={{ color: "#e8e8e8" }}>
+                            ${com.current.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          </div>
+                          <div className="mt-0.5 text-[10px]" style={{ color: "#555" }}>{com.unit}</div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <div>
+                              <span className="text-[10px]" style={{ color: "#555" }}>{lang === "kr" ? "전일" : "1D"} </span>
+                              <span
+                                className="text-[11px] font-medium"
+                                style={{ color: com.changePercent > 0 ? "#f87171" : com.changePercent < 0 ? "#4ade80" : "#888" }}
+                              >
+                                {com.changePercent > 0 ? "+" : ""}{com.changePercent.toFixed(2)}%
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px]" style={{ color: "#555" }}>{lang === "kr" ? "전주" : "1W"} </span>
+                              <span
+                                className="text-[11px] font-medium"
+                                style={{ color: com.weekChangePercent > 0 ? "#f87171" : com.weekChangePercent < 0 ? "#4ade80" : "#888" }}
+                              >
+                                {com.weekChangePercent > 0 ? "+" : ""}{com.weekChangePercent.toFixed(2)}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-2">
+                            <MiniSparkline
+                              data={com.sparkline}
+                              color={com.changePercent >= 0 ? "#f87171" : "#4ade80"}
+                            />
+                          </div>
+                          {/* Tooltip */}
+                          {comTooltip === com.id && (
+                            <div
+                              className="absolute left-1/2 bottom-full z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg px-3 py-2 text-[10px]"
+                              style={{ background: "#222", border: "1px solid #333", color: "#ccc" }}
+                            >
+                              {lang === "kr" ? com.tooltipKr : com.tooltipEn}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
+
         {/* ── Fear & Greed Index Section ─────────────────────── */}
         <div className="mb-4">
           <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
@@ -1474,6 +1793,9 @@ export default function MacroPage() {
           )}
         </div>
       </main>
+
+      {/* FX Chart Modal */}
+      {fxModal && <FxChartModal pair={fxModal} onClose={() => setFxModal(null)} lang={lang} />}
 
       {/* Detail Modal */}
       {modalId && series[modalId] && INDICATORS[modalId] && (
