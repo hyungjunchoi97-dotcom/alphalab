@@ -1,147 +1,342 @@
 "use client";
 
-import { useState } from "react";
-import { ResponsiveContainer, Treemap } from "recharts";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { useLang } from "@/lib/LangContext";
 
-interface HeatmapItem {
+// ── Types ────────────────────────────────────────────────────
+
+interface Stock {
   ticker: string;
   name: string;
-  weight: number;
-  changePct: number;
+  nameKr?: string;
+  cap: number; // market cap weight
+  chg: number; // change %
+  price?: string;
 }
 
-const MOCK_KR: HeatmapItem[] = [
-  { ticker: "005930", name: "Samsung", weight: 25, changePct: 1.2 },
-  { ticker: "000660", name: "SK Hynix", weight: 15, changePct: -0.8 },
-  { ticker: "373220", name: "LG Energy", weight: 10, changePct: 2.1 },
-  { ticker: "035420", name: "Naver", weight: 8, changePct: -1.5 },
-  { ticker: "051910", name: "LG Chem", weight: 7, changePct: 0.3 },
-  { ticker: "006400", name: "Samsung SDI", weight: 6, changePct: -2.0 },
-  { ticker: "035720", name: "Kakao", weight: 5, changePct: 0.9 },
-  { ticker: "068270", name: "Celltrion", weight: 5, changePct: 1.8 },
+interface Sector {
+  name: string;
+  nameKr: string;
+  stocks: Stock[];
+}
+
+// ── Color helper ────────────────────────────────────────────
+
+function changeToBg(chg: number): string {
+  const abs = Math.abs(chg);
+  if (chg >= 3) return "#006400";
+  if (chg >= 2) return "#0a7a0a";
+  if (chg >= 1) return "#1a8c1a";
+  if (chg >= 0.5) return "#2d7a2d";
+  if (chg > 0) return "#3a6b3a";
+  if (chg === 0) return "#3a3a3a";
+  if (chg > -0.5) return "#6b3a3a";
+  if (chg > -1) return "#7a2d2d";
+  if (chg > -2) return "#8c1a1a";
+  if (chg > -3) return "#a00a0a";
+  return "#b40000";
+}
+
+// ── KR Sector Data (50 stocks) ──────────────────────────────
+
+const KR_SECTORS: Sector[] = [
+  {
+    name: "Semiconductors", nameKr: "반도체",
+    stocks: [
+      { ticker: "005930", name: "Samsung", nameKr: "삼성전자", cap: 350, chg: 1.2, price: "72,400" },
+      { ticker: "000660", name: "SK Hynix", nameKr: "SK하이닉스", cap: 120, chg: -0.8, price: "178,500" },
+      { ticker: "042700", name: "Hanmi Semi", nameKr: "한미반도체", cap: 15, chg: 2.3, price: "62,300" },
+      { ticker: "403870", name: "HPSP", nameKr: "HPSP", cap: 12, chg: -1.5, price: "33,200" },
+      { ticker: "058470", name: "Leeno", nameKr: "리노공업", cap: 8, chg: 0.7, price: "142,500" },
+      { ticker: "340360", name: "DB HiTek", nameKr: "다비아이텍", cap: 7, chg: -0.3, price: "45,600" },
+    ],
+  },
+  {
+    name: "Finance", nameKr: "금융",
+    stocks: [
+      { ticker: "055550", name: "Shinhan FG", nameKr: "신한지주", cap: 25, chg: 0.5, price: "52,800" },
+      { ticker: "105560", name: "KB Financial", nameKr: "KB금융", cap: 28, chg: 1.1, price: "78,400" },
+      { ticker: "086790", name: "Hana FG", nameKr: "하나금융", cap: 18, chg: -0.2, price: "56,700" },
+      { ticker: "316140", name: "Woori FG", nameKr: "우리금융", cap: 12, chg: 0.8, price: "15,200" },
+      { ticker: "024110", name: "Industrial BK", nameKr: "기업은행", cap: 10, chg: -0.4, price: "14,800" },
+      { ticker: "034730", name: "SK Inc", nameKr: "SK", cap: 15, chg: -1.2, price: "168,000" },
+    ],
+  },
+  {
+    name: "Automotive", nameKr: "자동차",
+    stocks: [
+      { ticker: "005380", name: "Hyundai Motor", nameKr: "현대차", cap: 55, chg: -1.3, price: "218,000" },
+      { ticker: "000270", name: "Kia", nameKr: "기아", cap: 40, chg: -0.9, price: "95,600" },
+      { ticker: "012330", name: "HMG", nameKr: "현대모비스", cap: 20, chg: 0.4, price: "235,000" },
+      { ticker: "161390", name: "Hankook Tire", nameKr: "한국타이어", cap: 8, chg: 1.5, price: "42,100" },
+    ],
+  },
+  {
+    name: "Chemicals", nameKr: "화학",
+    stocks: [
+      { ticker: "051910", name: "LG Chem", nameKr: "LG화학", cap: 30, chg: 0.3, price: "342,000" },
+      { ticker: "373220", name: "LG Energy", nameKr: "LG에너지", cap: 85, chg: 2.1, price: "378,000" },
+      { ticker: "006400", name: "Samsung SDI", nameKr: "삼성SDI", cap: 25, chg: -2.0, price: "285,000" },
+      { ticker: "096770", name: "SK Innovation", nameKr: "SK이노", cap: 12, chg: -0.6, price: "118,500" },
+      { ticker: "011170", name: "Lotte Chemical", nameKr: "롯데케미칼", cap: 6, chg: -3.2, price: "82,300" },
+    ],
+  },
+  {
+    name: "IT/Internet", nameKr: "IT",
+    stocks: [
+      { ticker: "035420", name: "Naver", nameKr: "네이버", cap: 45, chg: -1.5, price: "198,000" },
+      { ticker: "035720", name: "Kakao", nameKr: "카카오", cap: 25, chg: 0.9, price: "42,300" },
+      { ticker: "036570", name: "NC Soft", nameKr: "엔씨소프트", cap: 10, chg: -2.8, price: "168,500" },
+      { ticker: "259960", name: "Krafton", nameKr: "크래프톤", cap: 18, chg: 1.4, price: "265,000" },
+      { ticker: "263750", name: "Pearl Abyss", nameKr: "펄어비스", cap: 5, chg: 3.5, price: "38,200" },
+    ],
+  },
+  {
+    name: "Bio/Pharma", nameKr: "바이오",
+    stocks: [
+      { ticker: "068270", name: "Celltrion", nameKr: "셀트리온", cap: 35, chg: 1.8, price: "185,000" },
+      { ticker: "207940", name: "Samsung Bio", nameKr: "삼성바이오", cap: 50, chg: 0.6, price: "812,000" },
+      { ticker: "326030", name: "SK Biopharm", nameKr: "SK바이오팜", cap: 10, chg: -1.1, price: "78,400" },
+      { ticker: "145020", name: "Hugel", nameKr: "휴젤", cap: 8, chg: 2.5, price: "165,000" },
+      { ticker: "141080", name: "Regen Biotech", nameKr: "레고켐바이오", cap: 6, chg: -0.8, price: "52,600" },
+    ],
+  },
+  {
+    name: "Steel/Shipbuilding", nameKr: "철강/조선",
+    stocks: [
+      { ticker: "005490", name: "POSCO", nameKr: "포스코홀딩스", cap: 30, chg: -0.7, price: "315,000" },
+      { ticker: "009540", name: "HD Hyundai", nameKr: "HD현대", cap: 15, chg: 1.9, price: "72,800" },
+      { ticker: "329180", name: "HD Korea Shipbuilding", nameKr: "HD한국조선해양", cap: 12, chg: 2.8, price: "165,500" },
+      { ticker: "010140", name: "Samsung Heavy", nameKr: "삼성중공업", cap: 8, chg: 1.2, price: "11,850" },
+    ],
+  },
+  {
+    name: "Consumer/Retail", nameKr: "소비재",
+    stocks: [
+      { ticker: "051900", name: "LG H&H", nameKr: "LG생활건강", cap: 12, chg: -1.8, price: "358,000" },
+      { ticker: "090430", name: "Amore Pacific", nameKr: "아모레퍼시픽", cap: 8, chg: -2.3, price: "98,700" },
+      { ticker: "004990", name: "Lotte", nameKr: "롯데지주", cap: 5, chg: 0.4, price: "28,500" },
+      { ticker: "030200", name: "KT", nameKr: "KT", cap: 10, chg: 0.2, price: "38,400" },
+      { ticker: "017670", name: "SK Telecom", nameKr: "SK텔레콤", cap: 14, chg: 0.6, price: "53,200" },
+      { ticker: "032830", name: "Samsung Life", nameKr: "삼성생명", cap: 12, chg: -0.5, price: "82,300" },
+    ],
+  },
 ];
 
-const MOCK_US: HeatmapItem[] = [
-  { ticker: "AAPL", name: "Apple", weight: 20, changePct: 0.8 },
-  { ticker: "MSFT", name: "Microsoft", weight: 18, changePct: 1.5 },
-  { ticker: "NVDA", name: "NVIDIA", weight: 15, changePct: 3.2 },
-  { ticker: "GOOGL", name: "Alphabet", weight: 12, changePct: -0.3 },
-  { ticker: "AMZN", name: "Amazon", weight: 10, changePct: -1.1 },
-  { ticker: "META", name: "Meta", weight: 8, changePct: 2.0 },
-  { ticker: "TSLA", name: "Tesla", weight: 7, changePct: -2.5 },
-  { ticker: "BRK.B", name: "Berkshire", weight: 5, changePct: 0.4 },
+// ── US Sector Data (50 stocks) ──────────────────────────────
+
+const US_SECTORS: Sector[] = [
+  {
+    name: "Technology", nameKr: "기술",
+    stocks: [
+      { ticker: "AAPL", name: "Apple", cap: 300, chg: 0.8, price: "$228.50" },
+      { ticker: "MSFT", name: "Microsoft", cap: 280, chg: 1.5, price: "$425.80" },
+      { ticker: "NVDA", name: "NVIDIA", cap: 250, chg: 3.2, price: "$138.50" },
+      { ticker: "AVGO", name: "Broadcom", cap: 80, chg: 1.8, price: "$178.20" },
+      { ticker: "ORCL", name: "Oracle", cap: 50, chg: -0.5, price: "$168.40" },
+      { ticker: "CRM", name: "Salesforce", cap: 35, chg: -1.2, price: "$268.30" },
+      { ticker: "AMD", name: "AMD", cap: 30, chg: 2.5, price: "$118.90" },
+      { ticker: "INTC", name: "Intel", cap: 18, chg: -3.1, price: "$22.40" },
+    ],
+  },
+  {
+    name: "Communication", nameKr: "커뮤니케이션",
+    stocks: [
+      { ticker: "GOOGL", name: "Alphabet", cap: 200, chg: -0.3, price: "$178.50" },
+      { ticker: "META", name: "Meta", cap: 150, chg: 2.0, price: "$598.20" },
+      { ticker: "NFLX", name: "Netflix", cap: 40, chg: 1.2, price: "$925.60" },
+      { ticker: "DIS", name: "Disney", cap: 25, chg: -0.8, price: "$112.30" },
+      { ticker: "CMCSA", name: "Comcast", cap: 18, chg: 0.3, price: "$38.50" },
+    ],
+  },
+  {
+    name: "Consumer", nameKr: "소비재",
+    stocks: [
+      { ticker: "AMZN", name: "Amazon", cap: 200, chg: -1.1, price: "$198.50" },
+      { ticker: "TSLA", name: "Tesla", cap: 85, chg: -2.5, price: "$285.40" },
+      { ticker: "HD", name: "Home Depot", cap: 40, chg: 0.7, price: "$392.10" },
+      { ticker: "MCD", name: "McDonald's", cap: 30, chg: 0.4, price: "$298.60" },
+      { ticker: "NKE", name: "Nike", cap: 18, chg: -1.8, price: "$72.30" },
+      { ticker: "SBUX", name: "Starbucks", cap: 15, chg: -0.6, price: "$98.40" },
+      { ticker: "COST", name: "Costco", cap: 38, chg: 0.9, price: "$925.80" },
+    ],
+  },
+  {
+    name: "Financial", nameKr: "금융",
+    stocks: [
+      { ticker: "BRK.B", name: "Berkshire", cap: 90, chg: 0.4, price: "$468.20" },
+      { ticker: "JPM", name: "JP Morgan", cap: 70, chg: 1.1, price: "$245.80" },
+      { ticker: "V", name: "Visa", cap: 55, chg: 0.6, price: "$312.40" },
+      { ticker: "MA", name: "Mastercard", cap: 45, chg: 0.8, price: "$528.60" },
+      { ticker: "BAC", name: "BofA", cap: 30, chg: -0.3, price: "$42.10" },
+      { ticker: "GS", name: "Goldman", cap: 20, chg: 1.5, price: "$585.30" },
+    ],
+  },
+  {
+    name: "Healthcare", nameKr: "헬스케어",
+    stocks: [
+      { ticker: "LLY", name: "Eli Lilly", cap: 80, chg: 1.9, price: "$812.50" },
+      { ticker: "UNH", name: "UnitedHealth", cap: 60, chg: -0.5, price: "$528.40" },
+      { ticker: "JNJ", name: "J&J", cap: 45, chg: 0.3, price: "$158.90" },
+      { ticker: "ABBV", name: "AbbVie", cap: 35, chg: -1.2, price: "$192.30" },
+      { ticker: "PFE", name: "Pfizer", cap: 20, chg: -2.1, price: "$25.80" },
+      { ticker: "MRK", name: "Merck", cap: 30, chg: 0.7, price: "$98.60" },
+    ],
+  },
+  {
+    name: "Energy", nameKr: "에너지",
+    stocks: [
+      { ticker: "XOM", name: "Exxon", cap: 50, chg: -0.9, price: "$108.50" },
+      { ticker: "CVX", name: "Chevron", cap: 35, chg: -0.6, price: "$152.30" },
+      { ticker: "COP", name: "ConocoPhillips", cap: 18, chg: -1.4, price: "$98.20" },
+      { ticker: "SLB", name: "SLB", cap: 10, chg: 0.5, price: "$42.80" },
+    ],
+  },
+  {
+    name: "Industrial", nameKr: "산업재",
+    stocks: [
+      { ticker: "GE", name: "GE Aero", cap: 30, chg: 1.3, price: "$198.40" },
+      { ticker: "CAT", name: "Caterpillar", cap: 25, chg: 0.6, price: "$362.10" },
+      { ticker: "RTX", name: "RTX", cap: 20, chg: -0.4, price: "$128.50" },
+      { ticker: "BA", name: "Boeing", cap: 15, chg: -2.8, price: "$172.30" },
+      { ticker: "HON", name: "Honeywell", cap: 18, chg: 0.2, price: "$212.40" },
+      { ticker: "UPS", name: "UPS", cap: 12, chg: -1.5, price: "$128.60" },
+    ],
+  },
 ];
 
-const MOCK_JP: HeatmapItem[] = [
-  { ticker: "7203", name: "Toyota", weight: 20, changePct: 0.5 },
-  { ticker: "6758", name: "Sony", weight: 15, changePct: 1.2 },
-  { ticker: "6861", name: "Keyence", weight: 10, changePct: -0.7 },
-  { ticker: "8306", name: "MUFG", weight: 8, changePct: 0.3 },
-  { ticker: "6098", name: "Recruit", weight: 7, changePct: -1.8 },
-  { ticker: "9984", name: "SoftBank", weight: 7, changePct: 2.4 },
-  { ticker: "6501", name: "Hitachi", weight: 6, changePct: 0.9 },
-  { ticker: "7741", name: "HOYA", weight: 5, changePct: -0.2 },
-];
+type Market = "KR" | "US";
 
-type Market = "KR" | "US" | "JP";
-
-const MARKET_DATA: Record<Market, HeatmapItem[]> = {
-  KR: MOCK_KR,
-  US: MOCK_US,
-  JP: MOCK_JP,
+const MARKET_SECTORS: Record<Market, Sector[]> = {
+  KR: KR_SECTORS,
+  US: US_SECTORS,
 };
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-function CustomContent(props: any) {
-  const { x, y, width, height, depth, name, ticker, changePct } = props;
+// ── Tooltip state ──────────────────────────────────────────
 
-  if (depth === 0) return <g />;
-
-  const pct = changePct as number;
-  const alpha = Math.min(0.25 + Math.abs(pct) * 0.12, 0.85);
-  const fill =
-    pct >= 0 ? `rgba(34, 197, 94, ${alpha})` : `rgba(239, 68, 68, ${alpha})`;
-
-  const showText = width > 45 && height > 28;
-
-  return (
-    <g>
-      <rect
-        x={x}
-        y={y}
-        width={width}
-        height={height}
-        fill={fill}
-        stroke="#0b0f14"
-        strokeWidth={1}
-        rx={2}
-      />
-      {showText && (
-        <>
-          <text
-            x={x + width / 2}
-            y={y + height / 2 - 10}
-            textAnchor="middle"
-            fill="#fff"
-            fontSize={10}
-            fontWeight={600}
-            fontFamily="ui-monospace, monospace"
-          >
-            {name}
-          </text>
-          <text
-            x={x + width / 2}
-            y={y + height / 2 + 2}
-            textAnchor="middle"
-            fill="rgba(255,255,255,0.7)"
-            fontSize={9}
-            fontWeight={500}
-            fontFamily="ui-monospace, monospace"
-          >
-            {ticker}
-          </text>
-          <text
-            x={x + width / 2}
-            y={y + height / 2 + 14}
-            textAnchor="middle"
-            fill="rgba(255,255,255,0.85)"
-            fontSize={9}
-            fontWeight={500}
-            fontFamily="ui-monospace, monospace"
-          >
-            {pct >= 0 ? "+" : ""}
-            {pct.toFixed(1)}%
-          </text>
-        </>
-      )}
-      {/* Invisible rect for tooltip hover area */}
-      <title>
-        {name} ({ticker}) {pct >= 0 ? "+" : ""}
-        {pct.toFixed(2)}%
-      </title>
-    </g>
-  );
+interface TooltipData {
+  name: string;
+  nameKr?: string;
+  ticker: string;
+  chg: number;
+  price?: string;
+  x: number;
+  y: number;
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
+
+// ── Treemap layout (squarified) ────────────────────────────
+
+interface Rect { x: number; y: number; w: number; h: number; }
+interface LayoutItem extends Stock { rect: Rect; }
+
+function squarify(items: { cap: number }[], container: Rect): Rect[] {
+  const total = items.reduce((s, i) => s + i.cap, 0);
+  if (total === 0 || items.length === 0) return items.map(() => ({ x: 0, y: 0, w: 0, h: 0 }));
+
+  const rects: Rect[] = new Array(items.length);
+  const indices = items.map((_, i) => i).sort((a, b) => items[b].cap - items[a].cap);
+
+  let cx = container.x, cy = container.y, cw = container.w, ch = container.h;
+  let remaining = total;
+  let i = 0;
+
+  while (i < indices.length) {
+    const isWide = cw >= ch;
+    const side = isWide ? ch : cw;
+    const areaScale = (cw * ch) / remaining;
+
+    // Find best row
+    let rowArea = 0;
+    let bestWorst = Infinity;
+    let rowEnd = i;
+
+    for (let j = i; j < indices.length; j++) {
+      const newArea = rowArea + items[indices[j]].cap * areaScale;
+      const rowLen = newArea / side;
+      const minItem = items[indices[j]].cap * areaScale;
+      const maxItem = items[indices[i]].cap * areaScale;
+      const worst = Math.max(
+        (side * side * maxItem) / (newArea * newArea),
+        (newArea * newArea) / (side * side * minItem)
+      );
+      if (worst <= bestWorst) {
+        bestWorst = worst;
+        rowArea = newArea;
+        rowEnd = j + 1;
+      } else break;
+    }
+
+    // Lay out row
+    const rowLen = rowArea / side;
+    let offset = 0;
+    for (let j = i; j < rowEnd; j++) {
+      const itemArea = items[indices[j]].cap * areaScale;
+      const itemLen = itemArea / rowLen;
+      if (isWide) {
+        rects[indices[j]] = { x: cx, y: cy + offset, w: rowLen, h: itemLen };
+      } else {
+        rects[indices[j]] = { x: cx + offset, y: cy, w: itemLen, h: rowLen };
+      }
+      offset += itemLen;
+    }
+
+    remaining -= rowArea / areaScale;
+    if (isWide) { cx += rowLen; cw -= rowLen; }
+    else { cy += rowLen; ch -= rowLen; }
+    i = rowEnd;
+  }
+
+  return rects;
+}
+
+// ── Component ──────────────────────────────────────────────
 
 export default function HeatmapTreemap() {
   const [activeMarket, setActiveMarket] = useState<Market>("KR");
+  const [tooltip, setTooltip] = useState<TooltipData | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { lang } = useLang();
 
-  const items = MARKET_DATA[activeMarket];
-  const treemapData = items.map((item) => ({
-    name: item.name,
-    value: item.weight,
-    ticker: item.ticker,
-    changePct: item.changePct,
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setContainerWidth(el.clientWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const sectors = MARKET_SECTORS[activeMarket];
+
+  // Calculate total cap for sector-level layout
+  const sectorCaps = sectors.map((s) => ({
+    cap: s.stocks.reduce((sum, st) => sum + st.cap, 0),
   }));
+
+  const handleMouseMove = useCallback((e: React.MouseEvent, data: TooltipData) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    setTooltip({
+      ...data,
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setTooltip(null);
+  }, []);
 
   return (
     <div>
       <div className="mb-3 inline-flex gap-px rounded bg-card-border p-px">
-        {(["KR", "US", "JP"] as const).map((m) => (
+        {(["KR", "US"] as const).map((m) => (
           <button
             key={m}
-            onClick={() => setActiveMarket(m)}
+            onClick={() => { setActiveMarket(m); setTooltip(null); }}
             className={`px-3 py-1 text-xs font-medium transition-colors ${
               activeMarket === m
                 ? "bg-accent text-white"
@@ -152,25 +347,197 @@ export default function HeatmapTreemap() {
           </button>
         ))}
       </div>
-      <ResponsiveContainer width="100%" height={300}>
-        <Treemap
-          data={treemapData}
-          dataKey="value"
-          content={<CustomContent />}
-          isAnimationActive={false}
+
+      <div ref={containerRef} className="relative select-none" style={{ height: 400 }}>
+        <SectorTreemap
+          sectors={sectors}
+          sectorCaps={sectorCaps}
+          width={containerWidth}
+          height={400}
+          lang={lang}
+          onHover={handleMouseMove}
+          onLeave={handleMouseLeave}
         />
-      </ResponsiveContainer>
-      <div className="mt-2 flex items-center gap-3 text-[10px] text-muted">
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-3 rounded-sm bg-gain/60" />
-          Up
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-3 rounded-sm bg-loss/60" />
-          Down
-        </span>
-        <span className="ml-auto">Hover for details</span>
+
+        {/* Tooltip */}
+        {tooltip && (
+          <div
+            className="pointer-events-none absolute z-50 rounded-lg border border-card-border bg-card-bg px-3 py-2 shadow-xl"
+            style={{
+              left: Math.min(tooltip.x + 12, (containerRef.current?.clientWidth || 800) - 180),
+              top: Math.max(tooltip.y - 60, 0),
+            }}
+          >
+            <div className="text-[11px] font-semibold">
+              {lang === "kr" && tooltip.nameKr ? tooltip.nameKr : tooltip.name}
+            </div>
+            <div className="text-[10px] text-muted">{tooltip.ticker}</div>
+            {tooltip.price && (
+              <div className="mt-0.5 text-[10px] tabular-nums text-foreground/80">{tooltip.price}</div>
+            )}
+            <div className={`mt-0.5 text-[11px] font-bold tabular-nums ${tooltip.chg >= 0 ? "text-gain" : "text-loss"}`}>
+              {tooltip.chg >= 0 ? "+" : ""}{tooltip.chg.toFixed(2)}%
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-2 flex items-center gap-1 text-[9px] text-muted">
+        <div className="flex items-center gap-px">
+          {[-3, -2, -1, 0, 1, 2, 3].map((v) => (
+            <div
+              key={v}
+              className="h-2.5 w-4 first:rounded-l last:rounded-r"
+              style={{ backgroundColor: changeToBg(v) }}
+            />
+          ))}
+        </div>
+        <span className="ml-1">-3%</span>
+        <span className="ml-auto">+3%</span>
       </div>
     </div>
+  );
+}
+
+// ── Sector Treemap renderer ────────────────────────────────
+
+function SectorTreemap({
+  sectors,
+  sectorCaps,
+  width,
+  height,
+  lang,
+  onHover,
+  onLeave,
+}: {
+  sectors: Sector[];
+  sectorCaps: { cap: number }[];
+  width: number;
+  height: number;
+  lang: "en" | "kr";
+  onHover: (e: React.MouseEvent, data: TooltipData) => void;
+  onLeave: () => void;
+}) {
+  if (width <= 0) return null;
+
+  // Layout sectors
+  const sectorRects = squarify(sectorCaps, { x: 0, y: 0, w: width, h: height });
+
+  return (
+    <svg width={width} height={height} className="block">
+      {sectors.map((sector, si) => {
+        const sr = sectorRects[si];
+        if (!sr || sr.w < 2 || sr.h < 2) return null;
+
+        // Inset for sector border
+        const pad = 1;
+        const innerRect = { x: sr.x + pad, y: sr.y + pad, w: sr.w - pad * 2, h: sr.h - pad * 2 };
+
+        // Sector label height
+        const labelH = innerRect.h > 20 ? 14 : 0;
+        const stockRect = { x: innerRect.x, y: innerRect.y + labelH, w: innerRect.w, h: innerRect.h - labelH };
+
+        // Layout stocks within sector
+        const stockRects = squarify(
+          sector.stocks.map((s) => ({ cap: s.cap })),
+          stockRect
+        );
+
+        return (
+          <g key={sector.name}>
+            {/* Sector background */}
+            <rect x={sr.x} y={sr.y} width={sr.w} height={sr.h} fill="#1a1a1a" stroke="#0b0f14" strokeWidth={2} />
+
+            {/* Sector label */}
+            {labelH > 0 && innerRect.w > 30 && (
+              <text
+                x={innerRect.x + 4}
+                y={innerRect.y + 10}
+                fill="#888"
+                fontSize={9}
+                fontWeight={600}
+                fontFamily="ui-sans-serif, system-ui, sans-serif"
+              >
+                {lang === "kr" ? sector.nameKr : sector.name}
+              </text>
+            )}
+
+            {/* Stock cells */}
+            {sector.stocks.map((stock, idx) => {
+              const r = stockRects[idx];
+              if (!r || r.w < 1 || r.h < 1) return null;
+
+              const showTicker = r.w > 30 && r.h > 18;
+              const showChg = r.w > 30 && r.h > 30;
+              const showName = r.w > 55 && r.h > 42;
+
+              return (
+                <g
+                  key={stock.ticker}
+                  onMouseMove={(e) => onHover(e, {
+                    name: stock.name,
+                    nameKr: stock.nameKr,
+                    ticker: stock.ticker,
+                    chg: stock.chg,
+                    price: stock.price,
+                    x: 0, y: 0,
+                  })}
+                  onMouseLeave={onLeave}
+                  className="cursor-pointer"
+                >
+                  <rect
+                    x={r.x}
+                    y={r.y}
+                    width={r.w}
+                    height={r.h}
+                    fill={changeToBg(stock.chg)}
+                    stroke="#0b0f14"
+                    strokeWidth={1}
+                  />
+                  {showTicker && (
+                    <text
+                      x={r.x + r.w / 2}
+                      y={r.y + r.h / 2 + (showChg ? (showName ? -8 : -4) : 4)}
+                      textAnchor="middle"
+                      fill="#fff"
+                      fontSize={r.w > 60 ? 10 : 8}
+                      fontWeight={700}
+                      fontFamily="ui-monospace, monospace"
+                    >
+                      {stock.ticker}
+                    </text>
+                  )}
+                  {showName && (
+                    <text
+                      x={r.x + r.w / 2}
+                      y={r.y + r.h / 2 + 3}
+                      textAnchor="middle"
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize={8}
+                      fontFamily="ui-sans-serif, system-ui, sans-serif"
+                    >
+                      {lang === "kr" && stock.nameKr ? stock.nameKr : stock.name}
+                    </text>
+                  )}
+                  {showChg && (
+                    <text
+                      x={r.x + r.w / 2}
+                      y={r.y + r.h / 2 + (showName ? 14 : 8)}
+                      textAnchor="middle"
+                      fill="rgba(255,255,255,0.9)"
+                      fontSize={r.w > 60 ? 10 : 8}
+                      fontWeight={600}
+                      fontFamily="ui-monospace, monospace"
+                    >
+                      {stock.chg >= 0 ? "+" : ""}{stock.chg.toFixed(1)}%
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+    </svg>
   );
 }
