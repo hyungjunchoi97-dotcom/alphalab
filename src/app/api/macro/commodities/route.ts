@@ -9,7 +9,7 @@ interface CommodityConfig {
   label: string;
   labelKr: string;
   unit: string;
-  category: "energy" | "precious" | "industrial";
+  category: "energy" | "precious" | "industrial" | "battery";
   yahooId: string;
   tooltipKr: string;
   tooltipEn: string;
@@ -23,10 +23,22 @@ const COMMODITIES: CommodityConfig[] = [
     tooltipEn: "Key indicator for Korea's energy imports",
   },
   {
+    id: "BRENT", label: "Brent Crude", labelKr: "브렌트유",
+    unit: "$/bbl", category: "energy", yahooId: "BZ=F",
+    tooltipKr: "국제 원유 벤치마크 (유럽/아시아)",
+    tooltipEn: "International crude oil benchmark (Europe/Asia)",
+  },
+  {
     id: "NATGAS", label: "Natural Gas", labelKr: "천연가스",
     unit: "$/MMBtu", category: "energy", yahooId: "NG=F",
     tooltipKr: "LNG 수입국 한국 직접 영향",
     tooltipEn: "Direct impact on Korea as major LNG importer",
+  },
+  {
+    id: "GASOLINE", label: "Gasoline (RBOB)", labelKr: "휘발유",
+    unit: "$/gal", category: "energy", yahooId: "RB=F",
+    tooltipKr: "정유업종 마진 및 소비자 물가 영향",
+    tooltipEn: "Refining margins and consumer price indicator",
   },
   {
     id: "GOLD", label: "Gold", labelKr: "금",
@@ -41,10 +53,34 @@ const COMMODITIES: CommodityConfig[] = [
     tooltipEn: "Dual demand: industrial + precious metal",
   },
   {
+    id: "PLATINUM", label: "Platinum", labelKr: "백금",
+    unit: "$/oz", category: "precious", yahooId: "PL=F",
+    tooltipKr: "자동차 촉매 및 산업용 귀금속",
+    tooltipEn: "Automotive catalyst and industrial precious metal",
+  },
+  {
+    id: "PALLADIUM", label: "Palladium", labelKr: "팔라듐",
+    unit: "$/oz", category: "precious", yahooId: "PA=F",
+    tooltipKr: "자동차 배기가스 촉매 핵심 소재",
+    tooltipEn: "Key material for automotive catalytic converters",
+  },
+  {
     id: "COPPER", label: "Copper", labelKr: "구리",
     unit: "$/lb", category: "industrial", yahooId: "HG=F",
     tooltipKr: "글로벌 경기 선행지표 (닥터 쿠퍼)",
     tooltipEn: "Global economic leading indicator (Dr. Copper)",
+  },
+  {
+    id: "ALUMINUM", label: "Aluminum", labelKr: "알루미늄",
+    unit: "$/ton", category: "industrial", yahooId: "ALI=F",
+    tooltipKr: "경량화 트렌드 핵심 소재 (자동차/항공)",
+    tooltipEn: "Key lightweight material (auto/aerospace)",
+  },
+  {
+    id: "LITHIUM", label: "Lithium ETF (LIT)", labelKr: "리튬 ETF",
+    unit: "$", category: "battery", yahooId: "LIT",
+    tooltipKr: "2차전지 핵심 소재 (EV/ESS 수요)",
+    tooltipEn: "Key battery material (EV/ESS demand)",
   },
 ];
 

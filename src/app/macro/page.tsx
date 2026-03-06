@@ -1651,15 +1651,17 @@ export default function MacroPage() {
             </div>
           ) : (
             <>
-              {(["energy", "precious", "industrial"] as const).map((cat) => {
+              {(["energy", "precious", "industrial", "battery"] as const).map((cat) => {
                 const items = commodities.filter(c => c.category === cat);
                 if (items.length === 0) return null;
                 const catLabel = cat === "energy"
                   ? (lang === "kr" ? "에너지" : "Energy")
                   : cat === "precious"
                   ? (lang === "kr" ? "귀금속" : "Precious Metals")
-                  : (lang === "kr" ? "산업금속" : "Industrial Metals");
-                const borderColor = cat === "energy" ? "#fb923c" : cat === "precious" ? "#facc15" : "#60a5fa";
+                  : cat === "industrial"
+                  ? (lang === "kr" ? "산업금속" : "Industrial Metals")
+                  : (lang === "kr" ? "배터리/EV" : "Battery/EV");
+                const borderColor = cat === "energy" ? "#fb923c" : cat === "precious" ? "#facc15" : cat === "industrial" ? "#60a5fa" : "#a78bfa";
                 return (
                   <div key={cat} className="mb-3">
                     <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#666" }}>
