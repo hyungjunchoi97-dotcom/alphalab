@@ -1,37 +1,19 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import { useLang } from "@/lib/LangContext";
-import { KR_SECTORS } from "./HeatmapTreemap";
 
-interface Mover {
-  rank: number;
+interface MoverItem {
+  code: string;
   name: string;
-  nameKr?: string;
-  ticker: string;
-  price: string;
-  changePct: number;
+  price: number;
+  changeRate: number;
+  volume: number;
+  tradingValue: number;
 }
 
-// Extract all KR stocks, sorted for gainers/losers
-function getMovers(): { gainers: Mover[]; losers: Mover[] } {
-  const all = KR_SECTORS.flatMap((s) =>
-    s.stocks.map((st) => ({
-      name: st.name,
-      nameKr: st.nameKr,
-      ticker: st.ticker,
-      price: st.price || "",
-      changePct: st.chg,
-    }))
-  );
-
-  const sorted = [...all].sort((a, b) => b.changePct - a.changePct);
-  const gainers = sorted.slice(0, 5).map((m, i) => ({ ...m, rank: i + 1 }));
-  const losers = sorted
-    .slice(-5)
-    .reverse()
-    .map((m, i) => ({ ...m, rank: i + 1 }));
-
-  return { gainers, losers };
+function formatPrice(price: number): string {
+  return price.toLocaleString("ko-KR");
 }
 
 function MoverTable({
@@ -40,7 +22,7 @@ function MoverTable({
   lang,
 }: {
   title: string;
-  data: Mover[];
+  data: MoverItem[];
   lang: "en" | "kr";
 }) {
   return (
@@ -59,25 +41,25 @@ function MoverTable({
             </tr>
           </thead>
           <tbody>
-            {data.map((m) => (
+            {data.map((m, i) => (
               <tr
-                key={m.ticker}
+                key={m.code}
                 className="border-b border-card-border/30 hover:bg-card-border/20"
               >
-                <td className="py-1 font-mono text-muted">{m.rank}</td>
+                <td className="py-1 font-mono text-muted">{i + 1}</td>
                 <td className="py-1">
-                  <span>{lang === "kr" && m.nameKr ? m.nameKr : m.name}</span>
+                  <span className="truncate">{m.name}</span>
                 </td>
                 <td className="py-1 text-right font-mono tabular-nums">
-                  {m.price}
+                  {formatPrice(m.price)}
                 </td>
                 <td
                   className={`py-1 text-right tabular-nums font-medium ${
-                    m.changePct >= 0 ? "text-gain" : "text-loss"
+                    m.changeRate >= 0 ? "text-gain" : "text-loss"
                   }`}
                 >
-                  {m.changePct >= 0 ? "+" : ""}
-                  {m.changePct.toFixed(1)}%
+                  {m.changeRate >= 0 ? "+" : ""}
+                  {m.changeRate.toFixed(2)}%
                 </td>
               </tr>
             ))}
@@ -90,20 +72,85 @@ function MoverTable({
 
 export default function KoreaMovers() {
   const { lang } = useLang();
-  const { gainers, losers } = getMovers();
+  const [gainers, setGainers] = useState<MoverItem[]>([]);
+  const [losers, setLosers] = useState<MoverItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [asOf, setAsOf] = useState<string>("");
+  const [source, setSource] = useState<string>("");
+
+  const fetchMovers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/krx/movers");
+      const json = await res.json();
+      if (json.ok || json.topGainers) {
+        // topGainers = sorted by gain %, topValue = sorted by trading value
+        const allGainers: MoverItem[] = json.topGainers || [];
+        // For losers, we need the API to also return them
+        // The current API returns topValue and topGainers
+        // Let's use topGainers for gainers and derive losers from topValue
+        // Actually topGainers only has positive. Let's fetch losers from topValue sorted by changeRate asc
+        const topValue: MoverItem[] = json.topValue || [];
+
+        setGainers(allGainers.slice(0, 5));
+        // Find losers from topValue (those with negative changeRate)
+        const negatives = topValue.filter(m => m.changeRate < 0).sort((a, b) => a.changeRate - b.changeRate);
+        if (negatives.length >= 5) {
+          setLosers(negatives.slice(0, 5));
+        } else {
+          // If not enough losers in topValue, show bottom of the value list
+          const sorted = [...topValue].sort((a, b) => a.changeRate - b.changeRate);
+          setLosers(sorted.slice(0, 5));
+        }
+
+        if (json.asOf) {
+          const y = json.asOf.slice(0, 4);
+          const m = json.asOf.slice(4, 6);
+          const d = json.asOf.slice(6, 8);
+          setAsOf(`${y}.${m}.${d}`);
+        }
+        setSource(json.source || "");
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMovers();
+  }, [fetchMovers]);
+
+  if (loading) {
+    return (
+      <div className="flex h-[200px] items-center justify-center">
+        <span className="text-xs text-muted animate-pulse">Loading...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <MoverTable
-        title={lang === "kr" ? "상승 TOP 5" : "Top 5 Gainers"}
-        data={gainers}
-        lang={lang}
-      />
-      <MoverTable
-        title={lang === "kr" ? "하락 TOP 5" : "Top 5 Losers"}
-        data={losers}
-        lang={lang}
-      />
+    <div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <MoverTable
+          title={lang === "kr" ? "상승 TOP 5" : "Top 5 Gainers"}
+          data={gainers}
+          lang={lang}
+        />
+        <MoverTable
+          title={lang === "kr" ? "하락 TOP 5" : "Top 5 Losers"}
+          data={losers}
+          lang={lang}
+        />
+      </div>
+      {asOf && (
+        <div className="mt-2 text-right text-[10px] text-muted">
+          {lang === "kr" ? `데이터 기준: ${asOf} 장 마감` : `As of: ${asOf} market close`}
+          {source === "mock" && (
+            <span className="ml-1 text-yellow-500">(sample data)</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

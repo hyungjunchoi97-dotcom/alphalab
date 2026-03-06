@@ -1,12 +1,23 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { MOCK_EVENTS, type CalendarEvent } from "@/lib/marketCalendar.mock";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLang } from "@/lib/LangContext";
+
+interface CalendarEvent {
+  id: string;
+  region: "US" | "KR" | "JP";
+  category: "rate" | "inflation" | "employment" | "derivatives" | "political";
+  title: string;
+  datetimeISO: string;
+  importance: number;
+  actual?: string;
+  forecast?: string;
+  previous?: string;
+}
 
 type RegionFilter = "ALL" | "KR" | "US" | "JP";
 
-const CATEGORY_LABELS: Record<CalendarEvent["category"], string> = {
+const CATEGORY_LABELS: Record<string, string> = {
   rate: "RATE",
   inflation: "CPI",
   employment: "JOBS",
@@ -14,22 +25,13 @@ const CATEGORY_LABELS: Record<CalendarEvent["category"], string> = {
   political: "POL",
 };
 
-const CATEGORY_COLORS: Record<CalendarEvent["category"], string> = {
+const CATEGORY_COLORS: Record<string, string> = {
   rate: "bg-accent/20 text-accent",
   inflation: "bg-yellow-500/20 text-yellow-400",
   employment: "bg-gain/20 text-gain",
   derivatives: "bg-purple-500/20 text-purple-400",
   political: "bg-loss/20 text-loss",
 };
-
-function toSeoulDate(iso: string): Date {
-  // Convert to Asia/Seoul display
-  const d = new Date(iso);
-  const seoul = new Date(
-    d.toLocaleString("en-US", { timeZone: "Asia/Seoul" })
-  );
-  return seoul;
-}
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
@@ -69,6 +71,12 @@ function getSeoulWeekBounds(): [Date, Date] {
   return [mon, sun];
 }
 
+function toSeoulDate(iso: string): Date {
+  const d = new Date(iso);
+  const seoul = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+  return seoul;
+}
+
 function ImportanceDots({ level }: { level: number }) {
   return (
     <span className="inline-flex gap-px">
@@ -84,15 +92,8 @@ function ImportanceDots({ level }: { level: number }) {
   );
 }
 
-function EventRow({
-  event,
-  showDate,
-}: {
-  event: CalendarEvent;
-  showDate: boolean;
-}) {
+function EventRow({ event, showDate }: { event: CalendarEvent; showDate: boolean }) {
   const hasAFP = event.actual || event.forecast || event.previous;
-
   return (
     <div className="flex items-start gap-3 border-b border-card-border/30 py-1.5 last:border-0">
       <span className="w-11 shrink-0 text-[10px] tabular-nums text-muted">
@@ -103,9 +104,7 @@ function EventRow({
         {hasAFP && (
           <p className="mt-0.5 text-[9px] tabular-nums text-muted">
             {event.actual != null && (
-              <span>
-                A:<span className="text-foreground">{event.actual}</span>
-              </span>
+              <span>A:<span className="text-foreground">{event.actual}</span></span>
             )}
             {event.forecast != null && (
               <span className={event.actual != null ? "ml-2" : ""}>
@@ -113,34 +112,24 @@ function EventRow({
               </span>
             )}
             {event.previous != null && (
-              <span className="ml-2">
-                P:<span className="text-foreground">{event.previous}</span>
-              </span>
+              <span className="ml-2">P:<span className="text-foreground">{event.previous}</span></span>
             )}
           </p>
         )}
       </div>
       <span
         className={`shrink-0 rounded px-1 py-px text-[9px] font-medium ${
-          CATEGORY_COLORS[event.category]
+          CATEGORY_COLORS[event.category] || ""
         }`}
       >
-        {CATEGORY_LABELS[event.category]}
+        {CATEGORY_LABELS[event.category] || event.category}
       </span>
       <ImportanceDots level={event.importance} />
     </div>
   );
 }
 
-function GroupSection({
-  label,
-  events,
-  showDate,
-}: {
-  label: string;
-  events: CalendarEvent[];
-  showDate: boolean;
-}) {
+function GroupSection({ label, events, showDate }: { label: string; events: CalendarEvent[]; showDate: boolean }) {
   if (events.length === 0) return null;
   return (
     <div className="mb-3 last:mb-0">
@@ -159,16 +148,31 @@ function GroupSection({
 export default function MarketCalendar() {
   const { t } = useLang();
   const [region, setRegion] = useState<RegionFilter>("ALL");
+  const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCalendar = useCallback(async () => {
+    try {
+      const res = await fetch("/api/calendar");
+      const json = await res.json();
+      if (json.ok && json.events) {
+        setAllEvents(json.events);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCalendar();
+  }, [fetchCalendar]);
 
   const { today, thisWeek, upcoming } = useMemo(() => {
-    const filtered =
-      region === "ALL"
-        ? MOCK_EVENTS
-        : MOCK_EVENTS.filter((e) => e.region === region);
-
+    const filtered = region === "ALL" ? allEvents : allEvents.filter((e) => e.region === region);
     const sorted = [...filtered].sort(
-      (a, b) =>
-        new Date(a.datetimeISO).getTime() - new Date(b.datetimeISO).getTime()
+      (a, b) => new Date(a.datetimeISO).getTime() - new Date(b.datetimeISO).getTime()
     );
 
     const todayDate = getSeoulToday();
@@ -194,10 +198,17 @@ export default function MarketCalendar() {
     }
 
     return { today: todayEvents, thisWeek: weekEvents, upcoming: upcomingEvents };
-  }, [region]);
+  }, [region, allEvents]);
 
-  const isEmpty =
-    today.length === 0 && thisWeek.length === 0 && upcoming.length === 0;
+  const isEmpty = today.length === 0 && thisWeek.length === 0 && upcoming.length === 0;
+
+  if (loading) {
+    return (
+      <div className="flex h-[150px] items-center justify-center">
+        <span className="text-xs text-muted animate-pulse">Loading...</span>
+      </div>
+    );
+  }
 
   return (
     <div>
