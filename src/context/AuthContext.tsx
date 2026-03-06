@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithGoogle = useCallback(async (): Promise<string | null> => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: "https://www.thealphalabs.net" },
     });
     return error ? error.message : null;
   }, []);
