@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Title required" }, { status: 400 });
     }
 
-    const validCategories = ["discussion", "idea", "question", "news"];
+    const validCategories = ["stock", "crypto", "overseas", "macro", "politics", "discussion", "idea", "question", "news", "free"];
     const cat = validCategories.includes(category) ? category : "discussion";
 
     const { data, error } = await supabaseAdmin.from("posts").insert({
@@ -112,6 +112,7 @@ export async function POST(req: NextRequest) {
       content: (content || "").trim(),
       category: cat,
       symbol: symbol?.trim() || null,
+      image_url: body.image_url || null,
     }).select().single();
 
     if (error) {

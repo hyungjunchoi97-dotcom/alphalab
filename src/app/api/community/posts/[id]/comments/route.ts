@@ -6,17 +6,21 @@ export const runtime = "nodejs";
 
 // ── GET: list comments for a post ─────────────────────────────
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const sort = req.nextUrl.searchParams.get("sort") || "new";
+
+    const orderCol = sort === "popular" ? "likes" : "created_at";
+    const ascending = sort === "popular" ? false : true;
 
     const { data, error } = await supabaseAdmin
       .from("post_comments")
       .select("*")
       .eq("post_id", id)
-      .order("created_at", { ascending: true });
+      .order(orderCol, { ascending });
 
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -52,18 +56,21 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { content } = body;
+    const { content, parent_id } = body;
 
     if (!content?.trim()) {
       return NextResponse.json({ ok: false, error: "Content required" }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin.from("post_comments").insert({
+    const insertData: Record<string, unknown> = {
       post_id: id,
       user_id: user.id,
       author_email: user.email,
       content: content.trim(),
-    }).select().single();
+    };
+    if (parent_id) insertData.parent_id = parent_id;
+
+    const { data, error } = await supabaseAdmin.from("post_comments").insert(insertData).select().single();
 
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

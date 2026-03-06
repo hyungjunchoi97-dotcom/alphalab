@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/LangContext";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useAuth } from "@/context/AuthContext";
@@ -12,31 +13,59 @@ import type { MessageKey } from "@/lib/i18n";
 const INPUT =
   "w-full rounded-lg border border-card-border bg-background px-3 py-2 text-xs text-foreground focus:border-accent focus:outline-none";
 
-type PostCategory = "all" | "discussion" | "idea" | "question" | "news";
+type PostCategory = "all" | "stock" | "crypto" | "overseas" | "macro" | "politics" | "question" | "free";
 type SortMode = "hot" | "new" | "top" | "rising";
 
-const CATEGORIES: PostCategory[] = ["all", "discussion", "idea", "question", "news"];
+const CATEGORIES: PostCategory[] = ["all", "stock", "crypto", "overseas", "macro", "politics", "question", "free"];
+
 const CAT_LABEL: Record<PostCategory, MessageKey> = {
   all: "catAll",
+  stock: "catStock",
+  crypto: "catCryptoToken",
+  overseas: "catOverseas",
+  macro: "catMacro",
+  politics: "catPolitics",
+  question: "catQuestion",
+  free: "catFree",
+};
+
+// For create modal - all writable categories
+const CREATE_CATEGORIES = ["stock", "crypto", "overseas", "macro", "politics", "discussion", "idea", "question", "news", "free"] as const;
+const CREATE_CAT_LABEL: Record<string, MessageKey> = {
+  stock: "catStock",
+  crypto: "catCryptoToken",
+  overseas: "catOverseas",
+  macro: "catMacro",
+  politics: "catPolitics",
   discussion: "catDiscussion",
   idea: "catIdea",
   question: "catQuestion",
   news: "catNews",
+  free: "catFree",
 };
 
 const CAT_BADGE_COLOR: Record<string, string> = {
+  stock: "bg-blue-500/20 text-blue-400",
+  crypto: "bg-orange-500/20 text-orange-400",
+  overseas: "bg-emerald-500/20 text-emerald-400",
+  macro: "bg-cyan-500/20 text-cyan-400",
+  politics: "bg-rose-500/20 text-rose-400",
   discussion: "bg-accent/20 text-accent",
   idea: "bg-yellow-500/20 text-yellow-400",
   question: "bg-purple-500/20 text-purple-400",
   news: "bg-gain/20 text-gain",
+  free: "bg-gray-500/20 text-gray-400",
 };
 
 const CAT_SIDEBAR_ICON: Record<string, string> = {
   all: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
-  discussion: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
-  idea: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
+  stock: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
+  crypto: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  overseas: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  macro: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
+  politics: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4",
   question: "M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-  news: "M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z",
+  free: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
 };
 
 // ── Types ──────────────────────────────────────────────────────
@@ -51,15 +80,7 @@ interface Post {
   symbol: string | null;
   likes: number;
   commentCount: number;
-  created_at: string;
-}
-
-interface Comment {
-  id: string;
-  post_id: string;
-  user_id: string;
-  author_email: string | null;
-  content: string;
+  image_url?: string;
   created_at: string;
 }
 
@@ -100,24 +121,22 @@ function sortPosts(posts: Post[], mode: SortMode): Post[] {
   }
 }
 
+function getCatLabel(cat: string): MessageKey {
+  return (CREATE_CAT_LABEL[cat] || CAT_LABEL[cat as PostCategory] || "catOther") as MessageKey;
+}
+
 // ── Page ───────────────────────────────────────────────────────
 
 export default function CommunityPage() {
   const { t, lang } = useLang();
   const { session } = useAuth();
   const requireAuth = useRequireAuth();
+  const router = useRouter();
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<PostCategory>("all");
   const [sortMode, setSortMode] = useState<SortMode>("hot");
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-
-  // Comments
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [commentText, setCommentText] = useState("");
-  const [commentSubmitting, setCommentSubmitting] = useState(false);
 
   // Liked posts
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
@@ -126,9 +145,12 @@ export default function CommunityPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [formTitle, setFormTitle] = useState("");
   const [formContent, setFormContent] = useState("");
-  const [formCategory, setFormCategory] = useState<string>("discussion");
+  const [formCategory, setFormCategory] = useState<string>("stock");
   const [formSymbol, setFormSymbol] = useState("");
+  const [formImageUrl, setFormImageUrl] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -145,24 +167,9 @@ export default function CommunityPage() {
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
-  const fetchComments = useCallback(async (postId: string) => {
-    setCommentsLoading(true);
-    try {
-      const res = await fetch(`/api/community/posts/${postId}/comments`);
-      const json = await res.json();
-      if (json.ok) setComments(json.comments);
-    } catch { /* */ }
-    finally { setCommentsLoading(false); }
-  }, []);
-
-  const openDetail = (post: Post) => {
-    setSelectedPost(post);
-    setComments([]);
-    setCommentText("");
-    fetchComments(post.id);
-  };
-
-  const handleLike = (postId: string) => {
+  const handleLike = (e: React.MouseEvent, postId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
     requireAuth(async () => {
       if (!session?.access_token) return;
       try {
@@ -173,7 +180,6 @@ export default function CommunityPage() {
         const json = await res.json();
         if (json.ok) {
           setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, likes: json.likes } : p)));
-          if (selectedPost?.id === postId) setSelectedPost((prev) => prev ? { ...prev, likes: json.likes } : prev);
           setLikedPosts((prev) => {
             const next = new Set(prev);
             if (json.liked) next.add(postId); else next.delete(postId);
@@ -184,24 +190,24 @@ export default function CommunityPage() {
     });
   };
 
-  const handleCommentSubmit = async () => {
-    if (!commentText.trim() || !selectedPost || !session?.access_token) return;
-    setCommentSubmitting(true);
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !session?.access_token) return;
+    setImageUploading(true);
     try {
-      const res = await fetch(`/api/community/posts/${selectedPost.id}/comments`, {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/community/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ content: commentText.trim() }),
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: formData,
       });
       const json = await res.json();
       if (json.ok) {
-        setComments((prev) => [...prev, json.comment]);
-        setCommentText("");
-        setPosts((prev) => prev.map((p) => p.id === selectedPost.id ? { ...p, commentCount: p.commentCount + 1 } : p));
-        setSelectedPost((prev) => prev ? { ...prev, commentCount: prev.commentCount + 1 } : prev);
+        setFormImageUrl(json.url);
       }
     } catch { /* */ }
-    finally { setCommentSubmitting(false); }
+    finally { setImageUploading(false); }
   };
 
   const handleCreateSubmit = () => {
@@ -212,10 +218,19 @@ export default function CommunityPage() {
         const res = await fetch("/api/community/posts", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ title: formTitle.trim(), content: formContent.trim(), category: formCategory, symbol: formSymbol.trim() || null }),
+          body: JSON.stringify({
+            title: formTitle.trim(),
+            content: formContent.trim(),
+            category: formCategory,
+            symbol: formSymbol.trim() || null,
+            image_url: formImageUrl,
+          }),
         });
         const json = await res.json();
-        if (json.ok) { setFormTitle(""); setFormContent(""); setFormSymbol(""); setFormCategory("discussion"); setShowCreate(false); fetchPosts(); }
+        if (json.ok) {
+          setFormTitle(""); setFormContent(""); setFormSymbol(""); setFormCategory("stock");
+          setFormImageUrl(null); setShowCreate(false); fetchPosts();
+        }
       } catch { /* */ }
       finally { setSubmitting(false); }
     });
@@ -231,171 +246,153 @@ export default function CommunityPage() {
       <AppHeader active="community" />
 
       <main className="mx-auto max-w-[1200px] px-4 py-5">
-        {/* Detail view */}
-        {selectedPost ? (
-          <DetailView
-            post={selectedPost}
-            comments={comments}
-            commentsLoading={commentsLoading}
-            commentText={commentText}
-            setCommentText={setCommentText}
-            commentSubmitting={commentSubmitting}
-            likedPosts={likedPosts}
-            onLike={handleLike}
-            onCommentSubmit={() => requireAuth(() => handleCommentSubmit())}
-            onBack={() => setSelectedPost(null)}
-            t={t}
-            lang={lang}
-          />
-        ) : (
-          /* Main 3-column layout */
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[200px_1fr_260px]">
-            {/* Left sidebar: categories */}
-            <aside className="hidden lg:block space-y-1">
-              <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted px-2">
-                {lang === "kr" ? "카테고리" : "Categories"}
-              </h3>
+        {/* Main 3-column layout */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[200px_1fr_260px]">
+          {/* Left sidebar: categories */}
+          <aside className="hidden lg:block space-y-1">
+            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted px-2">
+              {lang === "kr" ? "카테고리" : "Categories"}
+            </h3>
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategory(cat)}
+                className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs transition-colors ${
+                  category === cat
+                    ? "bg-accent/10 text-accent font-medium"
+                    : "text-muted hover:bg-card-border/30 hover:text-foreground"
+                }`}
+              >
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={CAT_SIDEBAR_ICON[cat] || CAT_SIDEBAR_ICON.all} />
+                </svg>
+                {t(CAT_LABEL[cat])}
+              </button>
+            ))}
+
+            <div className="mt-4 border-t border-card-border pt-3">
+              <button
+                onClick={() => requireAuth(() => setShowCreate(true))}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                {t("newPost")}
+              </button>
+            </div>
+          </aside>
+
+          {/* Center: feed */}
+          <div className="space-y-3">
+            {/* Mobile category + new post */}
+            <div className="flex flex-wrap items-center gap-2 lg:hidden">
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setCategory(cat)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs transition-colors ${
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
                     category === cat
-                      ? "bg-accent/10 text-accent font-medium"
-                      : "text-muted hover:bg-card-border/30 hover:text-foreground"
+                      ? "bg-accent text-white"
+                      : "bg-card-bg border border-card-border text-muted"
                   }`}
                 >
-                  <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={CAT_SIDEBAR_ICON[cat] || CAT_SIDEBAR_ICON.all} />
-                  </svg>
                   {t(CAT_LABEL[cat])}
                 </button>
               ))}
-
-              <div className="mt-4 border-t border-card-border pt-3">
-                <button
-                  onClick={() => requireAuth(() => setShowCreate(true))}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                  {t("newPost")}
-                </button>
-              </div>
-            </aside>
-
-            {/* Center: feed */}
-            <div className="space-y-3">
-              {/* Mobile category + new post */}
-              <div className="flex flex-wrap items-center gap-2 lg:hidden">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setCategory(cat)}
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
-                      category === cat
-                        ? "bg-accent text-white"
-                        : "bg-card-bg border border-card-border text-muted"
-                    }`}
-                  >
-                    {t(CAT_LABEL[cat])}
-                  </button>
-                ))}
-                <button
-                  onClick={() => requireAuth(() => setShowCreate(true))}
-                  className="ml-auto rounded-lg bg-accent px-3 py-1 text-[11px] font-semibold text-white"
-                >
-                  {t("newPost")}
-                </button>
-              </div>
-
-              {/* Sort tabs */}
-              <div className="flex gap-px rounded-lg bg-card-border p-0.5 w-fit">
-                {(["hot", "new", "top", "rising"] as SortMode[]).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setSortMode(s)}
-                    className={`rounded-md px-3 py-1.5 text-[11px] font-medium capitalize transition-colors ${
-                      sortMode === s
-                        ? "bg-card-bg text-foreground shadow-sm"
-                        : "text-muted hover:text-foreground"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-
-              {/* Posts */}
-              {loading ? (
-                <div className="py-12 text-center text-xs text-muted">Loading...</div>
-              ) : sorted.length === 0 ? (
-                <div className="rounded-xl border border-card-border bg-card-bg p-8 text-center">
-                  <p className="text-sm text-muted">{t("noPosts")}</p>
-                  <p className="mt-1 text-[10px] text-muted/60">{t("writeFirst")}</p>
-                </div>
-              ) : (
-                sorted.map((post) => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    liked={likedPosts.has(post.id)}
-                    onLike={handleLike}
-                    onOpen={openDetail}
-                    t={t}
-                  />
-                ))
-              )}
+              <button
+                onClick={() => requireAuth(() => setShowCreate(true))}
+                className="ml-auto rounded-lg bg-accent px-3 py-1 text-[11px] font-semibold text-white"
+              >
+                {t("newPost")}
+              </button>
             </div>
 
-            {/* Right sidebar: popular + rules */}
-            <aside className="hidden lg:block space-y-4">
-              {/* Popular posts */}
-              <div className="rounded-xl border border-card-border bg-card-bg p-3">
-                <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                  {lang === "kr" ? "인기 포스트" : "Popular Posts"}
-                </h3>
-                <div className="space-y-2">
-                  {topPosts.map((post, i) => (
-                    <button
-                      key={post.id}
-                      onClick={() => openDetail(post)}
-                      className="flex w-full items-start gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-card-border/30"
-                    >
-                      <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted mt-0.5">
-                        {i + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-medium leading-snug line-clamp-2">{post.title}</p>
-                        <p className="mt-0.5 text-[9px] text-muted">
-                          {post.likes} likes &middot; {post.commentCount} comments
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                  {topPosts.length === 0 && (
-                    <p className="text-[10px] text-muted py-2 text-center">{t("noPosts")}</p>
-                  )}
-                </div>
-              </div>
+            {/* Sort tabs */}
+            <div className="flex gap-px rounded-lg bg-card-border p-0.5 w-fit">
+              {(["hot", "new", "top", "rising"] as SortMode[]).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSortMode(s)}
+                  className={`rounded-md px-3 py-1.5 text-[11px] font-medium capitalize transition-colors ${
+                    sortMode === s
+                      ? "bg-card-bg text-foreground shadow-sm"
+                      : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
 
-              {/* Community rules */}
-              <div className="rounded-xl border border-card-border bg-card-bg p-3">
-                <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                  {lang === "kr" ? "커뮤니티 규칙" : "Community Rules"}
-                </h3>
-                <ol className="space-y-1.5 text-[10px] text-muted leading-relaxed list-decimal list-inside">
-                  <li>{lang === "kr" ? "서로 존중하는 대화" : "Be respectful to others"}</li>
-                  <li>{lang === "kr" ? "투자 조언이 아닌 정보 공유" : "Share information, not financial advice"}</li>
-                  <li>{lang === "kr" ? "스팸 및 홍보 금지" : "No spam or self-promotion"}</li>
-                  <li>{lang === "kr" ? "출처가 있는 뉴스 공유" : "Share news with sources"}</li>
-                  <li>{lang === "kr" ? "개인정보 보호" : "Protect personal information"}</li>
-                </ol>
+            {/* Posts */}
+            {loading ? (
+              <div className="py-12 text-center text-xs text-muted">Loading...</div>
+            ) : sorted.length === 0 ? (
+              <div className="rounded-xl border border-card-border bg-card-bg p-8 text-center">
+                <p className="text-sm text-muted">{t("noPosts")}</p>
+                <p className="mt-1 text-[10px] text-muted/60">{t("writeFirst")}</p>
               </div>
-            </aside>
+            ) : (
+              sorted.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  liked={likedPosts.has(post.id)}
+                  onLike={handleLike}
+                  onClick={() => router.push(`/community/${post.id}`)}
+                  t={t}
+                />
+              ))
+            )}
           </div>
-        )}
+
+          {/* Right sidebar: popular + rules */}
+          <aside className="hidden lg:block space-y-4">
+            {/* Popular posts */}
+            <div className="rounded-xl border border-card-border bg-card-bg p-3">
+              <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                {lang === "kr" ? "인기 포스트" : "Popular Posts"}
+              </h3>
+              <div className="space-y-2">
+                {topPosts.map((post, i) => (
+                  <button
+                    key={post.id}
+                    onClick={() => router.push(`/community/${post.id}`)}
+                    className="flex w-full items-start gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-card-border/30"
+                  >
+                    <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted mt-0.5">
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium leading-snug line-clamp-2">{post.title}</p>
+                      <p className="mt-0.5 text-[9px] text-muted">
+                        {post.likes} likes &middot; {post.commentCount} comments
+                      </p>
+                    </div>
+                  </button>
+                ))}
+                {topPosts.length === 0 && (
+                  <p className="text-[10px] text-muted py-2 text-center">{t("noPosts")}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Community rules */}
+            <div className="rounded-xl border border-card-border bg-card-bg p-3">
+              <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                {lang === "kr" ? "커뮤니티 규칙" : "Community Rules"}
+              </h3>
+              <ol className="space-y-1.5 text-[10px] text-muted leading-relaxed list-decimal list-inside">
+                <li>{lang === "kr" ? "서로 존중하는 대화" : "Be respectful to others"}</li>
+                <li>{lang === "kr" ? "투자 조언이 아닌 정보 공유" : "Share information, not financial advice"}</li>
+                <li>{lang === "kr" ? "스팸 및 홍보 금지" : "No spam or self-promotion"}</li>
+                <li>{lang === "kr" ? "출처가 있는 뉴스 공유" : "Share news with sources"}</li>
+                <li>{lang === "kr" ? "개인정보 보호" : "Protect personal information"}</li>
+              </ol>
+            </div>
+          </aside>
+        </div>
       </main>
 
       {/* Create post modal */}
@@ -428,8 +425,8 @@ export default function CommunityPage() {
                   onChange={(e) => setFormCategory(e.target.value)}
                   className={INPUT}
                 >
-                  {(["discussion", "idea", "question", "news"] as const).map((c) => (
-                    <option key={c} value={c}>{t(CAT_LABEL[c])}</option>
+                  {CREATE_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{t(CREATE_CAT_LABEL[c])}</option>
                   ))}
                 </select>
                 <input
@@ -447,6 +444,41 @@ export default function CommunityPage() {
                 placeholder={t("postContent")}
                 className={`${INPUT} resize-y`}
               />
+
+              {/* Image upload */}
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                {formImageUrl ? (
+                  <div className="relative">
+                    <img src={formImageUrl} alt="" className="max-h-[150px] rounded-lg border border-card-border object-cover" />
+                    <button
+                      onClick={() => setFormImageUrl(null)}
+                      className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={imageUploading}
+                    className="flex items-center gap-1.5 rounded-lg border border-dashed border-card-border px-3 py-2 text-[11px] text-muted transition-colors hover:border-accent/50 hover:text-foreground"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+                    </svg>
+                    {imageUploading ? "Uploading..." : t("uploadImages")}
+                  </button>
+                )}
+              </div>
 
               <div className="flex justify-end gap-2">
                 <button
@@ -471,27 +503,32 @@ export default function CommunityPage() {
   );
 }
 
-// ── Post Card (Reddit-style) ──────────────────────────────────
+// ── Post Card ──────────────────────────────────────────────────
 
 function PostCard({
   post,
   liked,
   onLike,
-  onOpen,
+  onClick,
   t,
 }: {
   post: Post;
   liked: boolean;
-  onLike: (id: string) => void;
-  onOpen: (post: Post) => void;
+  onLike: (e: React.MouseEvent, id: string) => void;
+  onClick: () => void;
   t: (key: MessageKey) => string;
 }) {
+  const catLabel = getCatLabel(post.category);
+
   return (
-    <div className="flex rounded-xl border border-card-border bg-card-bg transition-colors hover:border-foreground/15">
+    <div
+      onClick={onClick}
+      className="flex cursor-pointer rounded-xl border border-card-border bg-card-bg transition-colors hover:border-foreground/15"
+    >
       {/* Vote column */}
       <div className="flex flex-col items-center gap-0.5 px-2 py-3 border-r border-card-border/50">
         <button
-          onClick={(e) => { e.stopPropagation(); onLike(post.id); }}
+          onClick={(e) => onLike(e, post.id)}
           className={`rounded p-1 transition-colors ${liked ? "text-accent" : "text-muted hover:text-accent"}`}
         >
           <svg className="h-5 w-5" fill={liked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -501,22 +538,14 @@ function PostCard({
         <span className={`text-xs font-bold tabular-nums ${liked ? "text-accent" : "text-muted"}`}>
           {post.likes}
         </span>
-        <button className="rounded p-1 text-muted hover:text-loss transition-colors">
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
       </div>
 
       {/* Content */}
-      <button
-        onClick={() => onOpen(post)}
-        className="flex-1 p-3 text-left min-w-0"
-      >
+      <div className="flex-1 p-3 min-w-0">
         {/* Meta */}
         <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted">
           <span className={`rounded px-1.5 py-px text-[9px] font-semibold ${CAT_BADGE_COLOR[post.category] || "bg-muted/20 text-muted"}`}>
-            {t(CAT_LABEL[post.category as PostCategory] || "catOther")}
+            {t(catLabel)}
           </span>
           {post.symbol && (
             <span className="rounded bg-accent/10 px-1.5 py-px text-[9px] font-medium text-accent">
@@ -531,9 +560,22 @@ function PostCard({
         {/* Title */}
         <h3 className="mt-1.5 text-[13px] font-semibold leading-snug">{post.title}</h3>
 
-        {/* Preview */}
+        {/* Preview text */}
         {post.content && (
-          <p className="mt-1 text-[11px] text-muted line-clamp-2 leading-relaxed">{post.content}</p>
+          <p className="mt-1 text-[11px] text-muted line-clamp-2 leading-relaxed">
+            {post.content.length > 150 ? post.content.slice(0, 150) + "..." : post.content}
+          </p>
+        )}
+
+        {/* Image thumbnail */}
+        {post.image_url && (
+          <div className="mt-2">
+            <img
+              src={post.image_url}
+              alt=""
+              className="max-h-[120px] rounded-lg border border-card-border object-cover"
+            />
+          </div>
         )}
 
         {/* Actions */}
@@ -544,136 +586,7 @@ function PostCard({
             </svg>
             {post.commentCount} {t("commComment")}
           </span>
-          <span className="flex items-center gap-1">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-            Share
-          </span>
         </div>
-      </button>
-    </div>
-  );
-}
-
-// ── Detail View ───────────────────────────────────────────────
-
-function DetailView({
-  post,
-  comments,
-  commentsLoading,
-  commentText,
-  setCommentText,
-  commentSubmitting,
-  likedPosts,
-  onLike,
-  onCommentSubmit,
-  onBack,
-  t,
-}: {
-  post: Post;
-  comments: Comment[];
-  commentsLoading: boolean;
-  commentText: string;
-  setCommentText: (v: string) => void;
-  commentSubmitting: boolean;
-  likedPosts: Set<string>;
-  onLike: (id: string) => void;
-  onCommentSubmit: () => void;
-  onBack: () => void;
-  t: (key: MessageKey) => string;
-  lang: string;
-}) {
-  return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      {/* Back */}
-      <button onClick={onBack} className="flex items-center gap-1 text-xs text-accent hover:underline">
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-        {t("back")}
-      </button>
-
-      {/* Post */}
-      <div className="rounded-xl border border-card-border bg-card-bg p-5">
-        <div className="flex items-center gap-2 text-[10px] text-muted mb-2">
-          <span className={`rounded px-1.5 py-px text-[9px] font-semibold ${CAT_BADGE_COLOR[post.category] || "bg-muted/20 text-muted"}`}>
-            {t(CAT_LABEL[post.category as PostCategory] || "catOther")}
-          </span>
-          {post.symbol && (
-            <span className="rounded bg-accent/10 px-1.5 py-px text-[9px] font-medium text-accent">
-              {post.symbol}
-            </span>
-          )}
-          <span>{t("by")} {post.author_email?.split("@")[0] || "anon"}</span>
-          <span>&middot;</span>
-          <span>{timeAgo(post.created_at)}</span>
-        </div>
-
-        <h1 className="text-lg font-bold leading-snug">{post.title}</h1>
-
-        {post.content && (
-          <p className="mt-3 whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">{post.content}</p>
-        )}
-
-        <div className="mt-4 flex items-center gap-3 border-t border-card-border pt-3">
-          <button
-            onClick={() => onLike(post.id)}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-              likedPosts.has(post.id)
-                ? "border-accent/40 bg-accent/10 text-accent"
-                : "border-card-border text-muted hover:text-foreground"
-            }`}
-          >
-            <svg className="h-4 w-4" fill={likedPosts.has(post.id) ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-            </svg>
-            {post.likes}
-          </button>
-          <span className="text-xs text-muted">
-            {post.commentCount} {t("commComments")}
-          </span>
-        </div>
-      </div>
-
-      {/* Comment input */}
-      <div className="rounded-xl border border-card-border bg-card-bg p-4">
-        <textarea
-          value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
-          placeholder={t("commAddComment")}
-          rows={3}
-          className={`${INPUT} resize-y`}
-        />
-        <div className="mt-2 flex justify-end">
-          <button
-            onClick={onCommentSubmit}
-            disabled={!commentText.trim() || commentSubmitting}
-            className="rounded-lg bg-accent px-4 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-          >
-            {t("commSend")}
-          </button>
-        </div>
-      </div>
-
-      {/* Comments */}
-      <div className="space-y-2">
-        {commentsLoading ? (
-          <div className="py-8 text-center text-xs text-muted">Loading...</div>
-        ) : comments.length === 0 ? (
-          <p className="py-8 text-center text-xs text-muted">{t("commNoComments")}</p>
-        ) : (
-          comments.map((c) => (
-            <div key={c.id} className="rounded-xl border border-card-border bg-card-bg p-3">
-              <div className="flex items-center gap-1.5 text-[10px] text-muted">
-                <span className="font-medium text-foreground/80">{c.author_email?.split("@")[0] || "anon"}</span>
-                <span>&middot;</span>
-                <span>{timeAgo(c.created_at)}</span>
-              </div>
-              <p className="mt-1.5 text-[11px] leading-relaxed text-foreground/90">{c.content}</p>
-            </div>
-          ))
-        )}
       </div>
     </div>
   );
