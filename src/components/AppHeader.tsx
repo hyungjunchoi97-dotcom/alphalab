@@ -33,7 +33,7 @@ export default function AppHeader({
           {/* Left: logo + desktop nav */}
           <div className="flex items-center gap-4 min-w-0">
             <a href="/" className="shrink-0">
-              <h1 className="text-sm font-bold tracking-tight">Alphalab</h1>
+              <h1 className="text-sm font-bold tracking-tight"><span className="text-emerald-400">α</span> <span className="text-white">Alphalab</span></h1>
               <p className="text-[10px] text-muted">{t("subtitle")}</p>
             </a>
 
