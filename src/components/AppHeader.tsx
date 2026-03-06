@@ -7,6 +7,7 @@ import type { MessageKey } from "@/lib/i18n";
 
 const NAV_ITEMS: { href: string; key: MessageKey }[] = [
   { href: "/", key: "dashboard" },
+  { href: "/macro", key: "macro" },
   { href: "/portfolio", key: "portfolio" },
   { href: "/flow", key: "flow" },
   { href: "/ideas", key: "ideas" },
@@ -15,7 +16,6 @@ const NAV_ITEMS: { href: string; key: MessageKey }[] = [
   { href: "/predictions", key: "predictions" },
   { href: "/community", key: "community" },
   { href: "/telegram", key: "telegram" },
-  { href: "/macro", key: "macro" },
   { href: "/gurus", key: "gurus" },
 ];
 
