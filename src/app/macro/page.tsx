@@ -24,6 +24,24 @@ interface SeriesData {
 
 type Range = "6M" | "1Y" | "2Y" | "5Y";
 
+interface FxModelData {
+  actual: { date: string; value: number }[];
+  predicted: { date: string; value: number }[];
+  forwardProjection: { date: string; high: number; low: number; mid: number }[];
+  currentPredicted: number;
+  currentActual: number;
+  confidenceHigh: number;
+  confidenceLow: number;
+  r2: number;
+  coefficients: { intercept: number; spread: number; vix: number };
+  signals: {
+    spread: number;
+    spreadDirection: string;
+    vix: number;
+    vixSignal: string;
+  };
+}
+
 // ── Indicator config ──────────────────────────────────────────
 
 interface IndicatorConfig {
@@ -978,6 +996,92 @@ function CpiComparisonChart({
   );
 }
 
+// ── FX Prediction Chart ──────────────────────────────────────
+
+function FxPredictionChart({ model, lang }: { model: FxModelData; lang: string }) {
+  const W = 560, H = 260;
+  const PAD = { top: 20, right: 50, bottom: 28, left: 50 };
+  const cw = W - PAD.left - PAD.right;
+  const ch = H - PAD.top - PAD.bottom;
+
+  const actual = model.actual;
+  const predicted = model.predicted;
+  const proj = model.forwardProjection;
+
+  if (actual.length < 2) return null;
+
+  const allVals = [...actual.map(o => o.value), ...predicted.map(o => o.value), ...proj.map(o => o.high), ...proj.map(o => o.low)];
+  const min = Math.min(...allVals) - 20;
+  const max = Math.max(...allVals) + 20;
+  const range = max - min || 1;
+
+  const totalLen = actual.length + proj.length;
+  const toX = (i: number) => PAD.left + (i / (totalLen - 1)) * cw;
+  const toY = (v: number) => PAD.top + ch - ((v - min) / range) * ch;
+
+  const actualPath = actual.map((o, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(o.value)}`).join("");
+  const predictedPath = predicted.map((o, i) => `${i === 0 ? "M" : "L"}${toX(i)},${toY(o.value)}`).join("");
+
+  // Projection zone
+  const projStartX = toX(actual.length - 1);
+  const projPoints = proj.map((o, i) => ({ x: toX(actual.length + i), high: toY(o.high), low: toY(o.low), mid: toY(o.mid) }));
+  const projMidPath = `M${projStartX},${toY(model.currentPredicted)} ` + projPoints.map(p => `L${p.x},${p.mid}`).join(" ");
+  const projAreaPath = `M${projStartX},${toY(model.confidenceHigh)} ` +
+    projPoints.map(p => `L${p.x},${p.high}`).join(" ") + " " +
+    [...projPoints].reverse().map(p => `L${p.x},${p.low}`).join(" ") +
+    ` L${projStartX},${toY(model.confidenceLow)} Z`;
+
+  const yLabels = Array.from({ length: 5 }, (_, i) => Math.round(min + (range * i) / 4));
+  const step = Math.max(1, Math.floor(actual.length / 6));
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+      {/* Grid */}
+      {yLabels.map((v, i) => {
+        const y = PAD.top + ch - (i / 4) * ch;
+        return (
+          <g key={i}>
+            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#1a1a1a" />
+            <text x={PAD.left - 4} y={y + 3} textAnchor="end" fill="#555" fontSize="9">{v}</text>
+          </g>
+        );
+      })}
+      {/* Divider line between actual and projection */}
+      <line x1={projStartX} y1={PAD.top} x2={projStartX} y2={PAD.top + ch} stroke="#333" strokeDasharray="3,3" />
+      {/* Projection zone */}
+      <path d={projAreaPath} fill="rgba(96,165,250,0.08)" />
+      {/* Predicted line */}
+      <path d={predictedPath} fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.8" />
+      {/* Projection mid line */}
+      <path d={projMidPath} fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.6" />
+      {/* Actual line */}
+      <path d={actualPath} fill="none" stroke="#e8e8e8" strokeWidth="2" />
+      {/* Current predicted dot */}
+      <circle cx={projStartX} cy={toY(model.currentPredicted)} r="4" fill="#60a5fa" stroke="#111" strokeWidth="1.5" />
+      <text x={projStartX + 6} y={toY(model.currentPredicted) - 6} fill="#60a5fa" fontSize="9" fontWeight="600">
+        {model.currentPredicted.toLocaleString()}
+      </text>
+      {/* Current actual dot */}
+      <circle cx={projStartX} cy={toY(model.currentActual)} r="3" fill="#e8e8e8" stroke="#111" strokeWidth="1.5" />
+      {/* X labels */}
+      {actual.filter((_, i) => i % step === 0).map((o, idx) => (
+        <text key={idx} x={toX(idx * step)} y={H - 6} textAnchor="middle" fill="#444" fontSize="8">{o.date.slice(0, 7)}</text>
+      ))}
+      <text x={projPoints[projPoints.length - 1]?.x || 0} y={H - 6} textAnchor="middle" fill="#60a5fa" fontSize="8">
+        {lang === "kr" ? "+1M" : "+1M"}
+      </text>
+      {/* Legend */}
+      <line x1={PAD.left} y1={6} x2={PAD.left + 12} y2={6} stroke="#e8e8e8" strokeWidth="2" />
+      <text x={PAD.left + 16} y={9} fill="#e8e8e8" fontSize="8">{lang === "kr" ? "실제" : "Actual"}</text>
+      <line x1={PAD.left + 50} y1={6} x2={PAD.left + 62} y2={6} stroke="#60a5fa" strokeWidth="1.5" strokeDasharray="4,3" />
+      <text x={PAD.left + 66} y={9} fill="#60a5fa" fontSize="8">{lang === "kr" ? "모델" : "Model"}</text>
+      {/* R² badge */}
+      <rect x={W - PAD.right - 50} y={2} width="48" height="14" rx="3" fill="rgba(96,165,250,0.15)" />
+      <text x={W - PAD.right - 26} y={12} textAnchor="middle" fill="#60a5fa" fontSize="8" fontWeight="600">R² = {model.r2.toFixed(2)}</text>
+    </svg>
+  );
+}
+
 function SkeletonCard({ large }: { large?: boolean }) {
   return (
     <div
@@ -1003,6 +1107,10 @@ export default function MacroPage() {
   const [showExplain, setShowExplain] = useState(false);
   const [bokSeries, setBokSeries] = useState<Record<string, { observations: { date: string; value: number }[]; latest: number; previous: number; change: number }>>({});
   const [bokLoading, setBokLoading] = useState(true);
+  const [fxModel, setFxModel] = useState<FxModelData | null>(null);
+  const [fxLoading, setFxLoading] = useState(true);
+  const [fxCommentary, setFxCommentary] = useState<string>("");
+  const [fxCommentaryLoading, setFxCommentaryLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1029,10 +1137,44 @@ export default function MacroPage() {
     }
   }, []);
 
+  const fetchFxModel = useCallback(async () => {
+    try {
+      const res = await fetch("/api/macro/fx-model");
+      const json = await res.json();
+      if (json.ok) setFxModel(json.model);
+    } catch { /* silent */ } finally {
+      setFxLoading(false);
+    }
+  }, []);
+
+  const requestFxCommentary = useCallback(async () => {
+    if (fxCommentaryLoading || fxCommentary) return;
+    if (!fxModel) return;
+    setFxCommentaryLoading(true);
+    try {
+      const res = await fetch("/api/macro/fx-commentary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          usdkrw: fxModel.currentActual,
+          spread: fxModel.signals.spread,
+          vix: fxModel.signals.vix,
+          krCpi: bokSeries["KR_CPI_YOY"]?.latest || 0,
+          usCpi: series["CPI_YOY"]?.latest || 0,
+        }),
+      });
+      const json = await res.json();
+      if (json.ok) setFxCommentary(json.commentary);
+    } catch { /* silent */ } finally {
+      setFxCommentaryLoading(false);
+    }
+  }, [fxCommentaryLoading, fxCommentary, fxModel, bokSeries, series]);
+
   useEffect(() => {
     fetchData();
     fetchBok();
-  }, [fetchData, fetchBok]);
+    fetchFxModel();
+  }, [fetchData, fetchBok, fetchFxModel]);
 
   const chartData = useMemo(() => filterByRange(netLiquidity, range), [netLiquidity, range]);
 
@@ -1367,6 +1509,164 @@ export default function MacroPage() {
                 : "A widening Korea-US rate differential increases pressure for KRW weakness. Spread >2%p = KRW weakness risk, 0-2%p = neutral, <0%p = KRW strength. CPI shown as YoY%; both central banks target 2% inflation."}
             </p>
           </div>
+        </div>
+
+        {/* ── FX Prediction Model Section ─────────────────────── */}
+        <div className="mb-4">
+          <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
+            {lang === "kr" ? "환율 예측 모델" : "FX Prediction Model"}
+          </h2>
+
+          {fxLoading ? (
+            <div className="flex h-[300px] items-center justify-center rounded-xl animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+              <span style={{ color: "#444" }}>{lang === "kr" ? "모델 데이터 로딩중..." : "Loading model data..."}</span>
+            </div>
+          ) : fxModel ? (
+            <>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                {/* Left: Chart (2 cols) */}
+                <div className="lg:col-span-2 rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+                  <h3 className="mb-3 text-xs font-semibold" style={{ color: "#ccc" }}>
+                    {lang === "kr" ? "실제 vs 모델 예측 USD/KRW" : "Actual vs Model Predicted USD/KRW"}
+                  </h3>
+                  <FxPredictionChart model={fxModel} lang={lang} />
+                  <div className="mt-2 flex items-center gap-3 text-[10px]" style={{ color: "#555" }}>
+                    <span>{lang === "kr" ? "회귀 변수: 한미 금리차, VIX" : "Regression: Rate Spread, VIX"}</span>
+                    <span>|</span>
+                    <span>R² = {fxModel.r2.toFixed(2)}</span>
+                    <span>|</span>
+                    <span>{lang === "kr" ? "음영: 1개월 전망 신뢰구간" : "Shaded: 1M projection confidence"}</span>
+                  </div>
+                </div>
+
+                {/* Right: Signals card */}
+                <div className="rounded-xl p-4 flex flex-col gap-3" style={{ background: "#111", border: "1px solid #222" }}>
+                  <h3 className="text-xs font-semibold" style={{ color: "#ccc" }}>
+                    {lang === "kr" ? "현재 시그널" : "Current Signals"}
+                  </h3>
+
+                  {/* Signal items */}
+                  <div className="space-y-3 flex-1">
+                    {/* Rate spread */}
+                    <div className="rounded-lg p-3" style={{ background: "#0d0d0d", border: "1px solid #1a1a1a" }}>
+                      <div className="text-[10px] mb-1" style={{ color: "#666" }}>
+                        {lang === "kr" ? "한미 금리차" : "KR-US Rate Spread"}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold" style={{ color: fxModel.signals.spread > 0 ? "#f87171" : "#4ade80" }}>
+                          {fxModel.signals.spread > 0 ? "+" : ""}{fxModel.signals.spread}%p
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded" style={{
+                          background: fxModel.signals.spread > 0 ? "rgba(248,113,113,0.1)" : "rgba(74,222,128,0.1)",
+                          color: fxModel.signals.spread > 0 ? "#f87171" : "#4ade80",
+                        }}>
+                          {fxModel.signals.spread > 0 ? "▲" : "▼"} {lang === "kr" ? fxModel.signals.spreadDirection : (fxModel.signals.spread > 0 ? "KRW Weakness" : "KRW Strength")}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* VIX */}
+                    <div className="rounded-lg p-3" style={{ background: "#0d0d0d", border: "1px solid #1a1a1a" }}>
+                      <div className="text-[10px] mb-1" style={{ color: "#666" }}>VIX</div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold" style={{ color: fxModel.signals.vix > 20 ? "#f87171" : "#4ade80" }}>
+                          {fxModel.signals.vix}
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded" style={{
+                          background: fxModel.signals.vix > 20 ? "rgba(248,113,113,0.1)" : "rgba(74,222,128,0.1)",
+                          color: fxModel.signals.vix > 20 ? "#f87171" : "#4ade80",
+                        }}>
+                          {lang === "kr" ? (fxModel.signals.vix > 20 ? "위험회피 → 달러강세" : "안정 → 달러약세") : (fxModel.signals.vix > 20 ? "Risk-off → USD Strong" : "Calm → USD Weak")}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Model prediction */}
+                    <div className="rounded-lg p-3" style={{ background: "#0d0d0d", border: "1px solid #1a1a1a" }}>
+                      <div className="text-[10px] mb-1" style={{ color: "#666" }}>
+                        {lang === "kr" ? "모델 예측" : "Model Prediction"}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold" style={{ color: "#60a5fa" }}>
+                          {fxModel.currentPredicted.toLocaleString()}{lang === "kr" ? "원" : " KRW"}
+                        </span>
+                        <span className="text-[10px]" style={{
+                          color: fxModel.currentPredicted > fxModel.currentActual ? "#f87171" : "#4ade80",
+                        }}>
+                          {lang === "kr" ? "현재 대비" : "vs actual"}{" "}
+                          {fxModel.currentPredicted > fxModel.currentActual ? "+" : ""}
+                          {((fxModel.currentPredicted - fxModel.currentActual) / fxModel.currentActual * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Confidence interval */}
+                    <div className="rounded-lg p-3" style={{ background: "#0d0d0d", border: "1px solid #1a1a1a" }}>
+                      <div className="text-[10px] mb-1" style={{ color: "#666" }}>
+                        {lang === "kr" ? "신뢰구간" : "Confidence Range"}
+                      </div>
+                      <div className="text-sm font-bold" style={{ color: "#a78bfa" }}>
+                        {fxModel.confidenceLow.toLocaleString()}{lang === "kr" ? "원" : ""} ~ {fxModel.confidenceHigh.toLocaleString()}{lang === "kr" ? "원" : " KRW"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Commentary button + result */}
+              <div className="mt-3">
+                <button
+                  onClick={requestFxCommentary}
+                  disabled={fxCommentaryLoading}
+                  className="rounded-lg px-4 py-2 text-xs font-medium transition-colors"
+                  style={{
+                    background: fxCommentary ? "rgba(96,165,250,0.08)" : "rgba(96,165,250,0.15)",
+                    color: "#60a5fa",
+                    border: "1px solid rgba(96,165,250,0.3)",
+                    cursor: fxCommentaryLoading ? "wait" : "pointer",
+                    opacity: fxCommentaryLoading ? 0.6 : 1,
+                  }}
+                >
+                  {fxCommentaryLoading
+                    ? (lang === "kr" ? "분석 생성중..." : "Generating...")
+                    : fxCommentary
+                      ? (lang === "kr" ? "AI 환율 분석 완료" : "AI FX Analysis Done")
+                      : (lang === "kr" ? "AI 환율 분석" : "AI FX Analysis")}
+                </button>
+
+                {fxCommentaryLoading && (
+                  <div className="mt-3 rounded-lg p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+                    <div className="h-3 w-3/4 rounded" style={{ background: "#1a1a1a" }} />
+                    <div className="mt-2 h-3 w-1/2 rounded" style={{ background: "#1a1a1a" }} />
+                  </div>
+                )}
+
+                {fxCommentary && (
+                  <div className="mt-3 rounded-lg p-4" style={{ background: "rgba(96,165,250,0.03)", border: "1px solid rgba(96,165,250,0.1)", borderLeft: "3px solid rgba(96,165,250,0.4)" }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded" style={{ background: "rgba(96,165,250,0.15)", color: "#60a5fa" }}>
+                        AI Analysis
+                      </span>
+                    </div>
+                    <p className="text-[12px] leading-[1.8]" style={{ color: "#bbb" }}>{fxCommentary}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Disclaimer */}
+              <div className="mt-3 text-[10px]" style={{ color: "#444" }}>
+                {lang === "kr"
+                  ? "* 본 모델은 참고용이며 투자 조언이 아닙니다. 과거 데이터 기반 회귀분석으로, 미래 환율을 보장하지 않습니다."
+                  : "* This model is for reference only and does not constitute investment advice. Based on historical regression analysis; does not guarantee future exchange rates."}
+              </div>
+            </>
+          ) : (
+            <div className="rounded-xl p-6 text-center" style={{ background: "#111", border: "1px solid #222" }}>
+              <span className="text-xs" style={{ color: "#666" }}>
+                {lang === "kr" ? "FX 모델 데이터를 불러올 수 없습니다." : "Unable to load FX model data."}
+              </span>
+            </div>
+          )}
         </div>
       </main>
 
