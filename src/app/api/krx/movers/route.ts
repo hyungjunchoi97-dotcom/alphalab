@@ -36,7 +36,7 @@ interface MoverItem {
 // ── In-memory cache (TTL = 10 min) ──────────────────────────
 
 interface CacheEntry {
-  data: { topValue: MoverItem[]; topGainers: MoverItem[] };
+  data: { topValue: MoverItem[]; topGainers: MoverItem[]; topLosers: MoverItem[]; totalGainers: number; totalLosers: number };
   cachedAt: number;
   asOf: string;
   fetchedAtISO: string;
@@ -124,6 +124,9 @@ function toMoverItem(row: KrxStockRow): MoverItem {
 function processRows(rows: KrxStockRow[]): {
   topValue: MoverItem[];
   topGainers: MoverItem[];
+  topLosers: MoverItem[];
+  totalGainers: number;
+  totalLosers: number;
 } {
   const valid = rows.filter(
     (r) =>
@@ -138,13 +141,20 @@ function processRows(rows: KrxStockRow[]): {
     .slice(0, 10)
     .map(toMoverItem);
 
-  const byGain = [...valid]
-    .filter((r) => parseFloat(r.FLUC_RT) > 0)
+  const gainers = valid.filter((r) => parseFloat(r.FLUC_RT) > 0);
+  const losers = valid.filter((r) => parseFloat(r.FLUC_RT) < 0);
+
+  const byGain = [...gainers]
     .sort((a, b) => parseFloat(b.FLUC_RT) - parseFloat(a.FLUC_RT))
-    .slice(0, 10)
+    .slice(0, 30)
     .map(toMoverItem);
 
-  return { topValue: byValue, topGainers: byGain };
+  const byLoss = [...losers]
+    .sort((a, b) => parseFloat(a.FLUC_RT) - parseFloat(b.FLUC_RT))
+    .slice(0, 30)
+    .map(toMoverItem);
+
+  return { topValue: byValue, topGainers: byGain, topLosers: byLoss, totalGainers: gainers.length, totalLosers: losers.length };
 }
 
 // ── Fetch single market from KRX ─────────────────────────────
@@ -187,6 +197,9 @@ async function fetchMarket(
 async function fetchFromKrx(): Promise<{
   topValue: MoverItem[];
   topGainers: MoverItem[];
+  topLosers: MoverItem[];
+  totalGainers: number;
+  totalLosers: number;
   asOf: string;
   message?: string;
 }> {
@@ -235,7 +248,7 @@ async function fetchFromKrx(): Promise<{
 
 // ── Mock fallback ───────────────────────────────────────────
 
-function mockData(): { topValue: MoverItem[]; topGainers: MoverItem[] } {
+function mockData(): { topValue: MoverItem[]; topGainers: MoverItem[]; topLosers: MoverItem[]; totalGainers: number; totalLosers: number } {
   return {
     topValue: [
       { code: "005930", name: "삼성전자", price: 72400, changeRate: 1.2, volume: 15234567, tradingValue: 1103938000000 },
@@ -251,6 +264,15 @@ function mockData(): { topValue: MoverItem[]; topGainers: MoverItem[] } {
       { code: "403870", name: "HPSP", price: 45100, changeRate: 4.9, volume: 2345600, tradingValue: 105800000000 },
       { code: "012450", name: "한화에어로스페이스", price: 186500, changeRate: 4.3, volume: 1890400, tradingValue: 352700000000 },
     ],
+    topLosers: [
+      { code: "035420", name: "NAVER", price: 215000, changeRate: -3.5, volume: 2134500, tradingValue: 458900000000 },
+      { code: "000660", name: "SK하이닉스", price: 198500, changeRate: -2.8, volume: 4512300, tradingValue: 895700000000 },
+      { code: "006400", name: "삼성SDI", price: 312000, changeRate: -2.1, volume: 890200, tradingValue: 278500000000 },
+      { code: "068270", name: "셀트리온", price: 178000, changeRate: -1.7, volume: 1234500, tradingValue: 219800000000 },
+      { code: "051910", name: "LG화학", price: 345000, changeRate: -1.3, volume: 1102300, tradingValue: 380290000000 },
+    ],
+    totalGainers: 520,
+    totalLosers: 430,
   };
 }
 
@@ -292,7 +314,13 @@ export async function GET(req: NextRequest) {
     const result = await fetchFromKrx();
     const fetchedAtISO = new Date().toISOString();
     cached = {
-      data: { topValue: result.topValue, topGainers: result.topGainers },
+      data: {
+        topValue: result.topValue,
+        topGainers: result.topGainers,
+        topLosers: result.topLosers,
+        totalGainers: result.totalGainers,
+        totalLosers: result.totalLosers,
+      },
       cachedAt: Date.now(),
       asOf: result.asOf,
       fetchedAtISO,
@@ -301,6 +329,9 @@ export async function GET(req: NextRequest) {
       ok: true,
       topValue: result.topValue,
       topGainers: result.topGainers,
+      topLosers: result.topLosers,
+      totalGainers: result.totalGainers,
+      totalLosers: result.totalLosers,
       source: "live",
       asOf: result.asOf,
       fetchedAtISO,
