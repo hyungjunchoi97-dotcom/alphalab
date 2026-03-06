@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLang } from "@/lib/LangContext";
 
 interface MoverItem {
@@ -80,6 +80,7 @@ export default function KoreaMovers() {
   const [totalGainers, setTotalGainers] = useState(0);
   const [totalLosers, setTotalLosers] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const fetchMovers = useCallback(async () => {
     try {
@@ -138,17 +139,23 @@ export default function KoreaMovers() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <MoverTable
-          title={lang === "kr" ? `상승 TOP ${displayCount}` : `Top ${displayCount} Gainers`}
-          data={displayGainers}
-          lang={lang}
-        />
-        <MoverTable
-          title={lang === "kr" ? `하락 TOP ${displayCount}` : `Top ${displayCount} Losers`}
-          data={displayLosers}
-          lang={lang}
-        />
+      <div
+        ref={contentRef}
+        className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
+        style={{ maxHeight: expanded ? `${contentRef.current?.scrollHeight || 2000}px` : "400px" }}
+      >
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <MoverTable
+            title={lang === "kr" ? `상승 TOP ${displayCount}` : `Top ${displayCount} Gainers`}
+            data={displayGainers}
+            lang={lang}
+          />
+          <MoverTable
+            title={lang === "kr" ? `하락 TOP ${displayCount}` : `Top ${displayCount} Losers`}
+            data={displayLosers}
+            lang={lang}
+          />
+        </div>
       </div>
 
       {/* Expand/Collapse button */}
@@ -160,7 +167,7 @@ export default function KoreaMovers() {
           >
             {expanded
               ? (lang === "kr" ? "접기 ▲" : "Show Less ▲")
-              : (lang === "kr" ? "더 보기 ▼" : "Show More ▼")}
+              : (lang === "kr" ? "더 보기 (30위까지) ▼" : "Show More (Top 30) ▼")}
           </button>
         </div>
       )}

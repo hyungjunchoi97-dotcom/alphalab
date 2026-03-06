@@ -111,9 +111,6 @@ export default function Home() {
             <section className="rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
               <SectionHeader title={t("marketHeatmap")} />
               <HeatmapTreemap />
-              <p className="mt-1 text-right text-[9px] text-muted">
-                {lang === "kr" ? "* 히트맵 데이터는 샘플 데이터입니다" : "* Heatmap data is sample data"}
-              </p>
             </section>
 
             <section className="rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
