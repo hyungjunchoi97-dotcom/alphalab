@@ -244,33 +244,116 @@ async function fetchFromKrx(): Promise<{
   throw new Error(lastError || "No data from KRX API after 5 date retries");
 }
 
-// ── Mock fallback ───────────────────────────────────────────
+// ── Yahoo Finance fallback ───────────────────────────────────
 
-function mockData(): { topValue: MoverItem[]; topGainers: MoverItem[]; topLosers: MoverItem[]; totalGainers: number; totalLosers: number } {
+const YAHOO_KR_SYMBOLS: { symbol: string; name: string }[] = [
+  // KOSPI major
+  { symbol: "005930.KS", name: "삼성전자" }, { symbol: "000660.KS", name: "SK하이닉스" },
+  { symbol: "373220.KS", name: "LG에너지솔루션" }, { symbol: "207940.KS", name: "삼성바이오로직스" },
+  { symbol: "005380.KS", name: "현대차" }, { symbol: "000270.KS", name: "기아" },
+  { symbol: "068270.KS", name: "셀트리온" }, { symbol: "035420.KS", name: "NAVER" },
+  { symbol: "035720.KS", name: "카카오" }, { symbol: "051910.KS", name: "LG화학" },
+  { symbol: "006400.KS", name: "삼성SDI" }, { symbol: "005490.KS", name: "POSCO홀딩스" },
+  { symbol: "055550.KS", name: "신한지주" }, { symbol: "105560.KS", name: "KB금융" },
+  { symbol: "086790.KS", name: "하나금융지주" }, { symbol: "316140.KS", name: "우리금융지주" },
+  { symbol: "012330.KS", name: "현대모비스" }, { symbol: "066570.KS", name: "LG전자" },
+  { symbol: "034730.KS", name: "SK" }, { symbol: "096770.KS", name: "SK이노베이션" },
+  { symbol: "017670.KS", name: "SK텔레콤" }, { symbol: "030200.KS", name: "KT" },
+  { symbol: "018260.KS", name: "삼성SDS" }, { symbol: "009150.KS", name: "삼성전기" },
+  { symbol: "028260.KS", name: "삼성물산" }, { symbol: "032830.KS", name: "삼성생명" },
+  { symbol: "003550.KS", name: "LG" }, { symbol: "034020.KS", name: "두산에너빌리티" },
+  { symbol: "010130.KS", name: "고려아연" }, { symbol: "010140.KS", name: "삼성중공업" },
+  { symbol: "042660.KS", name: "한화오션" }, { symbol: "000100.KS", name: "유한양행" },
+  { symbol: "003670.KS", name: "포스코퓨처엠" }, { symbol: "259960.KS", name: "크래프톤" },
+  { symbol: "352820.KS", name: "하이브" }, { symbol: "011200.KS", name: "HMM" },
+  { symbol: "047050.KS", name: "포스코인터내셔널" }, { symbol: "000810.KS", name: "삼성화재" },
+  { symbol: "036570.KS", name: "엔씨소프트" }, { symbol: "033780.KS", name: "KT&G" },
+  { symbol: "015760.KS", name: "한국전력" }, { symbol: "034220.KS", name: "LG디스플레이" },
+  { symbol: "003490.KS", name: "대한항공" }, { symbol: "012450.KS", name: "한화에어로스페이스" },
+  { symbol: "009540.KS", name: "한국조선해양" }, { symbol: "329180.KS", name: "HD현대중공업" },
+  { symbol: "267250.KS", name: "HD현대" }, { symbol: "010950.KS", name: "S-Oil" },
+  { symbol: "011170.KS", name: "롯데케미칼" }, { symbol: "004020.KS", name: "현대제철" },
+  { symbol: "000720.KS", name: "현대건설" }, { symbol: "032640.KS", name: "LG유플러스" },
+  { symbol: "006800.KS", name: "미래에셋증권" }, { symbol: "138040.KS", name: "메리츠금융지주" },
+  { symbol: "036460.KS", name: "한국가스공사" }, { symbol: "011790.KS", name: "SKC" },
+  { symbol: "402340.KS", name: "SK스퀘어" }, { symbol: "326030.KS", name: "SK바이오팜" },
+  { symbol: "090430.KS", name: "아모레퍼시픽" }, { symbol: "051900.KS", name: "LG생활건강" },
+  // KOSDAQ major
+  { symbol: "247540.KQ", name: "에코프로비엠" }, { symbol: "086520.KQ", name: "에코프로" },
+  { symbol: "042700.KQ", name: "한미반도체" }, { symbol: "403870.KQ", name: "HPSP" },
+  { symbol: "196170.KQ", name: "알테오젠" }, { symbol: "058470.KQ", name: "리노공업" },
+  { symbol: "263750.KQ", name: "펄어비스" }, { symbol: "293490.KQ", name: "카카오게임즈" },
+  { symbol: "145020.KQ", name: "휴젤" }, { symbol: "112040.KQ", name: "위메이드" },
+  { symbol: "357780.KQ", name: "솔브레인" }, { symbol: "039030.KQ", name: "이오테크닉스" },
+  { symbol: "041510.KQ", name: "에스엠" }, { symbol: "035900.KQ", name: "JYP Ent." },
+  { symbol: "036930.KQ", name: "주성엔지니어링" }, { symbol: "009520.KQ", name: "포스코엠텍" },
+  { symbol: "067310.KQ", name: "하나마이크론" }, { symbol: "095340.KQ", name: "ISC" },
+  { symbol: "383220.KQ", name: "F&F" }, { symbol: "377300.KQ", name: "카카오페이" },
+  { symbol: "240810.KQ", name: "원익IPS" }, { symbol: "137310.KQ", name: "에스디바이오센서" },
+  { symbol: "028300.KQ", name: "HLB" }, { symbol: "323410.KQ", name: "카카오뱅크" },
+  { symbol: "068760.KQ", name: "셀트리온제약" }, { symbol: "095700.KQ", name: "제넥신" },
+  { symbol: "298380.KQ", name: "에이비엘바이오" }, { symbol: "389030.KQ", name: "지누스" },
+  { symbol: "078600.KQ", name: "대주전자재료" }, { symbol: "299030.KQ", name: "하나기술" },
+];
+
+async function fetchFromYahoo(): Promise<{
+  topValue: MoverItem[];
+  topGainers: MoverItem[];
+  topLosers: MoverItem[];
+  totalGainers: number;
+  totalLosers: number;
+  asOf: string;
+}> {
+  const symbols = YAHOO_KR_SYMBOLS.map(s => s.symbol);
+  const nameMap = new Map(YAHOO_KR_SYMBOLS.map(s => [s.symbol, s.name]));
+
+  // Fetch in batches of 30 to avoid URL length limits
+  const batchSize = 30;
+  const allItems: MoverItem[] = [];
+
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    const batch = symbols.slice(i, i + batchSize);
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${batch.join(",")}&fields=symbol,regularMarketPrice,regularMarketChangePercent,regularMarketVolume,regularMarketDayHigh,regularMarketDayLow`;
+    try {
+      const res = await fetchWithTimeout(url, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+      }, 8000);
+      if (!res.ok) continue;
+      const json = await res.json();
+      const quotes = json.quoteResponse?.result || [];
+      for (const q of quotes) {
+        if (!q.regularMarketPrice || q.regularMarketPrice === 0) continue;
+        const code = q.symbol.replace(/\.(KS|KQ)$/, "");
+        allItems.push({
+          code,
+          name: nameMap.get(q.symbol) || q.shortName || code,
+          price: Math.round(q.regularMarketPrice),
+          changeRate: Math.round((q.regularMarketChangePercent || 0) * 100) / 100,
+          volume: q.regularMarketVolume || 0,
+          tradingValue: Math.round((q.regularMarketPrice || 0) * (q.regularMarketVolume || 0)),
+        });
+      }
+    } catch {
+      // continue with partial results
+    }
+  }
+
+  if (allItems.length === 0) throw new Error("Yahoo Finance returned no KR quotes");
+
+  const gainers = allItems.filter(m => m.changeRate > 0);
+  const losers = allItems.filter(m => m.changeRate < 0);
+
+  const topGainers = [...gainers].sort((a, b) => b.changeRate - a.changeRate);
+  const topLosers = [...losers].sort((a, b) => a.changeRate - b.changeRate);
+  const topValue = [...allItems].sort((a, b) => b.tradingValue - a.tradingValue).slice(0, 10);
+
   return {
-    topValue: [
-      { code: "005930", name: "삼성전자", price: 72400, changeRate: 1.2, volume: 15234567, tradingValue: 1103938000000 },
-      { code: "000660", name: "SK하이닉스", price: 198500, changeRate: -0.8, volume: 4512300, tradingValue: 895700000000 },
-      { code: "373220", name: "LG에너지솔루션", price: 380000, changeRate: 2.1, volume: 1723400, tradingValue: 654890000000 },
-      { code: "035420", name: "NAVER", price: 215000, changeRate: -1.5, volume: 2134500, tradingValue: 458900000000 },
-      { code: "051910", name: "LG화학", price: 345000, changeRate: 0.3, volume: 1102300, tradingValue: 380290000000 },
-    ],
-    topGainers: [
-      { code: "247540", name: "에코프로비엠", price: 152300, changeRate: 8.5, volume: 3456700, tradingValue: 526400000000 },
-      { code: "086520", name: "에코프로", price: 89400, changeRate: 6.2, volume: 5678900, tradingValue: 507600000000 },
-      { code: "042700", name: "한미반도체", price: 28600, changeRate: 5.8, volume: 8901200, tradingValue: 254700000000 },
-      { code: "403870", name: "HPSP", price: 45100, changeRate: 4.9, volume: 2345600, tradingValue: 105800000000 },
-      { code: "012450", name: "한화에어로스페이스", price: 186500, changeRate: 4.3, volume: 1890400, tradingValue: 352700000000 },
-    ],
-    topLosers: [
-      { code: "035420", name: "NAVER", price: 215000, changeRate: -3.5, volume: 2134500, tradingValue: 458900000000 },
-      { code: "000660", name: "SK하이닉스", price: 198500, changeRate: -2.8, volume: 4512300, tradingValue: 895700000000 },
-      { code: "006400", name: "삼성SDI", price: 312000, changeRate: -2.1, volume: 890200, tradingValue: 278500000000 },
-      { code: "068270", name: "셀트리온", price: 178000, changeRate: -1.7, volume: 1234500, tradingValue: 219800000000 },
-      { code: "051910", name: "LG화학", price: 345000, changeRate: -1.3, volume: 1102300, tradingValue: 380290000000 },
-    ],
-    totalGainers: 520,
-    totalLosers: 430,
+    topValue,
+    topGainers,
+    topLosers,
+    totalGainers: gainers.length,
+    totalLosers: losers.length,
+    asOf: getBusinessDate(),
   };
 }
 
@@ -290,26 +373,30 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         ...cached.data,
-        source: "live",
+        source: cached.fetchedAtISO ? "cache" : "cache",
         asOf: cached.asOf,
         fetchedAtISO: cached.fetchedAtISO,
       });
     }
 
+    // Try KRX first, then Yahoo Finance fallback
+    let result: { topValue: MoverItem[]; topGainers: MoverItem[]; topLosers: MoverItem[]; totalGainers: number; totalLosers: number; asOf: string; message?: string };
+    let source = "krx";
+
     const resolved = resolveKrxKey();
-    if (!resolved) {
-      const data = mockData();
-      return NextResponse.json({
-        ok: true,
-        ...data,
-        source: "mock",
-        asOf: asOfDefault,
-        fetchedAtISO: now,
-        message: `KRX API key missing — checked: ${KRX_ENV_NAMES.join(", ")} (host: ${host})`,
-      });
+    if (resolved) {
+      try {
+        result = await fetchFromKrx();
+      } catch (krxErr) {
+        console.log(`[KRX] Failed: ${krxErr instanceof Error ? krxErr.message : krxErr}, trying Yahoo Finance fallback`);
+        result = await fetchFromYahoo();
+        source = "yahoo";
+      }
+    } else {
+      result = await fetchFromYahoo();
+      source = "yahoo";
     }
 
-    const result = await fetchFromKrx();
     const fetchedAtISO = new Date().toISOString();
     cached = {
       data: {
@@ -325,12 +412,8 @@ export async function GET(req: NextRequest) {
     };
     return NextResponse.json({
       ok: true,
-      topValue: result.topValue,
-      topGainers: result.topGainers,
-      topLosers: result.topLosers,
-      totalGainers: result.totalGainers,
-      totalLosers: result.totalLosers,
-      source: "live",
+      ...cached.data,
+      source,
       asOf: result.asOf,
       fetchedAtISO,
       message: result.message,
@@ -350,15 +433,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Fall back to mock data
-    const data = mockData();
-    return NextResponse.json({
-      ok: false,
-      ...data,
-      source: "mock",
-      asOf: asOfDefault,
-      fetchedAtISO: now,
-      message,
-    });
+    return NextResponse.json(
+      { ok: false, topGainers: [], topLosers: [], topValue: [], totalGainers: 0, totalLosers: 0, source: "error", asOf: asOfDefault, fetchedAtISO: now, message },
+      { status: 500 }
+    );
   }
 }
