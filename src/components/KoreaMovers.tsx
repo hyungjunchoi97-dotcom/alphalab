@@ -39,7 +39,7 @@ function MoverTable({
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-card-border text-left text-[10px] uppercase tracking-wider text-muted">
+            <tr className="sticky top-0 border-b border-card-border bg-card-bg text-left text-[10px] uppercase tracking-wider text-muted">
               <th className="w-6 pb-1">#</th>
               <th className="pb-1">{lang === "kr" ? "종목" : "Name"}</th>
               <th className="pb-1 text-right">{lang === "kr" ? "가격" : "Price"}</th>
@@ -93,7 +93,7 @@ export default function KoreaMovers() {
   const [source, setSource] = useState<string>("");
   const [totalGainers, setTotalGainers] = useState(0);
   const [totalLosers, setTotalLosers] = useState(0);
-  const [showCount, setShowCount] = useState(5);
+  const [showCount, setShowCount] = useState(30);
 
   const fetchMovers = useCallback(async () => {
     try {
@@ -153,16 +153,20 @@ export default function KoreaMovers() {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <MoverTable
-          title={lang === "kr" ? `상승 TOP ${displayGainers.length}` : `Top ${displayGainers.length} Gainers`}
-          data={displayGainers}
-          lang={lang}
-        />
-        <MoverTable
-          title={lang === "kr" ? `하락 TOP ${displayLosers.length}` : `Top ${displayLosers.length} Losers`}
-          data={displayLosers}
-          lang={lang}
-        />
+        <div className="max-h-[600px] overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
+          <MoverTable
+            title={lang === "kr" ? `상승 TOP ${displayGainers.length}` : `Top ${displayGainers.length} Gainers`}
+            data={displayGainers}
+            lang={lang}
+          />
+        </div>
+        <div className="max-h-[600px] overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}>
+          <MoverTable
+            title={lang === "kr" ? `하락 TOP ${displayLosers.length}` : `Top ${displayLosers.length} Losers`}
+            data={displayLosers}
+            lang={lang}
+          />
+        </div>
       </div>
 
       {/* Load more button */}
