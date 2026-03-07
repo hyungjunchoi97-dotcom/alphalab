@@ -44,7 +44,7 @@ const US_BENCHMARK = { symbol: "SPY", name: "S&P 500" };
 
 // ── Cache ────────────────────────────────────────────────────
 
-const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cache: { data: Record<string, any>; cachedAt: number } | null = null;
 
@@ -65,6 +65,10 @@ async function fetchWeeklyCloses(symbol: string): Promise<number[] | null> {
     if (!quote?.close) return null;
     for (const c of quote.close) {
       if (c != null && c > 0) closes.push(c);
+    }
+    // Drop the last entry if it duplicates the previous (incomplete current week)
+    if (closes.length >= 2 && closes[closes.length - 1] === closes[closes.length - 2]) {
+      closes.pop();
     }
     return closes.length >= 12 ? closes : null;
   } catch {

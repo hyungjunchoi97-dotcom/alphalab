@@ -337,6 +337,7 @@ export default function RRGChart() {
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
   const [krData, setKrData] = useState<SectorData[]>([]);
   const [usData, setUsData] = useState<SectorData[]>([]);
+  const [asOf, setAsOf] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [animFrame, setAnimFrame] = useState(0);
@@ -349,6 +350,7 @@ export default function RRGChart() {
         if (json.ok) {
           setKrData(json.kr || []);
           setUsData(json.us || []);
+          if (json.asOf) setAsOf(json.asOf);
         }
       })
       .catch(() => {})
@@ -471,6 +473,12 @@ export default function RRGChart() {
         >
           {playing ? (lang === "kr" ? "정지" : "Stop") : (lang === "kr" ? "재생" : "Play")}
         </button>
+
+        {asOf && (
+          <span className="ml-auto text-[9px] text-muted/60 tabular-nums">
+            {lang === "kr" ? "업데이트" : "Updated"}: {new Date(asOf).toLocaleString(lang === "kr" ? "ko-KR" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+          </span>
+        )}
       </div>
 
       {/* Main chart + sidebar */}
