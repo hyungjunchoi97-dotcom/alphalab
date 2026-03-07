@@ -1,34 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
-interface TickerItem {
-  type: "NEWS" | "INDEX" | "FX" | "COM";
+interface MarketItem {
+  type: "INDEX" | "FX" | "COM";
   label: string;
-  value?: string;
-  changePct?: number;
-  href?: string;
+  value: number | null;
+  changePct: number | null;
 }
 
-const TYPE_COLORS: Record<TickerItem["type"], string> = {
-  NEWS: "text-accent",
-  INDEX: "text-foreground",
-  FX: "text-foreground",
-  COM: "text-foreground",
-};
+interface NewsItem {
+  type: "NEWS";
+  label: string;
+}
 
-const STATIC_ITEMS: TickerItem[] = [
-  { type: "INDEX", label: "S&P 500", value: "5,954.50", changePct: 1.26 },
-  { type: "INDEX", label: "NASDAQ", value: "19,211.10", changePct: 1.58 },
-  { type: "FX", label: "USD/KRW", value: "1,378.50", changePct: -0.12 },
-  { type: "COM", label: "Gold", value: "2,918.40", changePct: 0.45 },
-  { type: "COM", label: "WTI Oil", value: "69.32", changePct: -1.87 },
-  { type: "NEWS", label: "NVIDIA beats Q4 estimates on record data center demand" },
-  { type: "NEWS", label: "Samsung unveils HBM4 roadmap at investor day" },
-  { type: "NEWS", label: "Fed signals potential rate cut in June FOMC meeting" },
-  { type: "NEWS", label: "Toyota accelerates solid-state battery timeline to 2027" },
-  { type: "NEWS", label: "Microsoft Azure AI revenue surges 40% YoY in cloud push" },
-];
+type TickerItem =
+  | { type: "INDEX" | "FX" | "COM"; label: string; value: string; changePct: number | null }
+  | { type: "NEWS"; label: string };
+
+function formatValue(label: string, value: number): string {
+  if (label === "Bitcoin") return value.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  if (label === "USD/KRW") return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (["Gold", "WTI Oil"].includes(label)) return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Indices
+  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 function TickerEntry({ item }: { item: TickerItem }) {
   const inner = (
@@ -42,15 +38,15 @@ function TickerEntry({ item }: { item: TickerItem }) {
       >
         {item.type}
       </span>
-      <span className={`text-[11px] ${TYPE_COLORS[item.type]}`}>
+      <span className={`text-[11px] ${item.type === "NEWS" ? "text-accent" : "text-foreground"}`}>
         {item.label}
       </span>
-      {item.value != null && (
+      {"value" in item && item.value != null && (
         <span className="text-[11px] tabular-nums text-foreground">
           {item.value}
         </span>
       )}
-      {item.changePct != null && (
+      {"changePct" in item && item.changePct != null && (
         <span
           className={`text-[11px] tabular-nums font-medium ${
             item.changePct >= 0 ? "text-gain" : "text-loss"
@@ -63,55 +59,68 @@ function TickerEntry({ item }: { item: TickerItem }) {
     </span>
   );
 
-  if (item.href) {
-    return (
-      <a href={item.href} className="hover:underline">
-        {inner}
-      </a>
-    );
-  }
   return inner;
 }
 
 export default function TopTickerBar() {
-  const [items, setItems] = useState<TickerItem[]>(STATIC_ITEMS);
+  const [items, setItems] = useState<TickerItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchTicker = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ticker");
+      const json = await res.json();
+      if (!json.ok && !json.market) return;
 
-    async function fetchIndices() {
-      try {
-        const res = await fetch("/api/krx/indices");
-        const json = await res.json();
-        if (!json.ok || !json.indices) return;
+      const tickerItems: TickerItem[] = [];
 
-        const krxItems: TickerItem[] = json.indices.map(
-          (idx: { name: string; value: string; changePct: number }) => ({
-            type: "INDEX" as const,
-            label: idx.name,
-            value: idx.value,
-            changePct: idx.changePct,
-          })
-        );
-
-        if (!cancelled) {
-          setItems((prev) => {
-            // Replace the first 3 static INDEX items (S&P, NASDAQ, ...) with KRX + those
-            const nonIndex = prev.filter((i) => i.type !== "INDEX");
-            const usIndices = prev.filter(
-              (i) => i.type === "INDEX" && !["KOSPI", "KOSDAQ", "KRX"].includes(i.label)
-            );
-            return [...krxItems, ...usIndices, ...nonIndex];
+      // Market data
+      if (json.market) {
+        for (const m of json.market as MarketItem[]) {
+          tickerItems.push({
+            type: m.type,
+            label: m.label,
+            value: m.value != null ? formatValue(m.label, m.value) : "—",
+            changePct: m.changePct,
           });
         }
-      } catch {
-        // Keep static items on error
       }
-    }
 
-    fetchIndices();
-    return () => { cancelled = true; };
+      // News items
+      if (json.news) {
+        for (const n of json.news as NewsItem[]) {
+          tickerItems.push({ type: "NEWS", label: n.label });
+        }
+      }
+
+      if (tickerItems.length > 0) {
+        setItems(tickerItems);
+        setLoaded(true);
+      }
+    } catch {
+      // Keep existing items on error
+    }
   }, []);
+
+  useEffect(() => {
+    fetchTicker();
+    intervalRef.current = setInterval(fetchTicker, 60_000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchTicker]);
+
+  // Show nothing until first load (avoids flash of empty bar)
+  if (!loaded && items.length === 0) {
+    return (
+      <div className="relative overflow-hidden border-b border-card-border/60 bg-background">
+        <div className="flex items-center gap-6 px-4 py-1.5">
+          <span className="text-[11px] text-muted animate-pulse">Loading market data...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="group relative overflow-hidden border-b border-card-border/60 bg-background">

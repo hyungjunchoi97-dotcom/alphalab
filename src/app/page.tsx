@@ -96,9 +96,6 @@ export default function Home() {
             KOSPI: <span className="font-medium text-foreground">{kospi.toLocaleString()}</span>
           </span>
         )}
-        <span className="rounded border border-card-border bg-background px-2 py-0.5 text-[10px] text-muted">
-          KRX: Pending
-        </span>
         <span className="rounded border border-card-border bg-background px-2 py-0.5 text-[10px] text-muted tabular-nums">
           Last refresh: {secondsAgo != null ? `${secondsAgo}s ago` : "\u2014"}
         </span>
