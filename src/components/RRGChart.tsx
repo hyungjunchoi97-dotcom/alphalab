@@ -25,50 +25,46 @@ const CARD = "rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_
 
 const Q = {
   leading: {
-    emoji: "\uD83D\uDFE2",
     en: "Leading", kr: "강세 유지",
-    descEn: "Strong and getting stronger → Hold/add",
-    descKr: "강하고 계속 강해짐 → 보유/추가매수",
-    actionEn: "Buy interest", actionKr: "매수 관심",
-    color: "#22c55e", bg: "rgba(16,185,129,0.15)",
-    border: "border-green-500/20", bgCard: "bg-green-500/5",
+    descEn: "RS-Ratio > 100, RS-Momentum > 100 — Relative strength advantage sustained",
+    descKr: "상대강도 우위 지속 — 비중 유지",
+    actionEn: "Overweight", actionKr: "Overweight",
+    color: "#22c55e", bg: "rgba(16,185,129,0.08)",
+    border: "border-[#1a2a1a]", bgCard: "bg-[#0a120a]",
   },
   improving: {
-    emoji: "\uD83D\uDFE1",
     en: "Improving", kr: "강세 전환",
-    descEn: "Was weak, now turning strong → Consider early buy",
-    descKr: "약했지만 강해지는 중 → 매수 검토 타이밍",
-    actionEn: "Monitoring", actionKr: "모니터링",
-    color: "#eab308", bg: "rgba(234,179,8,0.15)",
-    border: "border-yellow-500/20", bgCard: "bg-yellow-500/5",
+    descEn: "RS-Ratio < 100, RS-Momentum > 100 — Relative strength recovery signal",
+    descKr: "상대강도 개선 구간 — 비중 확대 검토",
+    actionEn: "Upgrade", actionKr: "비중 확대",
+    color: "#eab308", bg: "rgba(234,179,8,0.08)",
+    border: "border-[#2a2a1a]", bgCard: "bg-[#12120a]",
   },
   weakening: {
-    emoji: "\uD83D\uDFE0",
     en: "Weakening", kr: "약세 전환",
-    descEn: "Was strong, now turning weak → Take profits",
-    descKr: "강했지만 약해지는 중 → 차익실현 고려",
-    actionEn: "Reduce", actionKr: "비중 축소",
-    color: "#f97316", bg: "rgba(249,115,22,0.15)",
-    border: "border-orange-500/20", bgCard: "bg-orange-500/5",
+    descEn: "RS-Ratio > 100, RS-Momentum < 100 — Relative strength peaking out",
+    descKr: "상대강도 피크아웃 신호 — 비중 조정",
+    actionEn: "Downgrade", actionKr: "비중 축소",
+    color: "#f97316", bg: "rgba(249,115,22,0.08)",
+    border: "border-[#2a1a0a]", bgCard: "bg-[#120d0a]",
   },
   lagging: {
-    emoji: "\uD83D\uDD34",
     en: "Lagging", kr: "약세 유지",
-    descEn: "Weak and getting weaker → Avoid buying",
-    descKr: "약하고 계속 약해짐 → 매수 피할 것",
-    actionEn: "Avoid", actionKr: "매수 자제",
-    color: "#ef4444", bg: "rgba(239,68,68,0.15)",
-    border: "border-red-500/20", bgCard: "bg-red-500/5",
+    descEn: "RS-Ratio < 100, RS-Momentum < 100 — Relative strength deficit sustained",
+    descKr: "상대강도 열위 지속 — 비중 축소",
+    actionEn: "Underweight", actionKr: "Underweight",
+    color: "#ef4444", bg: "rgba(239,68,68,0.08)",
+    border: "border-[#2a1a1a]", bgCard: "bg-[#120a0a]",
   },
 };
 
 const QUADRANT_ORDER: Quadrant[] = ["leading", "improving", "weakening", "lagging"];
 
 const ACTION_HEADERS = {
-  leading: { en: "Sectors to watch (Leading)", kr: "지금 주목할 섹터 (강세 유지)" },
-  improving: { en: "Early-buy candidates (Improving)", kr: "선취매 후보 (강세 전환)" },
-  weakening: { en: "Take-profit candidates (Weakening)", kr: "차익실현 고려 (약세 전환)" },
-  lagging: { en: "Sectors to avoid (Lagging)", kr: "회피 섹터 (약세 유지)" },
+  leading: { en: "LEADING", kr: "LEADING" },
+  improving: { en: "IMPROVING", kr: "IMPROVING" },
+  weakening: { en: "WEAKENING", kr: "WEAKENING" },
+  lagging: { en: "LAGGING", kr: "LAGGING" },
 };
 
 // ── Auto summary generator ──────────────────────────────────
@@ -82,40 +78,38 @@ function generateSummary(sectors: SectorData[], lang: "en" | "kr"): string {
   const parts: string[] = [];
 
   if (grouped.leading.length > 0) {
-    const names = grouped.leading.slice(0, 3).map(name).join("·");
-    parts.push(lang === "kr" ? `${names} 강세 유지` : `${names} leading`);
+    const names = grouped.leading.slice(0, 3).map(name).join(" / ");
+    parts.push(`OVERWEIGHT  ${names}`);
   }
   if (grouped.lagging.length > 0) {
-    const names = grouped.lagging.slice(0, 3).map(name).join("·");
-    parts.push(lang === "kr" ? `${names} 약세` : `${names} lagging`);
+    const names = grouped.lagging.slice(0, 3).map(name).join(" / ");
+    parts.push(`UNDERWEIGHT  ${names}`);
   }
   if (grouped.improving.length > 0) {
-    const names = grouped.improving.slice(0, 2).map(name).join("·");
-    parts.push(lang === "kr" ? `주목할 전환 섹터: ${names}` : `Watch: ${names} improving`);
+    const names = grouped.improving.slice(0, 2).map(name).join(" / ");
+    parts.push(`WATCH  ${names}`);
   }
 
-  if (parts.length === 0) return lang === "kr" ? "데이터 분석 중..." : "Analyzing data...";
-  return parts.join(" | ");
+  if (parts.length === 0) return lang === "kr" ? "Analyzing..." : "Analyzing...";
+  return parts.join("   |   ");
 }
 
 // ── Tooltip interpretation ──────────────────────────────────
 
 function getInterpretation(s: SectorData, lang: "en" | "kr"): string {
-  const ratio = s.current.rsRatio;
-  const mom = s.current.rsMomentum;
-  const strong = ratio >= 100;
-  const rising = mom >= 100;
+  const strong = s.current.rsRatio >= 100;
+  const rising = s.current.rsMomentum >= 100;
 
   if (lang === "kr") {
-    if (strong && rising) return "현재 시장 대비 강하며 모멘텀도 상승 중. 단기 매수 유효.";
-    if (!strong && rising) return "시장 대비 약하지만 반등 조짐. 선취매 검토 가능.";
-    if (strong && !rising) return "시장 대비 강하나 모멘텀 둔화 중. 차익실현 고려.";
-    return "시장 대비 약하고 모멘텀도 하락 중. 매수 자제 권장.";
+    if (strong && rising) return "벤치마크 대비 상대강도 우위 + 모멘텀 상승. 비중 유지 유효.";
+    if (!strong && rising) return "상대강도 열위이나 개선 추세. 비중 확대 검토 가능.";
+    if (strong && !rising) return "상대강도 우위이나 모멘텀 둔화. 비중 조정 검토.";
+    return "상대강도 열위 + 모멘텀 하락. 비중 축소 권장.";
   }
-  if (strong && rising) return "Strong vs market with rising momentum. Buy signal valid.";
-  if (!strong && rising) return "Weak but rebounding. Consider early positioning.";
-  if (strong && !rising) return "Strong but momentum fading. Consider taking profits.";
-  return "Weak with declining momentum. Avoid buying.";
+  if (strong && rising) return "Above-benchmark RS with rising momentum. Maintain overweight.";
+  if (!strong && rising) return "Below-benchmark but improving. Consider upgrading allocation.";
+  if (strong && !rising) return "Above-benchmark but momentum fading. Consider trimming.";
+  return "Below-benchmark with declining momentum. Underweight recommended.";
 }
 
 // ── SVG RRG Scatter Plot ─────────────────────────────────────
@@ -143,7 +137,6 @@ function RRGScatterPlot({
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
 
-  // Only show last 4 weeks of trail
   const TRAIL_DISPLAY = 4;
 
   const { xMin, xMax, yMin, yMax } = useMemo(() => {
@@ -176,7 +169,7 @@ function RRGScatterPlot({
   return (
     <div className="relative">
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
-        {/* Quadrant backgrounds - stronger opacity */}
+        {/* Quadrant backgrounds */}
         <rect x={cx100} y={PAD.top} width={PAD.left + plotW - cx100 + PAD.right} height={cy100 - PAD.top} fill={Q.leading.bg} />
         <rect x={0} y={PAD.top} width={cx100} height={cy100 - PAD.top} fill={Q.improving.bg} />
         <rect x={0} y={cy100} width={cx100} height={PAD.top + plotH - cy100 + PAD.bottom} fill={Q.lagging.bg} />
@@ -188,41 +181,41 @@ function RRGScatterPlot({
           const yv = yMin + ((yMax - yMin) * i) / 4;
           return (
             <g key={i}>
-              <line x1={scaleX(xv)} y1={PAD.top} x2={scaleX(xv)} y2={PAD.top + plotH} stroke="#1f2a37" strokeDasharray="3 3" />
-              <line x1={PAD.left} y1={scaleY(yv)} x2={PAD.left + plotW} y2={scaleY(yv)} stroke="#1f2a37" strokeDasharray="3 3" />
-              <text x={scaleX(xv)} y={PAD.top + plotH + 16} textAnchor="middle" fill="#6b7280" fontSize={9}>{xv.toFixed(1)}</text>
-              <text x={PAD.left - 8} y={scaleY(yv) + 3} textAnchor="end" fill="#6b7280" fontSize={9}>{yv.toFixed(1)}</text>
+              <line x1={scaleX(xv)} y1={PAD.top} x2={scaleX(xv)} y2={PAD.top + plotH} stroke="#1a1f28" strokeDasharray="3 3" />
+              <line x1={PAD.left} y1={scaleY(yv)} x2={PAD.left + plotW} y2={scaleY(yv)} stroke="#1a1f28" strokeDasharray="3 3" />
+              <text x={scaleX(xv)} y={PAD.top + plotH + 16} textAnchor="middle" fill="#555" fontSize={9} fontFamily="ui-monospace, monospace">{xv.toFixed(1)}</text>
+              <text x={PAD.left - 8} y={scaleY(yv) + 3} textAnchor="end" fill="#555" fontSize={9} fontFamily="ui-monospace, monospace">{yv.toFixed(1)}</text>
             </g>
           );
         })}
 
         {/* Center crosshair */}
-        <line x1={cx100} y1={PAD.top} x2={cx100} y2={PAD.top + plotH} stroke="#374151" strokeWidth={1.5} />
-        <line x1={PAD.left} y1={cy100} x2={PAD.left + plotW} y2={cy100} stroke="#374151" strokeWidth={1.5} />
+        <line x1={cx100} y1={PAD.top} x2={cx100} y2={PAD.top + plotH} stroke="#2a3040" strokeWidth={1.5} />
+        <line x1={PAD.left} y1={cy100} x2={PAD.left + plotW} y2={cy100} stroke="#2a3040" strokeWidth={1.5} />
 
-        {/* Quadrant labels - 16px font */}
-        <text x={cx100 + 8} y={PAD.top + 20} fill={Q.leading.color} fontSize={16} fontWeight="700" opacity={0.8}>
-          {Q.leading.emoji} {lang === "kr" ? Q.leading.kr : Q.leading.en}
+        {/* Quadrant labels - bilingual, 16px */}
+        <text x={cx100 + 8} y={PAD.top + 18} fill={Q.leading.color} fontSize={14} fontWeight="700" opacity={0.7} fontFamily="ui-sans-serif, system-ui, sans-serif">
+          Leading {lang === "kr" ? "/ 강세 유지" : ""}
         </text>
-        <text x={PAD.left + 8} y={PAD.top + 20} fill={Q.improving.color} fontSize={16} fontWeight="700" opacity={0.8}>
-          {Q.improving.emoji} {lang === "kr" ? Q.improving.kr : Q.improving.en}
+        <text x={PAD.left + 8} y={PAD.top + 18} fill={Q.improving.color} fontSize={14} fontWeight="700" opacity={0.7} fontFamily="ui-sans-serif, system-ui, sans-serif">
+          Improving {lang === "kr" ? "/ 강세 전환" : ""}
         </text>
-        <text x={PAD.left + 8} y={PAD.top + plotH - 8} fill={Q.lagging.color} fontSize={16} fontWeight="700" opacity={0.8}>
-          {Q.lagging.emoji} {lang === "kr" ? Q.lagging.kr : Q.lagging.en}
+        <text x={PAD.left + 8} y={PAD.top + plotH - 8} fill={Q.lagging.color} fontSize={14} fontWeight="700" opacity={0.7} fontFamily="ui-sans-serif, system-ui, sans-serif">
+          Lagging {lang === "kr" ? "/ 약세 유지" : ""}
         </text>
-        <text x={cx100 + 8} y={PAD.top + plotH - 8} fill={Q.weakening.color} fontSize={16} fontWeight="700" opacity={0.8}>
-          {Q.weakening.emoji} {lang === "kr" ? Q.weakening.kr : Q.weakening.en}
+        <text x={cx100 + 8} y={PAD.top + plotH - 8} fill={Q.weakening.color} fontSize={14} fontWeight="700" opacity={0.7} fontFamily="ui-sans-serif, system-ui, sans-serif">
+          Weakening {lang === "kr" ? "/ 약세 전환" : ""}
         </text>
 
         {/* Axis labels */}
-        <text x={PAD.left + plotW / 2} y={H - 4} textAnchor="middle" fill="#9ca3af" fontSize={10}>
+        <text x={PAD.left + plotW / 2} y={H - 4} textAnchor="middle" fill="#666" fontSize={10} fontFamily="ui-sans-serif, system-ui, sans-serif">
           RS-Ratio ({lang === "kr" ? "상대강도" : "Relative Strength"})
         </text>
-        <text x={12} y={PAD.top + plotH / 2} textAnchor="middle" fill="#9ca3af" fontSize={10} transform={`rotate(-90, 12, ${PAD.top + plotH / 2})`}>
+        <text x={12} y={PAD.top + plotH / 2} textAnchor="middle" fill="#666" fontSize={10} fontFamily="ui-sans-serif, system-ui, sans-serif" transform={`rotate(-90, 12, ${PAD.top + plotH / 2})`}>
           RS-Momentum ({lang === "kr" ? "모멘텀" : "Momentum"})
         </text>
 
-        {/* Arrow marker */}
+        {/* Arrow markers */}
         <defs>
           {sectors.map(s => (
             <marker key={`arrow-${s.ticker}`} id={`arrow-${s.ticker}`} viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -238,7 +231,6 @@ function RRGScatterPlot({
           const isHighlighted = highlighted === s.ticker;
           const dimmed = highlighted !== null && !isHighlighted;
           const opacity = dimmed ? 0.12 : 1;
-          // 30% larger bubbles: base 23 -> 23, highlighted 29
           const r = isHighlighted ? 29 : 23;
 
           return (
@@ -254,7 +246,7 @@ function RRGScatterPlot({
                   markerEnd={`url(#arrow-${s.ticker})`}
                 />
               )}
-              {/* Trail dots (fading) */}
+              {/* Trail dots */}
               {pts.slice(0, -1).map((p, i) => (
                 <circle
                   key={i}
@@ -271,34 +263,31 @@ function RRGScatterPlot({
                 cy={scaleY(s.current.rsMomentum)}
                 r={r}
                 fill={s.color}
-                fillOpacity={0.25}
+                fillOpacity={0.2}
                 stroke={s.color}
                 strokeWidth={isHighlighted ? 2.5 : 1.5}
                 className="cursor-pointer transition-all"
                 onMouseEnter={(e) => {
                   onHover(s.ticker);
                   const rect = svgRef.current?.getBoundingClientRect();
-                  if (rect) {
-                    setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, sector: s });
-                  }
+                  if (rect) setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, sector: s });
                 }}
                 onMouseMove={(e) => {
                   const rect = svgRef.current?.getBoundingClientRect();
-                  if (rect) {
-                    setTooltip(prev => prev ? { ...prev, x: e.clientX - rect.left, y: e.clientY - rect.top } : null);
-                  }
+                  if (rect) setTooltip(prev => prev ? { ...prev, x: e.clientX - rect.left, y: e.clientY - rect.top } : null);
                 }}
                 onMouseLeave={() => { onHover(null); setTooltip(null); }}
                 onClick={() => onClick(s.ticker)}
               />
-              {/* Sector name ABOVE bubble (outside) */}
+              {/* Sector name ABOVE bubble */}
               <text
                 x={scaleX(s.current.rsRatio)}
                 y={scaleY(s.current.rsMomentum) - r - 5}
                 textAnchor="middle"
-                fill="#e5e7eb"
+                fill="#d0d0d0"
                 fontSize={isHighlighted ? 11 : 9}
-                fontWeight="700"
+                fontWeight="600"
+                fontFamily="ui-sans-serif, system-ui, sans-serif"
                 pointerEvents="none"
               >
                 {lang === "kr" ? s.nameKr : s.name}
@@ -311,6 +300,7 @@ function RRGScatterPlot({
                 fill={s.chg5d >= 0 ? "#4ade80" : "#f87171"}
                 fontSize={isHighlighted ? 11 : 9}
                 fontWeight="700"
+                fontFamily="ui-monospace, monospace"
                 pointerEvents="none"
               >
                 {s.chg5d >= 0 ? "+" : ""}{s.chg5d.toFixed(1)}%
@@ -320,53 +310,60 @@ function RRGScatterPlot({
         })}
       </svg>
 
-      {/* Enhanced Tooltip */}
+      {/* Tooltip */}
       {tooltip && (
         <div
-          className="pointer-events-none absolute z-50 rounded-lg border border-card-border bg-[#111820] px-3.5 py-2.5 shadow-xl"
+          className="pointer-events-none absolute z-50 rounded border border-[#2a2a2a] bg-[#0d0d0d] px-4 py-3 shadow-2xl"
           style={{
             left: Math.min(tooltip.x + 14, 480),
             top: Math.max(tooltip.y - 20, 0),
-            minWidth: 220,
+            minWidth: 240,
           }}
         >
-          <p className="text-[13px] font-bold" style={{ color: tooltip.sector.color }}>
-            {lang === "kr" ? tooltip.sector.nameKr : tooltip.sector.name}
-          </p>
-          <div className="mt-1.5 space-y-1 text-[11px]">
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted">{lang === "kr" ? "현재 위치:" : "Phase:"}</span>
-              <span className="rounded px-1.5 py-px text-[10px] font-semibold" style={{ color: Q[tooltip.sector.quadrant].color, background: Q[tooltip.sector.quadrant].bg }}>
-                {lang === "kr" ? Q[tooltip.sector.quadrant].kr + " 구간" : Q[tooltip.sector.quadrant].en}
+          <div className="flex items-center gap-2 mb-2">
+            <span className="inline-block h-2 w-2 rounded-sm" style={{ background: tooltip.sector.color }} />
+            <span className="text-[13px] font-semibold text-foreground">
+              {lang === "kr" ? tooltip.sector.nameKr : tooltip.sector.name}
+            </span>
+          </div>
+          <div className="border-t border-[#222] pt-2 space-y-1.5">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-[#666]">{lang === "kr" ? "현재 위치" : "Phase"}</span>
+              <span className="font-mono font-medium" style={{ color: Q[tooltip.sector.quadrant].color }}>
+                {Q[tooltip.sector.quadrant].en} / {Q[tooltip.sector.quadrant].kr}
               </span>
             </div>
-            <p className="text-muted">
-              RS-Ratio: <span className="text-foreground tabular-nums font-medium">{tooltip.sector.current.rsRatio.toFixed(2)}</span>
-              <span className="ml-1 text-[9px] text-muted/70">
-                ({lang === "kr"
-                  ? `시장보다 ${Math.abs(tooltip.sector.current.rsRatio - 100).toFixed(1)}% ${tooltip.sector.current.rsRatio >= 100 ? "강함" : "약함"}`
-                  : `${Math.abs(tooltip.sector.current.rsRatio - 100).toFixed(1)}% ${tooltip.sector.current.rsRatio >= 100 ? "above" : "below"} market`})
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-[#666]">RS-Ratio</span>
+              <span className="font-mono font-medium text-foreground">
+                {tooltip.sector.current.rsRatio.toFixed(2)}
+                <span className="ml-1.5 text-[9px] text-[#555]">
+                  ({tooltip.sector.current.rsRatio >= 100 ? "+" : ""}{(tooltip.sector.current.rsRatio - 100).toFixed(1)} vs mkt)
+                </span>
               </span>
-            </p>
-            <p className="text-muted">
-              RS-Momentum: <span className="text-foreground tabular-nums font-medium">{tooltip.sector.current.rsMomentum.toFixed(2)}</span>
-              <span className="ml-1 text-[9px] text-muted/70">
-                ({lang === "kr"
-                  ? `강도 ${tooltip.sector.current.rsMomentum >= 100 ? "증가 중" : "감소 중"}`
-                  : `Momentum ${tooltip.sector.current.rsMomentum >= 100 ? "rising" : "falling"}`})
+            </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-[#666]">RS-Momentum</span>
+              <span className="font-mono font-medium text-foreground">
+                {tooltip.sector.current.rsMomentum.toFixed(2)}
+                <span className="ml-1.5 text-[9px] text-[#555]">
+                  ({tooltip.sector.current.rsMomentum >= 100
+                    ? (lang === "kr" ? "상승" : "rising")
+                    : (lang === "kr" ? "하락" : "falling")})
+                </span>
               </span>
-            </p>
-            <p className="text-muted">
-              {lang === "kr" ? "5일 등락률:" : "5D Return:"}{" "}
-              <span className={`font-semibold ${tooltip.sector.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
+            </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-[#666]">{lang === "kr" ? "5일 수익률" : "5D Return"}</span>
+              <span className={`font-mono font-semibold ${tooltip.sector.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
                 {tooltip.sector.chg5d >= 0 ? "+" : ""}{tooltip.sector.chg5d.toFixed(2)}%
               </span>
-            </p>
-            <div className="mt-1.5 border-t border-card-border/40 pt-1.5">
-              <p className="text-[10px] italic" style={{ color: Q[tooltip.sector.quadrant].color }}>
-                {getInterpretation(tooltip.sector, lang)}
-              </p>
             </div>
+          </div>
+          <div className="mt-2 border-t border-[#222] pt-2">
+            <p className="text-[10px] text-[#888] leading-relaxed">
+              {getInterpretation(tooltip.sector, lang)}
+            </p>
           </div>
         </div>
       )}
@@ -374,159 +371,104 @@ function RRGScatterPlot({
   );
 }
 
-// ── Collapsible Info Panel ───────────────────────────────────
+// ── Methodology Panel ────────────────────────────────────────
 
 function RRGInfoPanel({ lang }: { lang: "en" | "kr" }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className={`${CARD} border-accent/20`}>
+    <div className="rounded border border-[#1a1a1a] bg-[#0a0a0a]">
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between text-left"
+        className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
-        <span className="text-sm font-semibold text-accent">
-          {lang === "kr" ? "RRG 차트란?" : "What is an RRG Chart?"}
+        <span className="text-xs font-semibold tracking-wider text-[#888]">
+          {lang === "kr" ? "Relative Rotation Graph (RRG) — 방법론" : "Relative Rotation Graph (RRG) — Methodology"}
         </span>
-        <span className="text-muted text-lg transition-transform" style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>
-          ▼
+        <span className="text-[10px] text-[#555] font-mono">
+          {open ? "[-]" : "[+]"}
         </span>
       </button>
 
       {open && (
-        <div className="mt-4 space-y-5">
-          {/* Section A */}
+        <div className="border-t border-[#1a1a1a] px-4 pb-4 pt-3 space-y-5">
+          {/* METHODOLOGY */}
           <div>
-            <h4 className="text-xs font-bold mb-2" style={{ color: "#e8e8e8" }}>
-              {lang === "kr" ? "이 차트가 왜 유의미한가?" : "Why is this chart meaningful?"}
+            <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">
+              METHODOLOGY
             </h4>
-            <ul className="space-y-1.5 text-[11px] text-muted">
-              <li className="flex items-start gap-2">
-                <span className="mt-0.5 shrink-0 text-accent">•</span>
-                {lang === "kr"
-                  ? "주식 시장에서 어떤 섹터에 돈이 몰리는지 파악하는 게 수익의 핵심입니다"
-                  : "Identifying which sectors attract money flow is key to returns"}
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-0.5 shrink-0 text-accent">•</span>
-                {lang === "kr"
-                  ? "RRG는 단순 등락률이 아닌, 시장 대비 상대강도와 그 방향성을 동시에 보여줍니다"
-                  : "RRG shows relative strength vs market AND its direction simultaneously"}
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-0.5 shrink-0 text-accent">•</span>
-                {lang === "kr"
-                  ? "펀드매니저와 기관투자자들이 섹터 로테이션 타이밍을 잡을 때 실제로 사용하는 차트입니다"
-                  : "Fund managers and institutional investors use this chart for sector rotation timing"}
-              </li>
-            </ul>
+            <p className="text-[11px] text-[#999] leading-relaxed">
+              {lang === "kr"
+                ? "RRG는 각 섹터의 상대강도(RS-Ratio)와 그 변화율(RS-Momentum)을 2차원 평면에 시각화한 지표입니다. 단순 수익률이 아닌 벤치마크 대비 상대적 포지셔닝과 방향성을 동시에 파악할 수 있어, 섹터 로테이션 전략 수립 시 활용됩니다."
+                : "RRG visualizes each sector's relative strength (RS-Ratio) and its rate of change (RS-Momentum) on a two-dimensional plane. Unlike simple returns, it captures both relative positioning versus benchmark and directional momentum, making it a standard tool for sector rotation strategy."}
+            </p>
           </div>
 
-          {/* Section B */}
+          {/* HOW TO READ */}
           <div>
-            <h4 className="text-xs font-bold mb-2" style={{ color: "#e8e8e8" }}>
-              {lang === "kr" ? "어떻게 읽는 건가요?" : "How to read it?"}
+            <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">
+              HOW TO READ
             </h4>
-            <div className="space-y-2 text-[11px]">
-              <div className="flex items-start gap-2 rounded border border-card-border/40 px-3 py-2">
-                <span className="shrink-0 font-mono text-accent font-bold">X</span>
-                <div>
-                  <span className="font-semibold text-foreground">RS-Ratio</span>
-                  <span className="text-muted ml-1">
-                    {lang === "kr"
-                      ? "— 시장 대비 강한가 약한가 (100 기준, 높을수록 강함)"
-                      : "— Stronger or weaker vs market (100 = benchmark, higher = stronger)"}
-                  </span>
-                </div>
+            <div className="space-y-1.5 text-[11px]">
+              <div className="flex gap-3 py-1.5 border-b border-[#151515]">
+                <span className="shrink-0 font-mono text-[#555] w-24">X-Axis</span>
+                <span className="text-[#999]">
+                  <span className="text-[#ccc] font-medium">RS-Ratio</span> — {lang === "kr" ? "벤치마크 대비 상대강도. 100 기준, 초과 시 시장 대비 강세." : "Relative strength vs benchmark. 100 = neutral, above = outperforming."}
+                </span>
               </div>
-              <div className="flex items-start gap-2 rounded border border-card-border/40 px-3 py-2">
-                <span className="shrink-0 font-mono text-accent font-bold">Y</span>
-                <div>
-                  <span className="font-semibold text-foreground">RS-Momentum</span>
-                  <span className="text-muted ml-1">
-                    {lang === "kr"
-                      ? "— 강도가 강해지는 중인가 약해지는 중인가 (100 기준)"
-                      : "— Is strength increasing or decreasing (100 = neutral)"}
-                  </span>
-                </div>
+              <div className="flex gap-3 py-1.5 border-b border-[#151515]">
+                <span className="shrink-0 font-mono text-[#555] w-24">Y-Axis</span>
+                <span className="text-[#999]">
+                  <span className="text-[#ccc] font-medium">RS-Momentum</span> — {lang === "kr" ? "상대강도의 변화율. 100 초과 시 강도 개선 중." : "Rate of change in RS. Above 100 = strength improving."}
+                </span>
               </div>
-              <div className="flex items-start gap-2 rounded border border-card-border/40 px-3 py-2">
-                <span className="shrink-0 text-accent font-bold">→</span>
-                <div>
-                  <span className="font-semibold text-foreground">{lang === "kr" ? "꼬리(Trail)" : "Trail"}</span>
-                  <span className="text-muted ml-1">
-                    {lang === "kr"
-                      ? "— 최근 4주간의 이동 경로 → 방향이 중요"
-                      : "— Last 4 weeks movement path → direction matters"}
-                  </span>
-                </div>
+              <div className="flex gap-3 py-1.5">
+                <span className="shrink-0 font-mono text-[#555] w-24">Trail</span>
+                <span className="text-[#999]">
+                  {lang === "kr" ? "최근 4주 이동 경로. 시계 방향 순환이 일반적 패턴." : "Last 4 weeks path. Clockwise rotation is the typical pattern."}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Section C - 2x2 Grid */}
+          {/* QUADRANT DEFINITIONS */}
           <div>
-            <h4 className="text-xs font-bold mb-2" style={{ color: "#e8e8e8" }}>
-              {lang === "kr" ? "4분면 해석" : "Quadrant Interpretation"}
+            <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">
+              QUADRANT DEFINITIONS
             </h4>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg p-3" style={{ background: Q.improving.bg, border: `1px solid ${Q.improving.color}33` }}>
-                <div className="flex items-center gap-1 mb-1">
-                  <span>{Q.improving.emoji}</span>
-                  <span className="text-xs font-bold" style={{ color: Q.improving.color }}>
-                    {lang === "kr" ? "강세 전환" : "Improving"}
-                  </span>
-                </div>
-                <p className="text-[10px] text-muted">
-                  {lang === "kr" ? "약했지만 강해지는 중" : "Was weak, getting stronger"}
-                </p>
-                <p className="text-[10px] font-semibold mt-1" style={{ color: Q.improving.color }}>
-                  → {lang === "kr" ? "매수 검토 타이밍" : "Consider buying"}
-                </p>
-              </div>
-              <div className="rounded-lg p-3" style={{ background: Q.leading.bg, border: `1px solid ${Q.leading.color}33` }}>
-                <div className="flex items-center gap-1 mb-1">
-                  <span>{Q.leading.emoji}</span>
-                  <span className="text-xs font-bold" style={{ color: Q.leading.color }}>
-                    {lang === "kr" ? "강세 유지" : "Leading"}
-                  </span>
-                </div>
-                <p className="text-[10px] text-muted">
-                  {lang === "kr" ? "강하고 계속 강해짐" : "Strong and getting stronger"}
-                </p>
-                <p className="text-[10px] font-semibold mt-1" style={{ color: Q.leading.color }}>
-                  → {lang === "kr" ? "보유/추가매수" : "Hold/Add"}
-                </p>
-              </div>
-              <div className="rounded-lg p-3" style={{ background: Q.lagging.bg, border: `1px solid ${Q.lagging.color}33` }}>
-                <div className="flex items-center gap-1 mb-1">
-                  <span>{Q.lagging.emoji}</span>
-                  <span className="text-xs font-bold" style={{ color: Q.lagging.color }}>
-                    {lang === "kr" ? "약세 유지" : "Lagging"}
-                  </span>
-                </div>
-                <p className="text-[10px] text-muted">
-                  {lang === "kr" ? "약하고 계속 약해짐" : "Weak and getting weaker"}
-                </p>
-                <p className="text-[10px] font-semibold mt-1" style={{ color: Q.lagging.color }}>
-                  → {lang === "kr" ? "매수 피할 것" : "Avoid buying"}
-                </p>
-              </div>
-              <div className="rounded-lg p-3" style={{ background: Q.weakening.bg, border: `1px solid ${Q.weakening.color}33` }}>
-                <div className="flex items-center gap-1 mb-1">
-                  <span>{Q.weakening.emoji}</span>
-                  <span className="text-xs font-bold" style={{ color: Q.weakening.color }}>
-                    {lang === "kr" ? "약세 전환" : "Weakening"}
-                  </span>
-                </div>
-                <p className="text-[10px] text-muted">
-                  {lang === "kr" ? "강했지만 약해지는 중" : "Was strong, now weakening"}
-                </p>
-                <p className="text-[10px] font-semibold mt-1" style={{ color: Q.weakening.color }}>
-                  → {lang === "kr" ? "차익실현 고려" : "Take profits"}
-                </p>
-              </div>
-            </div>
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="border-b border-[#222]">
+                  <th className="text-left py-1.5 font-mono text-[#555] font-medium w-28">{lang === "kr" ? "구간" : "Quadrant"}</th>
+                  <th className="text-left py-1.5 font-mono text-[#555] font-medium w-28">RS-Ratio</th>
+                  <th className="text-left py-1.5 font-mono text-[#555] font-medium w-28">RS-Mom</th>
+                  <th className="text-left py-1.5 font-mono text-[#555] font-medium">{lang === "kr" ? "포지셔닝" : "Positioning"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {QUADRANT_ORDER.map(q => (
+                  <tr key={q} className="border-b border-[#151515]">
+                    <td className="py-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-block h-2 w-2 rounded-sm" style={{ background: Q[q].color }} />
+                        <span className="font-medium" style={{ color: Q[q].color }}>
+                          {Q[q].en} / {Q[q].kr}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-1.5 font-mono text-[#888]">
+                      {q === "leading" || q === "weakening" ? "> 100" : "< 100"}
+                    </td>
+                    <td className="py-1.5 font-mono text-[#888]">
+                      {q === "leading" || q === "improving" ? "> 100" : "< 100"}
+                    </td>
+                    <td className="py-1.5 text-[#888]">
+                      {lang === "kr" ? Q[q].descKr : Q[q].descEn}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -605,7 +547,7 @@ export default function RRGChart() {
         return;
       }
       setAnimFrame(frame);
-    }, 600);
+    }, 1200); // 2x slower animation (was 600ms)
   };
 
   useEffect(() => {
@@ -620,27 +562,26 @@ export default function RRGChart() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-        <span className="ml-3 text-sm text-muted">{lang === "kr" ? "RRG 데이터 로딩 중..." : "Loading RRG data..."}</span>
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#333] border-t-[#888]" />
+        <span className="ml-3 text-xs text-[#555] font-mono">{lang === "kr" ? "Loading RRG data..." : "Loading RRG data..."}</span>
       </div>
     );
   }
 
   if (sectors.length === 0) {
-    return <div className="py-16 text-center text-muted text-sm">{lang === "kr" ? "데이터 없음" : "No data available"}</div>;
+    return <div className="py-16 text-center text-[#555] text-xs font-mono">No data available</div>;
   }
 
   return (
     <div className="space-y-3">
-      {/* 1. Collapsible Info Panel */}
+      {/* Methodology Panel */}
       <RRGInfoPanel lang={lang} />
 
-      {/* 2. Summary bar - always visible */}
-      <div className="rounded-lg border border-accent/30 bg-accent/5 px-4 py-2.5">
-        <p className="text-sm font-medium">
-          <span className="mr-1.5">📍</span>
-          <span className="text-muted">{lang === "kr" ? "현재 요약:" : "Summary:"}</span>{" "}
-          <span className="text-foreground">{summary}</span>
+      {/* Summary bar */}
+      <div className="rounded border border-[#1a1a1a] bg-[#0a0a0a] px-4 py-2">
+        <p className="text-[11px] font-mono text-[#888] tracking-wide">
+          <span className="text-[#555] mr-2">{lang === "kr" ? "CURRENT SECTOR POSITIONING" : "CURRENT SECTOR POSITIONING"}</span>
+          <span className="text-[#ccc]">{summary}</span>
         </p>
       </div>
 
@@ -676,23 +617,23 @@ export default function RRGChart() {
 
         <button
           onClick={togglePlay}
-          className={`rounded px-3 py-1 text-xs font-medium transition-colors ${
-            playing ? "bg-loss/20 text-loss" : "bg-accent/20 text-accent"
+          className={`rounded px-3 py-1 text-xs font-mono font-medium transition-colors ${
+            playing ? "bg-loss/20 text-loss" : "bg-[#1a1a1a] text-[#888] hover:text-foreground"
           }`}
         >
-          {playing ? (lang === "kr" ? "정지" : "Stop") : (lang === "kr" ? "재생" : "Play")}
+          {playing ? "STOP" : "REPLAY"}
         </button>
 
         {asOf && (
-          <span className="ml-auto text-[9px] text-muted/60 tabular-nums">
-            {lang === "kr" ? "업데이트" : "Updated"}: {new Date(asOf).toLocaleString(lang === "kr" ? "ko-KR" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+          <span className="ml-auto text-[9px] text-[#444] font-mono tabular-nums">
+            {new Date(asOf).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
           </span>
         )}
       </div>
 
       {/* Main chart + sidebar */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-        {/* Chart — 3 cols */}
+        {/* Chart */}
         <div className={`${CARD} lg:col-span-3`}>
           <RRGScatterPlot
             sectors={playing ? animatedSectors : sectors}
@@ -704,39 +645,37 @@ export default function RRGChart() {
           />
         </div>
 
-        {/* Sidebar — Action Cards */}
+        {/* Sidebar */}
         <div className="space-y-2">
           {QUADRANT_ORDER.map(q => (
-            <div key={q} className={`rounded-[12px] border ${Q[q].border} ${Q[q].bgCard} p-3`}>
-              <div className="mb-1.5 flex items-center gap-1.5">
-                <span className="text-sm">{Q[q].emoji}</span>
-                <span className="text-[10px] font-bold" style={{ color: Q[q].color }}>
-                  {lang === "kr" ? ACTION_HEADERS[q].kr : ACTION_HEADERS[q].en}
+            <div key={q} className={`rounded border ${Q[q].border} ${Q[q].bgCard} p-3`}>
+              <div className="mb-2 flex items-center gap-1.5">
+                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: Q[q].color }} />
+                <span className="text-[9px] font-bold uppercase tracking-[0.15em] font-mono" style={{ color: Q[q].color }}>
+                  {ACTION_HEADERS[q].en}
                 </span>
               </div>
               {grouped[q].length === 0 ? (
-                <p className="text-[9px] text-muted/50 ml-5">
-                  {lang === "kr" ? "해당 섹터 없음" : "No sectors"}
-                </p>
+                <p className="text-[9px] text-[#333] ml-4 font-mono">--</p>
               ) : (
-                <div className="space-y-1 ml-0.5">
+                <div className="space-y-0.5 ml-0.5">
                   {grouped[q].map(s => (
                     <div
                       key={s.ticker}
                       className={`flex items-center justify-between rounded px-2 py-1 text-[11px] cursor-pointer transition-colors ${
-                        highlighted === s.ticker ? "bg-card-border/60" : "hover:bg-card-border/30"
+                        highlighted === s.ticker ? "bg-[#1a1a1a]" : "hover:bg-[#111]"
                       }`}
                       onMouseEnter={() => setHighlighted(s.ticker)}
                       onMouseLeave={() => setHighlighted(null)}
                       onClick={() => handleBubbleClick(s.ticker)}
                     >
-                      <span className="font-medium">{lang === "kr" ? s.nameKr : s.name}</span>
+                      <span className="font-medium text-[#ccc]">{lang === "kr" ? s.nameKr : s.name}</span>
                       <div className="flex items-center gap-2">
-                        <span className={`tabular-nums font-semibold ${s.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
+                        <span className={`font-mono tabular-nums font-semibold text-[10px] ${s.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
                           {s.chg5d >= 0 ? "+" : ""}{s.chg5d.toFixed(1)}%
                         </span>
-                        <span className="text-[9px] text-muted/70">
-                          {lang === "kr" ? Q[q].actionKr : Q[q].actionEn}
+                        <span className="text-[8px] font-mono text-[#444] uppercase">
+                          {Q[q].actionEn}
                         </span>
                       </div>
                     </div>
@@ -753,37 +692,41 @@ export default function RRGChart() {
         const s = sectors.find(sec => sec.ticker === selectedSector);
         if (!s) return null;
         return (
-          <div className={CARD}>
-            <div className="mb-3 flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ background: s.color }} />
-              <h3 className="text-sm font-semibold">
-                {lang === "kr" ? s.nameKr : s.name} {lang === "kr" ? "섹터 상세" : "Sector Detail"}
+          <div className="rounded border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} />
+              <h3 className="text-sm font-semibold text-[#ccc]">
+                {lang === "kr" ? s.nameKr : s.name}
               </h3>
-              <span className={`text-xs tabular-nums font-medium ${s.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
+              <span className={`font-mono text-xs tabular-nums font-medium ${s.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
                 {s.chg5d >= 0 ? "+" : ""}{s.chg5d.toFixed(1)}%
               </span>
-              <span className="rounded px-1.5 py-px text-[9px] font-medium" style={{ color: Q[s.quadrant].color, background: Q[s.quadrant].bg }}>
-                {lang === "kr" ? Q[s.quadrant].kr : Q[s.quadrant].en}
+              <span className="font-mono text-[9px] font-medium uppercase" style={{ color: Q[s.quadrant].color }}>
+                {Q[s.quadrant].en} / {Q[s.quadrant].kr}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="rounded border border-card-border/40 px-3 py-2">
-                <p className="text-[9px] uppercase tracking-wider text-muted">RS-Ratio</p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums">{s.current.rsRatio.toFixed(2)}</p>
-                <p className="text-[9px] text-muted">{s.current.rsRatio >= 100 ? (lang === "kr" ? "벤치마크 대비 강세" : "Above benchmark") : (lang === "kr" ? "벤치마크 대비 약세" : "Below benchmark")}</p>
+              <div className="rounded border border-[#1a1a1a] px-3 py-2">
+                <p className="text-[9px] uppercase tracking-wider text-[#555] font-mono">RS-Ratio</p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums font-mono text-[#ccc]">{s.current.rsRatio.toFixed(2)}</p>
+                <p className="text-[9px] text-[#555]">
+                  {s.current.rsRatio >= 100 ? "+" : ""}{(s.current.rsRatio - 100).toFixed(1)} vs benchmark
+                </p>
               </div>
-              <div className="rounded border border-card-border/40 px-3 py-2">
-                <p className="text-[9px] uppercase tracking-wider text-muted">RS-Momentum</p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums">{s.current.rsMomentum.toFixed(2)}</p>
-                <p className="text-[9px] text-muted">{s.current.rsMomentum >= 100 ? (lang === "kr" ? "모멘텀 상승 중" : "Momentum rising") : (lang === "kr" ? "모멘텀 하락 중" : "Momentum falling")}</p>
+              <div className="rounded border border-[#1a1a1a] px-3 py-2">
+                <p className="text-[9px] uppercase tracking-wider text-[#555] font-mono">RS-Momentum</p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums font-mono text-[#ccc]">{s.current.rsMomentum.toFixed(2)}</p>
+                <p className="text-[9px] text-[#555]">
+                  {s.current.rsMomentum >= 100 ? (lang === "kr" ? "모멘텀 상승" : "Momentum rising") : (lang === "kr" ? "모멘텀 하락" : "Momentum falling")}
+                </p>
               </div>
             </div>
-            <div className="mt-3 rounded border border-card-border/30 bg-background px-3 py-2">
-              <p className="text-[10px] font-medium" style={{ color: Q[s.quadrant].color }}>
+            <div className="mt-3 rounded border border-[#151515] bg-[#080808] px-3 py-2">
+              <p className="text-[10px] text-[#888] leading-relaxed">
                 {getInterpretation(s, lang)}
               </p>
-              <p className="mt-1 text-[10px] text-muted">
-                ETF: {s.ticker}{s.market === "KR" ? ".KS" : ""} | {lang === "kr" ? `${trailWeeks}주 트레일` : `${trailWeeks}-week trail`}
+              <p className="mt-1 text-[9px] text-[#444] font-mono">
+                ETF: {s.ticker}{s.market === "KR" ? ".KS" : ""} | {trailWeeks}W trail
               </p>
             </div>
           </div>
