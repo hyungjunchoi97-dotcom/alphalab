@@ -37,18 +37,7 @@ interface ValueItem {
   metrics: { chg1d: number; chg5d: number; chg20d: number; near52wHigh: boolean; volumeSpike: boolean; tradingValue: number };
 }
 
-interface High52Item {
-  ticker: string;
-  name: string;
-  price: number;
-  chgPct: number;
-  tag: string;
-  fiftyTwoWeekHigh: number;
-  distTo52wHigh: number;
-  metrics: { chg1d: number; chg5d: number; chg20d: number; near52wHigh: boolean; volumeSpike: boolean; tradingValue: number };
-}
-
-type AnyItem = FomoItem | ValueItem | High52Item;
+type AnyItem = FomoItem | ValueItem;
 
 interface AiResult {
   bullets: string[];
@@ -172,49 +161,11 @@ function ValueTable({ items, selected, onSelect, lang }: { items: ValueItem[]; s
   );
 }
 
-function High52Table({ items, selected, onSelect, lang }: { items: High52Item[]; selected: string | null; onSelect: (item: High52Item) => void; lang: "en" | "kr" }) {
-  return (
-    <table className="w-full text-xs">
-      <thead>
-        <tr className="border-b border-card-border">
-          <th className={TH}>Ticker</th>
-          <th className={TH}>Name</th>
-          <th className={`${TH} text-right`}>{lang === "kr" ? "현재가" : "Price"}</th>
-          <th className={`${TH} text-right`}>{lang === "kr" ? "52주 고가" : "52W High"}</th>
-          <th className={`${TH} text-right`}>{lang === "kr" ? "고가대비" : "Dist%"}</th>
-          <th className={`${TH} text-right`}>Chg%</th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((item) => (
-          <tr
-            key={item.ticker}
-            onClick={() => onSelect(item)}
-            className={`cursor-pointer border-b border-card-border/40 transition-colors ${
-              selected === item.ticker ? "bg-accent/10" : "hover:bg-card-border/20"
-            }`}
-          >
-            <td className={`${TD} text-accent`}>{item.ticker}</td>
-            <td className={TD}>{item.name}</td>
-            <td className={`${TD} text-right tabular-nums`}>{item.price.toLocaleString()}</td>
-            <td className={`${TD} text-right tabular-nums text-muted`}>{item.fiftyTwoWeekHigh.toLocaleString()}</td>
-            <td className={`${TD} text-right tabular-nums font-medium ${item.distTo52wHigh >= -0.5 ? "text-gain" : "text-yellow-400"}`}>
-              {item.distTo52wHigh >= 0 ? "+" : ""}{item.distTo52wHigh.toFixed(1)}%
-            </td>
-            <td className={`${TD} text-right tabular-nums`}><ChgPct v={item.chgPct} /></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
 // ── Main page ────────────────────────────────────────────────
 
 export default function IdeasPage() {
   const { t, lang } = useLang();
-  const [tab, setTab] = useState<"fomo" | "value" | "high52" | "rotation">("fomo");
-  const [high52Market, setHigh52Market] = useState<"KR" | "US">("KR");
+  const [tab, setTab] = useState<"rotation" | "fomo" | "value">("rotation");
   const [selected, setSelected] = useState<AnyItem | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -224,8 +175,6 @@ export default function IdeasPage() {
   // Data
   const [fomoIdeas, setFomoIdeas] = useState<FomoItem[]>([]);
   const [valueIdeas, setValueIdeas] = useState<ValueItem[]>([]);
-  const [high52Kr, setHigh52Kr] = useState<High52Item[]>([]);
-  const [high52Us, setHigh52Us] = useState<High52Item[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [asOf, setAsOf] = useState<string | null>(null);
@@ -240,8 +189,6 @@ export default function IdeasPage() {
       if (json.ok) {
         setFomoIdeas(json.fomo || []);
         setValueIdeas(json.value || []);
-        setHigh52Kr(json.high52kr || []);
-        setHigh52Us(json.high52us || []);
         if (json.asOf) setAsOf(json.asOf);
         setTotalStocks(json.totalStocks || 0);
       } else {
@@ -261,7 +208,7 @@ export default function IdeasPage() {
   // Reset show count when switching tabs
   useEffect(() => {
     setShowCount(20);
-  }, [tab, high52Market]);
+  }, [tab]);
 
   const handleSelect = (item: AnyItem) => {
     setSelected(item);
@@ -285,7 +232,7 @@ export default function IdeasPage() {
           price: selected.price,
           chgPct: selected.chgPct,
           metrics: selected.metrics,
-          mode: tab === "high52" ? "high52" : tab,
+          mode: tab,
         }),
       });
 
@@ -302,11 +249,6 @@ export default function IdeasPage() {
     }
   };
 
-  // Get display items with pagination
-  const rawHigh52 = high52Market === "KR" ? high52Kr : high52Us;
-  const displayHigh52 = rawHigh52.slice(0, showCount);
-  const hasMore52 = showCount < rawHigh52.length;
-
   return (
     <div className="min-h-screen bg-background">
       <AppHeader active="ideas" />
@@ -315,7 +257,7 @@ export default function IdeasPage() {
         {/* Tab pills + sub-tabs */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-px rounded bg-card-border p-px w-fit">
-            {(["fomo", "value", "high52", "rotation"] as const).map((tv) => (
+            {(["rotation", "fomo", "value"] as const).map((tv) => (
               <button
                 key={tv}
                 onClick={() => {
@@ -330,33 +272,10 @@ export default function IdeasPage() {
                     : "bg-card-bg text-muted hover:text-foreground"
                 }`}
               >
-                {tv === "fomo" ? "FOMO" : tv === "value" ? "VALUE" : tv === "high52" ? "52W HIGH" : lang === "kr" ? "섹터 로테이션" : "Sector Rotation"}
+                {tv === "rotation" ? (lang === "kr" ? "섹터 로테이션" : "Sector Rotation") : tv === "fomo" ? "FOMO" : "VALUE"}
               </button>
             ))}
           </div>
-
-          {tab === "high52" && (
-            <div className="flex gap-px rounded bg-card-border p-px w-fit">
-              {(["KR", "US"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => {
-                    setHigh52Market(m);
-                    setSelected(null);
-                    setAiResult(null);
-                    setError(null);
-                  }}
-                  className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors ${
-                    high52Market === m
-                      ? "bg-accent text-white"
-                      : "bg-card-bg text-muted hover:text-foreground"
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-          )}
 
           {/* Last updated */}
           {asOf && (
@@ -380,9 +299,7 @@ export default function IdeasPage() {
                 <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
                   {tab === "fomo"
                     ? (lang === "kr" ? "FOMO 스크리너 — 거래량 급증" : "FOMO Screener — Volume Surge")
-                    : tab === "value"
-                      ? (lang === "kr" ? "VALUE 스크리너 — 저PER·고배당" : "VALUE Screener — Low PER / High Div")
-                      : (lang === "kr" ? `52주 신고가 — ${high52Market}` : `52W High — ${high52Market}`)}
+                    : (lang === "kr" ? "VALUE 스크리너 — 저PER·고배당" : "VALUE Screener — Low PER / High Div")}
                 </h2>
               </div>
 
@@ -420,32 +337,6 @@ export default function IdeasPage() {
                         <p className="py-8 text-center text-[10px] text-muted">{lang === "kr" ? "해당 종목 없음" : "No stocks match"}</p>
                       ) : (
                         <ValueTable items={valueIdeas} selected={selected?.ticker ?? null} onSelect={handleSelect} lang={lang} />
-                      )}
-                    </>
-                  )}
-                  {tab === "high52" && (
-                    <>
-                      {rawHigh52.length === 0 ? (
-                        <p className="py-8 text-center text-[10px] text-muted">{lang === "kr" ? "해당 종목 없음" : "No stocks near 52W high"}</p>
-                      ) : (
-                        <>
-                          <High52Table items={displayHigh52} selected={selected?.ticker ?? null} onSelect={handleSelect} lang={lang} />
-                          <div className="mt-2 flex items-center justify-between text-[10px] text-muted">
-                            <span>
-                              {lang === "kr"
-                                ? `${displayHigh52.length} / ${rawHigh52.length}개 종목`
-                                : `${displayHigh52.length} / ${rawHigh52.length} stocks`}
-                            </span>
-                            {hasMore52 && (
-                              <button
-                                onClick={() => setShowCount(prev => prev + 20)}
-                                className="rounded border border-card-border px-3 py-1 text-muted hover:text-foreground hover:border-accent/50 transition-colors"
-                              >
-                                {lang === "kr" ? "더 보기 ▼" : "Show More ▼"}
-                              </button>
-                            )}
-                          </div>
-                        </>
                       )}
                     </>
                   )}
@@ -496,21 +387,103 @@ export default function IdeasPage() {
                     ))}
                   </div>
 
-                  {/* Tab-specific detail metrics */}
-                  {tab === "fomo" && "volumeRatio" in selected && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
-                        <p className="text-[9px] uppercase tracking-wider text-muted">{lang === "kr" ? "거래량 비율" : "Vol Ratio"}</p>
-                        <p className={`mt-0.5 text-xs font-medium tabular-nums ${(selected as FomoItem).volumeRatio >= 2 ? "text-yellow-400" : ""}`}>
-                          {(selected as FomoItem).volumeRatio.toFixed(1)}x
-                        </p>
+                  {/* FOMO detail: Goldman Sachs style */}
+                  {tab === "fomo" && "volumeRatio" in selected && (() => {
+                    const fomo = selected as FomoItem;
+                    const volRatio = fomo.volumeRatio;
+                    const barPct = Math.min(volRatio / 5 * 100, 100);
+                    const signalTag = fomo.tag;
+                    const signalExplanations: Record<string, { kr: string; en: string }> = {
+                      "VOLUME SPIKE": { kr: "20일 평균 대비 거래량 2배 이상 급증. 기관/외국인 대량 매수 가능성.", en: "Volume exceeded 2x the 20-day average. Possible institutional accumulation." },
+                      "MOMO": { kr: "단기 모멘텀 가속. 5일/20일 수익률 모두 양(+)으로 추세 지속.", en: "Short-term momentum accelerating. Both 5D and 20D returns positive." },
+                      "BREAKOUT": { kr: "52주 신고가 근접 또는 돌파. 기술적 저항선 상향 이탈.", en: "Near or breaking 52-week high. Technical resistance breakout." },
+                      "52W HIGH": { kr: "52주 최고가 경신. 강한 상승 추세 확인.", en: "52-week high reached. Strong uptrend confirmed." },
+                      "PULLBACK": { kr: "단기 조정 후 반등 시도. 저점 매수 기회 탐색.", en: "Attempting rebound after short-term pullback." },
+                    };
+                    const explanation = signalExplanations[signalTag] || { kr: "복합 시그널 감지.", en: "Composite signal detected." };
+                    return (
+                      <div className="space-y-3">
+                        {/* WHY THIS IS A FOMO SIGNAL */}
+                        <div className="rounded border border-card-border/60 bg-background p-3">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted mb-2">
+                            {lang === "kr" ? "FOMO 시그널 근거" : "WHY THIS IS A FOMO SIGNAL"}
+                          </p>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-muted">{lang === "kr" ? "거래량 비율" : "Volume Ratio"}</span>
+                              <span className={`font-mono font-bold tabular-nums ${volRatio >= 3 ? "text-yellow-400" : volRatio >= 2 ? "text-gain" : "text-foreground"}`}>
+                                {volRatio.toFixed(1)}x
+                              </span>
+                            </div>
+                            <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-card-border/60">
+                              <div
+                                className={`absolute inset-y-0 left-0 rounded-full transition-all ${volRatio >= 3 ? "bg-yellow-400" : volRatio >= 2 ? "bg-gain" : "bg-accent"}`}
+                                style={{ width: `${barPct}%` }}
+                              />
+                              <div className="absolute inset-y-0 left-[40%] w-px bg-muted/30" title="2x" />
+                              <div className="absolute inset-y-0 left-[60%] w-px bg-muted/30" title="3x" />
+                            </div>
+                            <div className="flex justify-between text-[8px] text-muted/50 tabular-nums">
+                              <span>0x</span><span>2x</span><span>3x</span><span>5x+</span>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] mt-1">
+                              <span className="text-muted">{lang === "kr" ? "거래량" : "Volume"}</span>
+                              <span className="font-mono tabular-nums">{formatVol(fomo.volume)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* PRICE MOMENTUM */}
+                        <div className="rounded border border-card-border/60 bg-background p-3">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted mb-2">
+                            {lang === "kr" ? "가격 모멘텀" : "PRICE MOMENTUM"}
+                          </p>
+                          <div className="space-y-1">
+                            {([["1D", selected.metrics.chg1d], ["5D", selected.metrics.chg5d], ["20D", selected.metrics.chg20d]] as const).map(([label, val]) => (
+                              <div key={label} className="flex items-center gap-2">
+                                <span className="w-6 text-[9px] font-mono text-muted">{label}</span>
+                                <div className="relative flex-1 h-1.5 rounded-full bg-card-border/40 overflow-hidden">
+                                  {val >= 0 ? (
+                                    <div className="absolute inset-y-0 left-1/2 rounded-r-full bg-gain" style={{ width: `${Math.min(Math.abs(val) * 2, 50)}%` }} />
+                                  ) : (
+                                    <div className="absolute inset-y-0 rounded-l-full bg-loss" style={{ right: '50%', width: `${Math.min(Math.abs(val) * 2, 50)}%` }} />
+                                  )}
+                                </div>
+                                <span className={`w-14 text-right text-[10px] font-mono tabular-nums ${val >= 0 ? "text-gain" : "text-loss"}`}>
+                                  {val >= 0 ? "+" : ""}{val.toFixed(2)}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* SIGNAL TYPE */}
+                        <div className="rounded border border-card-border/60 bg-background p-3">
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted mb-2">
+                            {lang === "kr" ? "시그널 유형" : "SIGNAL TYPE"}
+                          </p>
+                          <div className="flex items-start gap-2">
+                            <span className={`shrink-0 rounded px-1.5 py-px text-[9px] font-bold ${TAG_COLORS[signalTag] || "bg-muted/20 text-muted"}`}>
+                              {signalTag}
+                            </span>
+                            <p className="text-[10px] leading-relaxed text-muted">
+                              {lang === "kr" ? explanation.kr : explanation.en}
+                            </p>
+                          </div>
+                          {(selected.metrics.near52wHigh || selected.metrics.volumeSpike) && (
+                            <div className="flex gap-1.5 mt-2">
+                              {selected.metrics.near52wHigh && (
+                                <span className="rounded bg-gain/15 px-1.5 py-px text-[8px] font-medium text-gain border border-gain/20">NEAR 52W HIGH</span>
+                              )}
+                              {selected.metrics.volumeSpike && (
+                                <span className="rounded bg-yellow-500/15 px-1.5 py-px text-[8px] font-medium text-yellow-400 border border-yellow-500/20">VOL SPIKE</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
-                        <p className="text-[9px] uppercase tracking-wider text-muted">{lang === "kr" ? "거래량" : "Volume"}</p>
-                        <p className="mt-0.5 text-xs font-medium tabular-nums">{formatVol((selected as FomoItem).volume)}</p>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                   {tab === "value" && "per" in selected && (
                     <div className="grid grid-cols-2 gap-2">
                       <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
@@ -539,33 +512,20 @@ export default function IdeasPage() {
                       </div>
                     </div>
                   )}
-                  {tab === "high52" && "fiftyTwoWeekHigh" in selected && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
-                        <p className="text-[9px] uppercase tracking-wider text-muted">{lang === "kr" ? "52주 고가" : "52W High"}</p>
-                        <p className="mt-0.5 text-xs font-medium tabular-nums">{(selected as High52Item).fiftyTwoWeekHigh.toLocaleString()}</p>
-                      </div>
-                      <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
-                        <p className="text-[9px] uppercase tracking-wider text-muted">{lang === "kr" ? "고가 대비" : "Dist"}</p>
-                        <p className={`mt-0.5 text-xs font-medium tabular-nums ${(selected as High52Item).distTo52wHigh >= -0.5 ? "text-gain" : "text-yellow-400"}`}>
-                          {(selected as High52Item).distTo52wHigh >= 0 ? "+" : ""}{(selected as High52Item).distTo52wHigh.toFixed(1)}%
-                        </p>
-                      </div>
+                  {/* Tag + badges (value tab only - fomo has integrated badges) */}
+                  {tab === "value" && (
+                    <div className="flex flex-wrap gap-2 text-[10px]">
+                      <span className={`rounded px-1.5 py-px font-medium ${TAG_COLORS[selected.tag] || "bg-muted/20 text-muted"}`}>
+                        {selected.tag}
+                      </span>
+                      {selected.metrics.near52wHigh && (
+                        <span className="rounded bg-gain/20 px-1.5 py-px font-medium text-gain">Near 52W High</span>
+                      )}
+                      {selected.metrics.volumeSpike && (
+                        <span className="rounded bg-yellow-500/20 px-1.5 py-px font-medium text-yellow-400">Vol Spike</span>
+                      )}
                     </div>
                   )}
-
-                  {/* Tag + badges */}
-                  <div className="flex flex-wrap gap-2 text-[10px]">
-                    <span className={`rounded px-1.5 py-px font-medium ${TAG_COLORS[selected.tag] || "bg-muted/20 text-muted"}`}>
-                      {selected.tag}
-                    </span>
-                    {selected.metrics.near52wHigh && (
-                      <span className="rounded bg-gain/20 px-1.5 py-px font-medium text-gain">Near 52W High</span>
-                    )}
-                    {selected.metrics.volumeSpike && (
-                      <span className="rounded bg-yellow-500/20 px-1.5 py-px font-medium text-yellow-400">Vol Spike</span>
-                    )}
-                  </div>
 
                   {/* Explain button */}
                   <button

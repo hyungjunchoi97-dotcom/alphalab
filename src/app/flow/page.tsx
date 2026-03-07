@@ -605,26 +605,6 @@ export default function FlowPage() {
           </section>
         </div>
 
-        {/* ── 프로그램 매매 ────────────────────────────────────── */}
-        <section className={CARD}>
-          <div className="mb-1 flex items-center gap-2">
-            <SectionDot title={t("flowProgramTrading")} hint={t("flowProgramHint")} />
-            <EstBadge label={t("flowEstimated")} />
-          </div>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={data.programTradingSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
-              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
-              <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => fmtShortKRW(v)} />
-              <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
-              <Legend wrapperStyle={{ fontSize: 10, color: "#9ca3af" }} iconSize={8} />
-              <ReferenceLine y={0} stroke="#374151" strokeDasharray="3 3" />
-              <Bar dataKey="arbitrage" name={t("flowArbitrage")} fill="#6366f1" stackId="prog" />
-              <Bar dataKey="nonArbitrage" name={t("flowNonArbitrage")} fill="#06b6d4" stackId="prog" />
-            </BarChart>
-          </ResponsiveContainer>
-        </section>
-
         {/* Row 2: Avg Cost + Divergence */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {/* Foreign Avg Cost */}
