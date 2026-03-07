@@ -23,6 +23,7 @@ interface SeriesData {
 interface CacheEntry {
   data: Record<string, SeriesData>;
   netLiquidity: { date: string; value: number }[];
+  sp500: { date: string; value: number }[];
   cachedAt: number;
 }
 
@@ -80,6 +81,38 @@ function toSeriesData(
   return { id, label, unit, observations: parsed, latest, previous, change, changePercent };
 }
 
+// ── S&P500 fetch from Yahoo Finance ──────────────────────────
+
+async function fetchSP500(): Promise<{ date: string; value: number }[]> {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=5y&interval=1wk`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const result = json.chart?.result?.[0];
+    if (!result) return [];
+
+    const timestamps: number[] = result.timestamp || [];
+    const closes: (number | null)[] = result.indicators?.quote?.[0]?.close || [];
+    const data: { date: string; value: number }[] = [];
+
+    for (let i = 0; i < timestamps.length; i++) {
+      const close = closes[i];
+      if (close == null || isNaN(close)) continue;
+      const d = new Date(timestamps[i] * 1000);
+      const dateStr = d.toISOString().slice(0, 10);
+      data.push({ date: dateStr, value: Math.round(close * 100) / 100 });
+    }
+
+    return data;
+  } catch {
+    return [];
+  }
+}
+
 // ── Net Liquidity calculation ────────────────────────────────
 
 function calcNetLiquidity(
@@ -127,7 +160,7 @@ export async function GET() {
   }
 
   if (cache && Date.now() - cache.cachedAt < CACHE_TTL) {
-    return NextResponse.json({ ok: true, series: cache.data, netLiquidity: cache.netLiquidity });
+    return NextResponse.json({ ok: true, series: cache.data, netLiquidity: cache.netLiquidity, sp500: cache.sp500 });
   }
 
   try {
@@ -192,9 +225,12 @@ export async function GET() {
       changePercent: nlPrev !== 0 ? ((nlLatest - nlPrev) / Math.abs(nlPrev)) * 100 : 0,
     };
 
-    cache = { data: seriesMap, netLiquidity, cachedAt: Date.now() };
+    // Fetch S&P500 data
+    const sp500 = await fetchSP500();
 
-    return NextResponse.json({ ok: true, series: seriesMap, netLiquidity });
+    cache = { data: seriesMap, netLiquidity, sp500, cachedAt: Date.now() };
+
+    return NextResponse.json({ ok: true, series: seriesMap, netLiquidity, sp500 });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Unknown error" },

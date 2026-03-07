@@ -3,6 +3,17 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
+import {
+  ComposedChart,
+  Line,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -299,146 +310,6 @@ function Sparkline({
   );
 }
 
-// ── Hero Chart SVG (Net Liquidity vs S&P500) ──────────────────
-
-function HeroChart({
-  data1,
-  label1,
-  color1,
-  data2,
-  label2,
-  color2,
-  correlation,
-  lang,
-}: {
-  data1: Observation[];
-  label1: string;
-  color1: string;
-  data2: Observation[];
-  label2: string;
-  color2: string;
-  correlation: number;
-  lang: string;
-}) {
-  const W = 960;
-  const H = 360;
-  const PAD = { top: 24, right: 72, bottom: 34, left: 72 };
-  const cw = W - PAD.left - PAD.right;
-  const ch = H - PAD.top - PAD.bottom;
-
-  if (data1.length < 2) {
-    return (
-      <div className="flex h-[360px] items-center justify-center text-sm" style={{ color: "#555" }}>
-        Loading chart data...
-      </div>
-    );
-  }
-
-  const vals1 = data1.map((d) => d.value);
-  const min1 = Math.min(...vals1);
-  const max1 = Math.max(...vals1);
-  const range1 = max1 - min1 || 1;
-
-  const map2 = new Map(data2.map((d) => [d.date, d.value]));
-  const aligned2: number[] = [];
-  for (const d of data1) {
-    const v = map2.get(d.date);
-    if (v !== undefined) aligned2.push(v);
-    else if (aligned2.length > 0) aligned2.push(aligned2[aligned2.length - 1]);
-    else aligned2.push(0);
-  }
-  const min2 = Math.min(...aligned2);
-  const max2 = Math.max(...aligned2);
-  const range2 = max2 - min2 || 1;
-
-  const toXY = (values: number[], minV: number, rangeV: number) =>
-    values.map((v, i) => ({
-      x: PAD.left + (i / (values.length - 1)) * cw,
-      y: PAD.top + ch - ((v - minV) / rangeV) * ch,
-    }));
-
-  const pts1 = toXY(vals1, min1, range1);
-  const pts2 = toXY(aligned2, min2, range2);
-  const path1 = pts1.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join("");
-  const path2 = pts2.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join("");
-  const area1 = path1 + `L${PAD.left + cw},${PAD.top + ch}L${PAD.left},${PAD.top + ch}Z`;
-
-  const yLabels1 = Array.from({ length: 5 }, (_, i) => min1 + (range1 * i) / 4);
-  const yLabels2 = Array.from({ length: 5 }, (_, i) => min2 + (range2 * i) / 4);
-
-  const step = Math.max(1, Math.floor(data1.length / 7));
-  const xLabels = data1
-    .filter((_, i) => i % step === 0)
-    .map((d, idx) => ({
-      label: d.date.slice(0, 7),
-      x: PAD.left + ((idx * step) / (data1.length - 1)) * cw,
-    }));
-
-  return (
-    <div className="w-full overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 640 }}>
-        <defs>
-          <linearGradient id="heroGrad1" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color1} stopOpacity="0.2" />
-            <stop offset="100%" stopColor={color1} stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-
-        {/* Grid lines */}
-        {yLabels1.map((_, i) => {
-          const y = PAD.top + ch - (i / 4) * ch;
-          return <line key={i} x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#1a1a1a" strokeWidth="1" />;
-        })}
-
-        {/* Gradient fill area */}
-        <path d={area1} fill="url(#heroGrad1)" />
-
-        {/* Lines */}
-        <path d={path1} fill="none" stroke={color1} strokeWidth="2.5" opacity="0.9" />
-        <path d={path2} fill="none" stroke={color2} strokeWidth="1.5" opacity="0.5" strokeDasharray="5,4" />
-
-        {/* Y-axis left */}
-        {yLabels1.map((v, i) => {
-          const y = PAD.top + ch - (i / 4) * ch;
-          return (
-            <text key={`l${i}`} x={PAD.left - 8} y={y + 3} textAnchor="end" fill="#555" fontSize="10">
-              {v.toFixed(1)}T
-            </text>
-          );
-        })}
-
-        {/* Y-axis right */}
-        {yLabels2.map((v, i) => {
-          const y = PAD.top + ch - (i / 4) * ch;
-          return (
-            <text key={`r${i}`} x={W - PAD.right + 8} y={y + 3} textAnchor="start" fill="#555" fontSize="10">
-              {v.toFixed(0)}
-            </text>
-          );
-        })}
-
-        {/* X-axis */}
-        {xLabels.map((xl, i) => (
-          <text key={i} x={xl.x} y={H - 8} textAnchor="middle" fill="#444" fontSize="10">
-            {xl.label}
-          </text>
-        ))}
-
-        {/* Legend */}
-        <rect x={PAD.left} y={6} width="8" height="3" rx="1" fill={color1} />
-        <text x={PAD.left + 12} y={11} fill={color1} fontSize="10" fontWeight="500">{label1}</text>
-        <rect x={PAD.left + 140} y={6} width="8" height="3" rx="1" fill={color2} opacity="0.6" />
-        <text x={PAD.left + 152} y={11} fill={color2} fontSize="10" opacity="0.7">{label2}</text>
-
-        {/* Correlation badge */}
-        <rect x={W - PAD.right - 100} y={2} width="95" height="18" rx="4" fill="rgba(255,255,255,0.05)" />
-        <text x={W - PAD.right - 52} y={14} textAnchor="middle" fill="#888" fontSize="10">
-          {lang === "kr" ? "상관계수" : "Corr"} r={correlation.toFixed(2)}
-        </text>
-      </svg>
-    </div>
-  );
-}
 
 // ── Detail Modal Chart ────────────────────────────────────────
 
@@ -1340,10 +1211,10 @@ export default function MacroPage() {
   const { lang } = useLang();
   const [series, setSeries] = useState<Record<string, SeriesData>>({});
   const [netLiquidity, setNetLiquidity] = useState<Observation[]>([]);
+  const [sp500Raw, setSp500Raw] = useState<Observation[]>([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<Range>("1Y");
   const [modalId, setModalId] = useState<string | null>(null);
-  const [showExplain, setShowExplain] = useState(false);
   const [bokSeries, setBokSeries] = useState<Record<string, { observations: { date: string; value: number }[]; latest: number; previous: number; change: number }>>({});
   const [bokLoading, setBokLoading] = useState(true);
   const [fearGreed, setFearGreed] = useState<FearGreedData | null>(null);
@@ -1362,6 +1233,7 @@ export default function MacroPage() {
       if (json.ok) {
         setSeries(json.series || {});
         setNetLiquidity(json.netLiquidity || []);
+        setSp500Raw(json.sp500 || []);
       }
     } catch {
       // silent
@@ -1419,28 +1291,25 @@ export default function MacroPage() {
   }, [fetchData, fetchBok, fetchFearGreed, fetchFx, fetchCommodities]);
 
   const chartData = useMemo(() => filterByRange(netLiquidity, range), [netLiquidity, range]);
+  const sp500Filtered = useMemo(() => filterByRange(sp500Raw, range), [sp500Raw, range]);
 
-  const sp500Data = useMemo(() => {
-    return chartData.map((d, i) => ({
-      date: d.date,
-      value: 3800 + (d.value - 5) * 200 + Math.sin(i / 10) * 100,
-    }));
-  }, [chartData]);
+  // Merge net liquidity + S&P500 by date for Recharts
+  const mergedChartData = useMemo(() => {
+    const sp500Map = new Map(sp500Filtered.map((d) => [d.date, d.value]));
+    let lastSp = 0;
+    return chartData.map((d) => {
+      const sp = sp500Map.get(d.date) ?? lastSp;
+      if (sp) lastSp = sp;
+      return { date: d.date, netLiquidity: d.value, sp500: sp || undefined };
+    });
+  }, [chartData, sp500Filtered]);
 
   const correlation = useMemo(() => {
-    if (chartData.length < 3) return 0;
-    return calcCorrelation(
-      chartData.map((d) => d.value),
-      sp500Data.map((d) => d.value)
-    );
-  }, [chartData, sp500Data]);
-
-  // FRED last data date
-  const lastDataDate = useMemo(() => {
-    const obs = series["WALCL"]?.observations;
-    if (!obs || obs.length === 0) return "";
-    return obs[obs.length - 1].date;
-  }, [series]);
+    const nl = mergedChartData.map((d) => d.netLiquidity);
+    const sp = mergedChartData.filter((d) => d.sp500).map((d) => d.sp500!);
+    if (nl.length < 3 || sp.length < 3) return 0;
+    return calcCorrelation(nl.slice(-sp.length), sp);
+  }, [mergedChartData]);
 
   const ranges: Range[] = ["6M", "1Y", "2Y", "5Y"];
 
@@ -1452,33 +1321,6 @@ export default function MacroPage() {
       <AppHeader active="macro" />
 
       <main className="mx-auto max-w-[1400px] px-4 py-6">
-        {/* Title */}
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold" style={{ color: "#e8e8e8" }}>
-              {lang === "kr" ? "Fed 유동성 대시보드" : "Fed Liquidity Dashboard"}
-            </h1>
-            <p className="mt-0.5 text-xs" style={{ color: "#666" }}>
-              {lang === "kr"
-                ? "연준 유동성 지표 실시간 모니터링"
-                : "Real-time Fed liquidity metrics monitoring"}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {lastDataDate && (
-              <span className="text-[10px]" style={{ color: "#555" }}>
-                FRED: {lastDataDate}
-              </span>
-            )}
-            {!loading && (
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                <span style={{ color: "#666", fontSize: "11px" }}>Live</span>
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* ── Fear & Greed Index Section ─────────────────────── */}
         <div className="mb-4">
           <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
@@ -1551,119 +1393,6 @@ export default function MacroPage() {
           )}
         </div>
 
-        {/* Hero Chart */}
-        <div className="mb-4 rounded-xl p-4" style={{ background: "#111111", border: "1px solid #222222" }}>
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold" style={{ color: "#e8e8e8" }}>
-                {lang === "kr" ? "순유동성 vs S&P 500" : "Net Liquidity vs S&P 500"}
-              </h2>
-              <button
-                onClick={() => setShowExplain((v) => !v)}
-                className="flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-white/10"
-                style={{ color: showExplain ? "#60a5fa" : "#555" }}
-                title={lang === "kr" ? "해설 보기" : "Show explanation"}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex gap-1">
-              {ranges.map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setRange(r)}
-                  className="rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors"
-                  style={{
-                    background: range === r ? "rgba(96,165,250,0.15)" : "transparent",
-                    color: range === r ? "#60a5fa" : "#666",
-                    border: range === r ? "1px solid rgba(96,165,250,0.3)" : "1px solid #222",
-                  }}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Collapsible explanation */}
-          <div
-            className="overflow-hidden transition-all duration-300 ease-in-out"
-            style={{
-              maxHeight: showExplain ? "400px" : "0",
-              opacity: showExplain ? 1 : 0,
-              marginBottom: showExplain ? "12px" : "0",
-            }}
-          >
-            <div
-              className="rounded-lg p-4"
-              style={{
-                background: "rgba(74,222,128,0.03)",
-                border: "1px solid rgba(74,222,128,0.1)",
-                borderLeft: "3px solid rgba(74,222,128,0.4)",
-              }}
-            >
-              <h3 className="mb-2 text-[13px] font-bold" style={{ color: "#e8e8e8" }}>
-                {lang === "kr"
-                  ? "Net Liquidity — 시장을 움직이는 유동성"
-                  : "Net Liquidity — The liquidity that moves markets"}
-              </h3>
-              <div className="space-y-2.5 text-[12px] leading-[1.8]" style={{ color: "#bbb" }}>
-                <p>
-                  {lang === "kr"
-                    ? "Fed 총자산에서 TGA(재무부 계좌)와 역레포 잔고를 차감한 값으로, 금융 시스템에 실제로 공급된 유동성을 나타냅니다."
-                    : "Calculated by subtracting the TGA (Treasury General Account) and reverse repo balances from total Fed assets, representing the actual liquidity supplied to the financial system."}
-                </p>
-                <p>
-                  {lang === "kr"
-                    ? "이 지표는 S&P500과 구조적 상관관계를 보여왔으며, 통화정책의 실질적 영향을 가늠하는 데 활용됩니다."
-                    : "This metric has shown a structural correlation with the S&P 500 and is used to gauge the real-world impact of monetary policy."}
-                </p>
-                <div className="space-y-1" style={{ color: "#ccc" }}>
-                  <p>
-                    {lang === "kr"
-                      ? "— 잔고 확대 시 위험자산 선호 환경 조성"
-                      : "— Expanding balance fosters a risk-on environment"}
-                  </p>
-                  <p>
-                    {lang === "kr"
-                      ? "— 잔고 축소 시 금융 여건 긴축, 밸류에이션 압박"
-                      : "— Contracting balance tightens financial conditions, pressuring valuations"}
-                  </p>
-                </div>
-                <p style={{ color: "#999" }}>
-                  {lang === "kr"
-                    ? "현재 Fed는 QT(양적긴축)를 지속 중이며, 순유동성은 고점 대비 유의미하게 감소한 상태입니다."
-                    : "The Fed continues QT, and net liquidity has declined meaningfully from its peak."}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="flex h-[360px] items-center justify-center animate-pulse rounded-lg" style={{ background: "#0d0d0d" }}>
-              <span style={{ color: "#444" }}>Loading...</span>
-            </div>
-          ) : (
-            <HeroChart
-              data1={chartData}
-              label1={lang === "kr" ? "순유동성 (T$)" : "Net Liquidity (T$)"}
-              color1="#4ade80"
-              data2={sp500Data}
-              label2="S&P 500"
-              color2="#60a5fa"
-              correlation={correlation}
-              lang={lang}
-            />
-          )}
-          <div className="mt-2 text-[10px]" style={{ color: "#555" }}>
-            {lang === "kr"
-              ? "순유동성 = 연준 총자산 - TGA 잔고 - 역레포 | 출처: FRED"
-              : "Net Liquidity = Fed Assets - TGA - Reverse Repo | Source: FRED"}
-          </div>
-        </div>
-
         {/* Net Liquidity (prominent) + 3 top cards */}
         <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-4">
           {loading ? (
@@ -1719,6 +1448,119 @@ export default function MacroPage() {
               );
             })
           )}
+        </div>
+
+        {/* ── Net Liquidity vs S&P500 Chart ──────────────────── */}
+        <div className="mb-4 rounded-xl p-4" style={{ background: "#111111", border: "1px solid #222222" }}>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold" style={{ color: "#e8e8e8" }}>
+                {lang === "kr" ? "순유동성 vs S&P 500" : "Net Liquidity vs S&P 500"}
+              </h2>
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ background: "rgba(96,165,250,0.1)", color: "#60a5fa", border: "1px solid rgba(96,165,250,0.2)" }}>
+                r = {correlation.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex gap-1">
+              {ranges.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r)}
+                  className="rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors"
+                  style={{
+                    background: range === r ? "rgba(96,165,250,0.15)" : "transparent",
+                    color: range === r ? "#60a5fa" : "#666",
+                    border: range === r ? "1px solid rgba(96,165,250,0.3)" : "1px solid #222",
+                  }}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex h-[360px] items-center justify-center animate-pulse rounded-lg" style={{ background: "#0d0d0d" }}>
+              <span style={{ color: "#444" }}>Loading...</span>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={360}>
+              <ComposedChart data={mergedChartData} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
+                <defs>
+                  <linearGradient id="nlGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.2} />
+                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: "#555" }}
+                  tickFormatter={(v: string) => v.slice(0, 7)}
+                  interval="preserveStartEnd"
+                  minTickGap={60}
+                />
+                <YAxis
+                  yAxisId="left"
+                  tick={{ fontSize: 10, fill: "#22c55e" }}
+                  tickFormatter={(v: number) => `${v.toFixed(1)}T`}
+                  domain={["auto", "auto"]}
+                  width={60}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fontSize: 10, fill: "#3b82f6" }}
+                  tickFormatter={(v: number) => v.toLocaleString()}
+                  domain={["auto", "auto"]}
+                  width={60}
+                />
+                <RechartsTooltip
+                  contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, fontSize: 11 }}
+                  labelStyle={{ color: "#888", fontSize: 10 }}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(value: any, name: any) => {
+                    const v = Number(value);
+                    if (isNaN(v)) return ["-", String(name)];
+                    if (name === "netLiquidity") return [`${v.toFixed(2)}T`, lang === "kr" ? "순유동성" : "Net Liquidity"];
+                    return [v.toLocaleString(), "S&P 500"];
+                  }}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: 11 }}
+                  formatter={(value: string) => {
+                    if (value === "netLiquidity") return <span style={{ color: "#22c55e" }}>{lang === "kr" ? "순유동성 (T$)" : "Net Liquidity (T$)"}</span>;
+                    return <span style={{ color: "#3b82f6" }}>S&P 500</span>;
+                  }}
+                />
+                <Area
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="netLiquidity"
+                  stroke="#22c55e"
+                  strokeWidth={2.5}
+                  fill="url(#nlGrad)"
+                  dot={false}
+                  name="netLiquidity"
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="sp500"
+                  stroke="#3b82f6"
+                  strokeWidth={1.5}
+                  dot={false}
+                  name="sp500"
+                  connectNulls
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+          <div className="mt-2 text-[10px]" style={{ color: "#555" }}>
+            {lang === "kr"
+              ? "순유동성 = 연준 총자산 - TGA 잔고 - 역레포 | S&P 500: Yahoo Finance | 출처: FRED"
+              : "Net Liquidity = Fed Assets - TGA - Reverse Repo | S&P 500: Yahoo Finance | Source: FRED"}
+          </div>
         </div>
 
         {/* ── Korea-US Comparison Section ────────────────────── */}
