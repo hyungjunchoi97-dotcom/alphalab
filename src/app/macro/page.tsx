@@ -569,37 +569,60 @@ function DetailChart({
   );
 }
 
-// ── CPI YoY Bar Chart ────────────────────────────────────────
+// ── Macro Bar Chart (CPI YoY / Unemployment) ────────────────
 
-function CpiBarChart({
+interface BarChartConfig {
+  colorFn: (v: number) => string;
+  refLines: { value: number; label: string; labelKr: string; color: string }[];
+  tooltipLabel: string;
+  tooltipLabelKr: string;
+  minY?: number;
+}
+
+const CPI_BAR_CONFIG: BarChartConfig = {
+  colorFn: (v) => (v > 3 ? "#f87171" : v >= 2 ? "#fb923c" : "#4ade80"),
+  refLines: [{ value: 2, label: "Target 2%", labelKr: "목표 2%", color: "#facc15" }],
+  tooltipLabel: "CPI",
+  tooltipLabelKr: "CPI",
+  minY: 0,
+};
+
+const UNRATE_BAR_CONFIG: BarChartConfig = {
+  colorFn: (v) => (v > 5 ? "#f87171" : v >= 4 ? "#fb923c" : "#4ade80"),
+  refLines: [
+    { value: 4, label: "Full Employment 4%", labelKr: "완전고용 4%", color: "#facc15" },
+    { value: 5, label: "Warning 5%", labelKr: "경고 5%", color: "#f87171" },
+  ],
+  tooltipLabel: "Unemployment",
+  tooltipLabelKr: "실업률",
+  minY: 0,
+};
+
+function MacroBarChart({
   observations,
   lang,
+  config,
 }: {
   observations: Observation[];
   lang: string;
+  config: BarChartConfig;
 }) {
   const W = 900;
   const H = 300;
-  const PAD = { top: 16, right: 50, bottom: 30, left: 50 };
+  const PAD = { top: 16, right: 70, bottom: 30, left: 50 };
   const cw = W - PAD.left - PAD.right;
   const ch = H - PAD.top - PAD.bottom;
 
   if (observations.length < 2) return null;
 
   const vals = observations.map((d) => d.value);
-  const dataMin = Math.min(...vals, 0);
-  const dataMax = Math.max(...vals, 4);
+  const dataMin = Math.min(...vals, config.minY ?? 0);
+  const dataMax = Math.max(...vals, ...config.refLines.map(r => r.value + 0.5));
   const rangeY = dataMax - dataMin || 1;
   const toY = (v: number) => PAD.top + ch - ((v - dataMin) / rangeY) * ch;
-  const zeroY = toY(0);
+  const zeroY = toY(config.minY ?? 0);
   const barW = Math.max(2, (cw / observations.length) * 0.7);
   const gap = cw / observations.length;
-
-  function barColor(v: number): string {
-    if (v > 3) return "#f87171";
-    if (v >= 2) return "#fb923c";
-    return "#4ade80";
-  }
 
   const yLabels = Array.from({ length: 5 }, (_, i) => dataMin + (rangeY * i) / 4);
   const step = Math.max(1, Math.floor(observations.length / 10));
@@ -619,20 +642,23 @@ function CpiBarChart({
         );
       })}
 
-      {/* Fed 2% target line */}
-      {dataMin <= 2 && dataMax >= 2 && (
-        <g>
-          <line x1={PAD.left} y1={toY(2)} x2={W - PAD.right} y2={toY(2)} stroke="#facc15" strokeWidth="1.5" strokeDasharray="6,4" />
-          <text x={W - PAD.right + 4} y={toY(2) + 3} fill="#facc15" fontSize="9">
-            {lang === "kr" ? "목표 2%" : "Target 2%"}
-          </text>
-        </g>
-      )}
+      {/* Reference lines */}
+      {config.refLines.map((ref) => {
+        if (dataMin > ref.value || dataMax < ref.value) return null;
+        return (
+          <g key={ref.value}>
+            <line x1={PAD.left} y1={toY(ref.value)} x2={W - PAD.right} y2={toY(ref.value)} stroke={ref.color} strokeWidth="1.5" strokeDasharray="6,4" />
+            <text x={W - PAD.right + 4} y={toY(ref.value) + 3} fill={ref.color} fontSize="9">
+              {lang === "kr" ? ref.labelKr : ref.label}
+            </text>
+          </g>
+        );
+      })}
 
       {/* Bars */}
       {observations.map((obs, i) => {
         const x = PAD.left + i * gap + (gap - barW) / 2;
-        const y = obs.value >= 0 ? toY(obs.value) : zeroY;
+        const y = obs.value >= (config.minY ?? 0) ? toY(obs.value) : zeroY;
         const h = Math.abs(toY(obs.value) - zeroY);
         return (
           <g key={i}>
@@ -641,7 +667,7 @@ function CpiBarChart({
               y={y}
               width={barW}
               height={Math.max(1, h)}
-              fill={barColor(obs.value)}
+              fill={config.colorFn(obs.value)}
               opacity={hovered?.idx === i ? 1 : 0.85}
               rx={1}
             />
@@ -651,9 +677,7 @@ function CpiBarChart({
               width={gap}
               height={ch}
               fill="transparent"
-              onMouseEnter={(e) => {
-                const svg = e.currentTarget.ownerSVGElement;
-                if (!svg) return;
+              onMouseEnter={() => {
                 setHovered({ idx: i, x: x + barW / 2, y: toY(obs.value) - 8 });
               }}
               onMouseLeave={() => setHovered(null)}
@@ -670,24 +694,35 @@ function CpiBarChart({
       ))}
 
       {/* Tooltip */}
-      {hovered && (
-        <g>
-          <rect
-            x={hovered.x - 55}
-            y={hovered.y - 26}
-            width={110}
-            height={22}
-            rx={4}
-            fill="#1a1a1a"
-            stroke="#333"
-          />
-          <text x={hovered.x} y={hovered.y - 12} textAnchor="middle" fill="#e8e8e8" fontSize="10" fontWeight="600">
-            {lang === "kr"
-              ? `${observations[hovered.idx].date.slice(0, 7)}: CPI +${observations[hovered.idx].value.toFixed(1)}% YoY`
-              : `${observations[hovered.idx].date.slice(0, 7)}: CPI +${observations[hovered.idx].value.toFixed(1)}% YoY`}
-          </text>
-        </g>
-      )}
+      {hovered && (() => {
+        const obs = observations[hovered.idx];
+        const label = lang === "kr" ? config.tooltipLabelKr : config.tooltipLabel;
+        const txt = `${obs.date.slice(0, 7)}: ${label} ${obs.value.toFixed(1)}%`;
+        const txtW = txt.length * 6 + 16;
+        return (
+          <g>
+            <rect
+              x={Math.max(PAD.left, Math.min(hovered.x - txtW / 2, W - PAD.right - txtW))}
+              y={hovered.y - 26}
+              width={txtW}
+              height={22}
+              rx={4}
+              fill="#1a1a1a"
+              stroke="#333"
+            />
+            <text
+              x={Math.max(PAD.left + txtW / 2, Math.min(hovered.x, W - PAD.right - txtW / 2))}
+              y={hovered.y - 12}
+              textAnchor="middle"
+              fill="#e8e8e8"
+              fontSize="10"
+              fontWeight="600"
+            >
+              {txt}
+            </text>
+          </g>
+        );
+      })()}
     </svg>
   );
 }
@@ -699,18 +734,18 @@ function DetailModal({
   series,
   onClose,
   lang,
-  isCpiYoY,
+  barChartConfig,
 }: {
   indicator: IndicatorConfig;
   series: SeriesData;
   onClose: () => void;
   lang: string;
-  isCpiYoY?: boolean;
+  barChartConfig?: BarChartConfig;
 }) {
-  const [range, setRange] = useState<Range>(isCpiYoY ? "2Y" : "2Y");
-  const cpiRanges: Range[] = ["1Y", "2Y", "5Y"];
+  const [range, setRange] = useState<Range>("2Y");
+  const barRanges: Range[] = ["1Y", "2Y", "5Y"];
   const defaultRanges: Range[] = ["6M", "1Y", "2Y", "5Y"];
-  const ranges = isCpiYoY ? cpiRanges : defaultRanges;
+  const ranges = barChartConfig ? barRanges : defaultRanges;
   const filtered = useMemo(
     () => filterByRange(series.observations, range),
     [series.observations, range]
@@ -776,8 +811,8 @@ function DetailModal({
 
         {/* Chart */}
         <div className="mb-4 rounded-xl p-3" style={{ background: "#111", border: "1px solid #1a1a1a" }}>
-          {isCpiYoY ? (
-            <CpiBarChart observations={filtered} lang={lang} />
+          {barChartConfig ? (
+            <MacroBarChart observations={filtered} lang={lang} config={barChartConfig} />
           ) : (
             <DetailChart
               observations={filtered}
@@ -1949,7 +1984,7 @@ export default function MacroPage() {
           series={modalId === "CPIAUCSL" ? (series["CPI_YOY"] || series[modalId] || {} as SeriesData) : (series[modalId] || {} as SeriesData)}
           onClose={() => setModalId(null)}
           lang={lang}
-          isCpiYoY={modalId === "CPIAUCSL"}
+          barChartConfig={modalId === "CPIAUCSL" ? CPI_BAR_CONFIG : modalId === "UNRATE" ? UNRATE_BAR_CONFIG : undefined}
         />
       )}
     </div>
