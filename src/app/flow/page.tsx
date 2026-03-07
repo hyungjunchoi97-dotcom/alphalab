@@ -13,6 +13,7 @@ import {
   Legend,
   CartesianGrid,
   Cell,
+  ReferenceLine,
 } from "recharts";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
@@ -30,6 +31,11 @@ interface AvgCostRow { ticker: string; name: string; foreignAvgCost: number; las
 interface DivergenceRow { ticker: string; name: string; reason: string; foreignStreakDays: number; priceTrend: "up" | "down" | "flat" }
 interface SectorFlowRow { sector: string; netBuy: number }
 interface CumulativeRow { rank: number; ticker: string; name: string; cum5d: number; cum20d: number; cum60d: number; trend: "up" | "down" | "flat" }
+interface CumulativeInvestorFlow { date: string; foreign: number; institution: number; individual: number }
+interface CreditBalanceDay { date: string; balance: number; dangerZone: number }
+interface ShortLendingDay { date: string; balance: number }
+interface TopShortStock { ticker: string; name: string; shortBalance: number; sellDays: number; chgPct: number }
+interface ProgramTradingDay { date: string; arbitrage: number; nonArbitrage: number; total: number }
 
 interface FlowData {
   netFlowSeries: NetFlowDay[];
@@ -39,6 +45,11 @@ interface FlowData {
   divergenceCandidates: DivergenceRow[];
   sectorFlow: SectorFlowRow[];
   cumulativeForeignBuy: CumulativeRow[];
+  cumulativeInvestorFlow: CumulativeInvestorFlow[];
+  creditBalanceSeries: CreditBalanceDay[];
+  shortLendingSeries: ShortLendingDay[];
+  topShortStocks: TopShortStock[];
+  programTradingSeries: ProgramTradingDay[];
   asOf: string;
   source: string;
 }
@@ -60,13 +71,21 @@ function fmtPrice(v: number) {
   return String(v);
 }
 
-function SectionDot({ title }: { title: string }) {
+function SectionDot({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="mb-3 flex items-center gap-2">
       <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
       <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
         {title}
       </h2>
+      {hint && (
+        <span className="group relative cursor-help">
+          <span className="text-[10px] text-muted/60 hover:text-muted">&#9432;</span>
+          <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-[#1a2332] px-2 py-1 text-[10px] text-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+            {hint}
+          </span>
+        </span>
+      )}
     </div>
   );
 }
@@ -80,6 +99,10 @@ function ChgPct({ v }: { v: number }) {
   );
 }
 
+function EstBadge() {
+  return <span className="ml-1.5 rounded bg-yellow-500/10 px-1 py-px text-[9px] text-yellow-500/80">추정치</span>;
+}
+
 const TOOLTIP_STYLE = {
   contentStyle: {
     background: "#111820",
@@ -91,12 +114,18 @@ const TOOLTIP_STYLE = {
   itemStyle: { color: "#9ca3af" },
 };
 
+const TAB_BTN = (active: boolean) =>
+  `px-2.5 py-0.5 text-[10px] font-medium transition-colors ${
+    active ? "bg-accent text-white" : "bg-card-bg text-muted hover:text-foreground"
+  }`;
+
 // ── Main page ────────────────────────────────────────────────
 
 export default function FlowPage() {
   const { t } = useLang();
   const [chartMode, setChartMode] = useState<"daily" | "cumulative">("daily");
   const [netBuyTab, setNetBuyTab] = useState<"foreign" | "institution">("foreign");
+  const [cumPeriod, setCumPeriod] = useState<5 | 20 | 60>(20);
   const [data, setData] = useState<FlowData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -118,6 +147,22 @@ export default function FlowPage() {
       return { date: d.date, individual: ci, foreign: cf, institution: cinst };
     });
   }, [data]);
+
+  // Cumulative investor flow sliced by period
+  const cumInvestorData = useMemo(() => {
+    if (!data?.cumulativeInvestorFlow) return [];
+    const all = data.cumulativeInvestorFlow;
+    const sliced = all.slice(-cumPeriod);
+    if (sliced.length === 0) return [];
+    // Re-zero to start of period
+    const base = { foreign: sliced[0].foreign, institution: sliced[0].institution, individual: sliced[0].individual };
+    return sliced.map(d => ({
+      date: d.date,
+      foreign: d.foreign - base.foreign,
+      institution: d.institution - base.institution,
+      individual: d.individual - base.individual,
+    }));
+  }, [data, cumPeriod]);
 
   const chartData = chartMode === "daily" ? (data?.netFlowSeries || []) : cumulativeData;
   const filteredNetBuy = (data?.topNetBuy || []).filter((r) => r.side === netBuyTab);
@@ -174,15 +219,7 @@ export default function FlowPage() {
               </div>
               <div className="flex gap-px rounded bg-card-border p-px">
                 {(["daily", "cumulative"] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setChartMode(m)}
-                    className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors ${
-                      chartMode === m
-                        ? "bg-accent text-white"
-                        : "bg-card-bg text-muted hover:text-foreground"
-                    }`}
-                  >
+                  <button key={m} onClick={() => setChartMode(m)} className={TAB_BTN(chartMode === m)}>
                     {m === "daily" ? "Daily" : "Cumulative"}
                   </button>
                 ))}
@@ -223,21 +260,11 @@ export default function FlowPage() {
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                  <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                    Top Net Buy
-                  </h2>
+                  <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Top Net Buy</h2>
                 </div>
                 <div className="flex gap-px rounded bg-card-border p-px">
                   {(["foreign", "institution"] as const).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setNetBuyTab(s)}
-                      className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                        netBuyTab === s
-                          ? "bg-accent text-white"
-                          : "bg-card-bg text-muted hover:text-foreground"
-                      }`}
-                    >
+                    <button key={s} onClick={() => setNetBuyTab(s)} className={TAB_BTN(netBuyTab === s)}>
                       {s === "foreign" ? "Foreign" : "Institution"}
                     </button>
                   ))}
@@ -299,6 +326,130 @@ export default function FlowPage() {
             </section>
           </div>
         </div>
+
+        {/* ── NEW: Row 1.5 — 투자자별 누적 순매수 ──────────────── */}
+        <section className={CARD}>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <SectionDot title="투자자별 누적 순매수" />
+              <EstBadge />
+            </div>
+            <div className="flex gap-px rounded bg-card-border p-px">
+              {([5, 20, 60] as const).map((p) => (
+                <button key={p} onClick={() => setCumPeriod(p)} className={TAB_BTN(cumPeriod === p)}>
+                  {p}일
+                </button>
+              ))}
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={cumInvestorData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
+              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
+              <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => fmtShortKRW(v)} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
+              <Legend wrapperStyle={{ fontSize: 10, color: "#9ca3af" }} iconSize={8} />
+              <ReferenceLine y={0} stroke="#374151" strokeDasharray="3 3" />
+              <Line dataKey="foreign" name="외국인" stroke="#22c55e" dot={false} strokeWidth={2} />
+              <Line dataKey="institution" name="기관" stroke="#60a5fa" dot={false} strokeWidth={2} />
+              <Line dataKey="individual" name="개인" stroke="#f59e0b" dot={false} strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </section>
+
+        {/* ── NEW: Row 1.75 — 신용잔고 & 대차잔고 ──────────────── */}
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {/* LEFT: 신용잔고 (Credit Balance) */}
+          <section className={CARD}>
+            <SectionDot
+              title="신용잔고 추이"
+              hint="신용잔고 급증 = 매수 과열 신호, 조정 가능성"
+            />
+            <div className="mb-1 flex items-center gap-1">
+              <EstBadge />
+              <span className="text-[9px] text-muted/50">가격·거래량 기반 추정</span>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={data.creditBalanceSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
+                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
+                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => `${(v / 10000).toFixed(1)}조`} domain={["auto", "auto"]} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
+                <ReferenceLine y={data.creditBalanceSeries[0]?.dangerZone || 25000} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "과열 구간", fill: "#ef4444", fontSize: 9, position: "right" }} />
+                <Line dataKey="balance" name="신용잔고" stroke="#f59e0b" dot={false} strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </section>
+
+          {/* RIGHT: 대차잔고 (Short Lending Balance) */}
+          <section className={CARD}>
+            <SectionDot
+              title="대차잔고 추이"
+              hint="대차잔고 증가 = 공매도 증가 예고, 하락 압력"
+            />
+            <div className="mb-1 flex items-center gap-1">
+              <EstBadge />
+              <span className="text-[9px] text-muted/50">외국인 매도 패턴 기반 추정</span>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={data.shortLendingSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
+                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
+                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => `${(v / 10000).toFixed(1)}조`} domain={["auto", "auto"]} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
+                <Line dataKey="balance" name="대차잔고" stroke="#a78bfa" dot={false} strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+
+            {/* Top 5 종목별 대차잔고 mini table */}
+            <div className="mt-3 border-t border-card-border pt-2">
+              <p className="mb-1.5 text-[10px] font-medium text-muted">종목별 대차잔고 TOP 5</p>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-card-border/50">
+                    <th className={TH}>종목</th>
+                    <th className={`${TH} text-right`}>추정 잔고</th>
+                    <th className={`${TH} text-right`}>매도일</th>
+                    <th className={`${TH} text-right`}>등락</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.topShortStocks.map((s) => (
+                    <tr key={s.ticker} className="border-b border-card-border/30">
+                      <td className={`${TD} text-accent`}>{s.name}</td>
+                      <td className={`${TD} text-right tabular-nums`}>{fmtShortKRW(s.shortBalance)}</td>
+                      <td className={`${TD} text-right tabular-nums text-muted`}>{s.sellDays}/10일</td>
+                      <td className={`${TD} text-right tabular-nums`}><ChgPct v={s.chgPct} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        {/* ── NEW: Row 1.85 — 프로그램 매매 ──────────────────── */}
+        <section className={CARD}>
+          <div className="mb-1 flex items-center gap-2">
+            <SectionDot
+              title="프로그램 매매 (30D)"
+              hint="프로그램 매수 우위 = 기관 자금 유입 신호"
+            />
+            <EstBadge />
+          </div>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={data.programTradingSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
+              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
+              <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => fmtShortKRW(v)} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
+              <Legend wrapperStyle={{ fontSize: 10, color: "#9ca3af" }} iconSize={8} />
+              <ReferenceLine y={0} stroke="#374151" strokeDasharray="3 3" />
+              <Bar dataKey="arbitrage" name="차익거래" fill="#6366f1" stackId="prog" />
+              <Bar dataKey="nonArbitrage" name="비차익거래" fill="#06b6d4" stackId="prog" />
+            </BarChart>
+          </ResponsiveContainer>
+        </section>
 
         {/* Row 2: Avg Cost + Divergence */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -385,21 +536,9 @@ export default function FlowPage() {
                 margin={{ top: 4, right: 20, left: 10, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" horizontal={false} />
-                <XAxis
-                  type="number"
-                  tick={{ fontSize: 9, fill: "#9ca3af" }}
-                  tickFormatter={(v: number) => fmtShortKRW(v)}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="sector"
-                  tick={{ fontSize: 10, fill: "#e5e7eb" }}
-                  width={85}
-                />
-                <Tooltip
-                  {...TOOLTIP_STYLE}
-                  formatter={(value) => [typeof value === "number" ? fmtShortKRW(value) : value, "순매수"]}
-                />
+                <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => fmtShortKRW(v)} />
+                <YAxis type="category" dataKey="sector" tick={{ fontSize: 10, fill: "#e5e7eb" }} width={85} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(value) => [typeof value === "number" ? fmtShortKRW(value) : value, "순매수"]} />
                 <Bar dataKey="netBuy" name="순매수" radius={[0, 4, 4, 0]}>
                   {data.sectorFlow.map((entry, index) => (
                     <Cell key={index} fill={entry.netBuy >= 0 ? "#22c55e" : "#ef4444"} />

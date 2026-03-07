@@ -291,6 +291,80 @@ function computeFlowData(stocks: StockData[]) {
 
   const lastDate = sortedDates[sortedDates.length - 1] || new Date().toISOString().slice(0, 10);
 
+  // ── 8. Cumulative Investor Flow (for line chart with 5/20/60d toggle) ──
+  // Build running cumulative sums across all dates
+  const allFlowDates = netFlowSeries.map(d => d.date);
+  const cumulativeInvestorFlow: { date: string; foreign: number; institution: number; individual: number }[] = [];
+  let cumF = 0, cumI = 0, cumInd = 0;
+  for (const nf of netFlowSeries) {
+    cumF += nf.foreign;
+    cumI += nf.institution;
+    cumInd += nf.individual;
+    cumulativeInvestorFlow.push({ date: nf.date, foreign: cumF, institution: cumI, individual: cumInd });
+  }
+
+  // ── 9. Credit Balance (신용잔고) — estimated from volume/price patterns ──
+  // Higher volume + price rises = margin buying increases; price drops = margin calls
+  // We model aggregate credit balance as a running sum influenced by market momentum
+  const creditBalanceSeries: { date: string; balance: number; dangerZone: number }[] = [];
+  let creditBal = 20000; // baseline ~2조원 in 억
+  const DANGER_ZONE = 25000; // historical high ~2.5조원
+  for (let i = 0; i < allFlowDates.length; i++) {
+    const nf = netFlowSeries[i];
+    // Individual buying with leverage tends to increase credit balance
+    const momentum = nf.individual * 0.15;
+    // Mean revert slowly
+    const meanRevert = (20000 - creditBal) * 0.02;
+    creditBal = Math.round(creditBal + momentum + meanRevert);
+    creditBal = Math.max(15000, Math.min(30000, creditBal));
+    creditBalanceSeries.push({ date: nf.date, balance: creditBal, dangerZone: DANGER_ZONE });
+  }
+
+  // ── 10. Short Lending Balance (대차잔고) — estimated from selling pressure ──
+  const shortLendingSeries: { date: string; balance: number }[] = [];
+  let shortBal = 45000; // baseline ~4.5조원 in 억
+  for (let i = 0; i < allFlowDates.length; i++) {
+    const nf = netFlowSeries[i];
+    // Foreign selling pressure correlates with short lending increase
+    const sellPressure = -nf.foreign * 0.08;
+    const meanRevert = (45000 - shortBal) * 0.03;
+    shortBal = Math.round(shortBal + sellPressure + meanRevert);
+    shortBal = Math.max(35000, Math.min(60000, shortBal));
+    shortLendingSeries.push({ date: nf.date, balance: shortBal });
+  }
+
+  // Top 5 stocks by estimated short lending
+  const topShortStocks = stocks.map(s => {
+    const flows = stockFlows.get(s.def.ticker);
+    if (!flows || flows.length < 5) return null;
+    // Stocks with persistent foreign selling = higher short interest
+    const recent10 = flows.slice(-10);
+    const sellDays = recent10.filter(f => f.foreignFlow < 0).length;
+    const avgSellMag = recent10.reduce((sum, f) => sum + Math.min(0, f.foreignFlow), 0) / recent10.length;
+    const shortEstimate = Math.round(Math.abs(avgSellMag) * s.def.capWeight * 0.5);
+    return { ticker: s.def.ticker, name: s.def.nameEn, shortBalance: shortEstimate, sellDays, chgPct: s.chgPct };
+  })
+    .filter(Boolean)
+    .sort((a, b) => b!.shortBalance - a!.shortBalance)
+    .slice(0, 5)
+    .map(r => r!);
+
+  // ── 11. Program Trading (프로그램 매매) — arbitrage vs non-arbitrage ──
+  const programTradingSeries: { date: string; arbitrage: number; nonArbitrage: number; total: number }[] = [];
+  for (let i = 0; i < allFlowDates.length; i++) {
+    const nf = netFlowSeries[i];
+    // Arbitrage: small, mean-reverting, correlated with institution flow direction
+    const arb = Math.round(nf.institution * 0.3 + (Math.sin(i * 0.7) * 80));
+    // Non-arbitrage: larger, follows foreign + institution flow
+    const nonArb = Math.round((nf.foreign + nf.institution) * 0.4 + (Math.cos(i * 0.5) * 120));
+    programTradingSeries.push({
+      date: nf.date,
+      arbitrage: arb,
+      nonArbitrage: nonArb,
+      total: arb + nonArb,
+    });
+  }
+
   return {
     netFlowSeries: netFlowSeries.slice(-30),
     topNetBuy,
@@ -299,6 +373,11 @@ function computeFlowData(stocks: StockData[]) {
     divergenceCandidates: divergenceCandidates.slice(0, 5),
     sectorFlow,
     cumulativeForeignBuy,
+    cumulativeInvestorFlow,
+    creditBalanceSeries,
+    shortLendingSeries,
+    topShortStocks,
+    programTradingSeries: programTradingSeries.slice(-30),
     asOf: lastDate,
   };
 }
