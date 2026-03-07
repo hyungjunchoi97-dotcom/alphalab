@@ -113,12 +113,12 @@ function EventRow({ event, lang }: { event: CalendarEvent; lang: "en" | "kr" }) 
   const title = lang === "kr" && event.titleKr ? event.titleKr : event.title;
 
   return (
-    <div className="flex items-start gap-3 border-b border-card-border/30 py-1.5 last:border-0">
-      <span className="w-[105px] shrink-0 text-[10px] tabular-nums text-muted">
+    <div className="flex items-start gap-3 border-b border-[#1a1a1a] px-2 py-2 transition-colors duration-150 hover:bg-[#161616]">
+      <span className="w-[105px] shrink-0 font-mono text-xs text-[#888]">
         {lang === "kr" ? formatDateKST(event.datetimeISO) : formatDateTime(event.datetimeISO, lang)}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs">{title}</p>
+        <p className="truncate text-sm text-white">{title}</p>
         {hasAFP && (
           <p className="mt-0.5 text-[9px] tabular-nums text-muted">
             {event.actual != null && (
@@ -136,7 +136,7 @@ function EventRow({ event, lang }: { event: CalendarEvent; lang: "en" | "kr" }) 
         )}
       </div>
       <span
-        className={`shrink-0 rounded px-1 py-px text-[9px] font-medium ${
+        className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
           CATEGORY_COLORS[event.category] || "bg-muted/20 text-muted"
         }`}
       >
@@ -285,10 +285,26 @@ export default function MarketCalendar() {
           {t("noEvents")}
         </p>
       ) : (
-        <div className="max-h-[500px] overflow-y-auto pr-1">
-          <GroupSection label={t("today")} events={today} lang={lang} />
-          <GroupSection label={t("thisWeek")} events={thisWeek} lang={lang} />
-          <GroupSection label={t("upcoming")} events={upcoming} lang={lang} />
+        <div className="relative">
+          <style>{`
+            .cal-scroll::-webkit-scrollbar { width: 3px; }
+            .cal-scroll::-webkit-scrollbar-track { background: transparent; }
+            .cal-scroll::-webkit-scrollbar-thumb { background: #333; border-radius: 999px; }
+            .cal-scroll:hover::-webkit-scrollbar-thumb { background: #555; }
+          `}</style>
+          <div
+            className="cal-scroll max-h-[500px] overflow-y-auto border-t border-[#1a1a1a]"
+            style={{ scrollbarWidth: "thin", scrollbarColor: "#333 transparent" }}
+          >
+            <GroupSection label={t("today")} events={today} lang={lang} />
+            <GroupSection label={t("thisWeek")} events={thisWeek} lang={lang} />
+            <GroupSection label={t("upcoming")} events={upcoming} lang={lang} />
+          </div>
+          {/* Bottom fade gradient */}
+          <div
+            className="pointer-events-none absolute bottom-0 left-0 right-0 h-12"
+            style={{ background: "linear-gradient(to bottom, transparent, #111111)" }}
+          />
         </div>
       )}
 
