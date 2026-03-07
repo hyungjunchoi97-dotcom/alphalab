@@ -3,50 +3,61 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 interface MarketItem {
-  type: "INDEX" | "FX" | "COM";
+  type: "INDEX" | "FX" | "COM" | "CRYPTO" | "BOND";
   label: string;
   value: number | null;
   changePct: number | null;
 }
 
-interface NewsItem {
-  type: "NEWS";
+interface TickerItem {
+  type: "INDEX" | "FX" | "COM" | "CRYPTO" | "BOND";
   label: string;
+  value: string;
+  changePct: number | null;
 }
 
-type TickerItem =
-  | { type: "INDEX" | "FX" | "COM"; label: string; value: string; changePct: number | null }
-  | { type: "NEWS"; label: string };
-
 function formatValue(label: string, value: number): string {
+  // Crypto — no decimals for BTC, 2 for ETH
   if (label === "Bitcoin") return value.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  if (label === "Ethereum") return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // FX
   if (label === "USD/KRW") return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (["Gold", "WTI Oil"].includes(label)) return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (label === "USD/JPY") return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (["EUR/USD", "GBP/USD"].includes(label)) return value.toFixed(4);
+  // Bonds — yield
+  if (label === "US 10Y" || label === "KR 10Y") return value.toFixed(3) + "%";
+  // Commodities
+  if (["Gold", "Silver", "WTI Oil", "Brent Oil", "Natural Gas", "Copper"].includes(label))
+    return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   // Indices
   return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+const TAG_COLORS: Record<string, string> = {
+  INDEX: "bg-blue-500/20 text-blue-400",
+  FX: "bg-purple-500/20 text-purple-400",
+  COM: "bg-yellow-500/20 text-yellow-400",
+  CRYPTO: "bg-orange-500/20 text-orange-400",
+  BOND: "bg-cyan-500/20 text-cyan-400",
+};
+
 function TickerEntry({ item }: { item: TickerItem }) {
-  const inner = (
+  return (
     <span className="inline-flex items-center gap-1.5">
       <span
-        className={`rounded px-1 py-px text-[9px] font-semibold uppercase ${
-          item.type === "NEWS"
-            ? "bg-accent/15 text-accent"
-            : "bg-card-border/60 text-muted"
-        }`}
+        className={`rounded px-1 py-px text-[9px] font-semibold uppercase ${TAG_COLORS[item.type] ?? "bg-card-border/60 text-muted"}`}
       >
         {item.type}
       </span>
-      <span className={`text-[11px] ${item.type === "NEWS" ? "text-accent" : "text-foreground"}`}>
+      <span className="text-[11px] text-foreground">
         {item.label}
       </span>
-      {"value" in item && item.value != null && (
+      {item.value != null && (
         <span className="text-[11px] tabular-nums text-foreground">
           {item.value}
         </span>
       )}
-      {"changePct" in item && item.changePct != null && (
+      {item.changePct != null && (
         <span
           className={`text-[11px] tabular-nums font-medium ${
             item.changePct >= 0 ? "text-gain" : "text-loss"
@@ -58,8 +69,6 @@ function TickerEntry({ item }: { item: TickerItem }) {
       )}
     </span>
   );
-
-  return inner;
 }
 
 export default function TopTickerBar() {
@@ -75,7 +84,6 @@ export default function TopTickerBar() {
 
       const tickerItems: TickerItem[] = [];
 
-      // Market data
       if (json.market) {
         for (const m of json.market as MarketItem[]) {
           tickerItems.push({
@@ -84,13 +92,6 @@ export default function TopTickerBar() {
             value: m.value != null ? formatValue(m.label, m.value) : "—",
             changePct: m.changePct,
           });
-        }
-      }
-
-      // News items
-      if (json.news) {
-        for (const n of json.news as NewsItem[]) {
-          tickerItems.push({ type: "NEWS", label: n.label });
         }
       }
 
@@ -111,7 +112,6 @@ export default function TopTickerBar() {
     };
   }, [fetchTicker]);
 
-  // Show nothing until first load (avoids flash of empty bar)
   if (!loaded && items.length === 0) {
     return (
       <div className="relative overflow-hidden border-b border-card-border/60 bg-background">

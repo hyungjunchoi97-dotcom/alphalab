@@ -6,33 +6,45 @@ export const runtime = "nodejs";
 // ── Definitions ─────────────────────────────────────────────
 
 interface MarketItem {
-  type: "INDEX" | "FX" | "COM";
+  type: "INDEX" | "FX" | "COM" | "CRYPTO" | "BOND";
   label: string;
   symbol: string;
   value: number | null;
   changePct: number | null;
 }
 
-interface NewsItem {
-  type: "NEWS";
-  label: string;
-}
-
 const MARKET_SYMBOLS: Omit<MarketItem, "value" | "changePct">[] = [
-  { type: "INDEX", label: "KOSPI", symbol: "^KS11" },
-  { type: "INDEX", label: "KOSDAQ", symbol: "^KQ11" },
+  // Indexes
   { type: "INDEX", label: "S&P 500", symbol: "^GSPC" },
   { type: "INDEX", label: "NASDAQ", symbol: "^IXIC" },
+  { type: "INDEX", label: "DOW", symbol: "^DJI" },
+  { type: "INDEX", label: "KOSPI", symbol: "^KS11" },
+  { type: "INDEX", label: "KOSDAQ", symbol: "^KQ11" },
+  { type: "INDEX", label: "NIKKEI", symbol: "^N225" },
+  { type: "INDEX", label: "HSI", symbol: "^HSI" },
+  { type: "INDEX", label: "Shanghai", symbol: "000001.SS" },
+  // FX
   { type: "FX", label: "USD/KRW", symbol: "KRW=X" },
+  { type: "FX", label: "USD/JPY", symbol: "JPY=X" },
+  { type: "FX", label: "EUR/USD", symbol: "EURUSD=X" },
+  { type: "FX", label: "GBP/USD", symbol: "GBPUSD=X" },
+  // Commodities
   { type: "COM", label: "Gold", symbol: "GC=F" },
+  { type: "COM", label: "Silver", symbol: "SI=F" },
   { type: "COM", label: "WTI Oil", symbol: "CL=F" },
-  { type: "COM", label: "Bitcoin", symbol: "BTC-USD" },
+  { type: "COM", label: "Brent Oil", symbol: "BZ=F" },
+  { type: "COM", label: "Natural Gas", symbol: "NG=F" },
+  { type: "COM", label: "Copper", symbol: "HG=F" },
+  // Crypto
+  { type: "CRYPTO", label: "Bitcoin", symbol: "BTC-USD" },
+  { type: "CRYPTO", label: "Ethereum", symbol: "ETH-USD" },
+  // Bonds
+  { type: "BOND", label: "US 10Y", symbol: "^TNX" },
 ];
 
 // ── Cache ───────────────────────────────────────────────────
 
 const MARKET_CACHE_TTL = 60_000; // 60 seconds
-const NEWS_CACHE_TTL = 5 * 60_000; // 5 minutes
 
 interface Cache<T> {
   data: T;
@@ -40,7 +52,6 @@ interface Cache<T> {
 }
 
 let marketCache: Cache<MarketItem[]> | null = null;
-let newsCache: Cache<NewsItem[]> | null = null;
 
 // ── Yahoo Finance fetcher ───────────────────────────────────
 
@@ -59,7 +70,6 @@ async function fetchYahooQuote(symbol: string): Promise<{ price: number; changeP
     const price = meta?.regularMarketPrice;
     if (price == null) return null;
 
-    // Calculate change% from previous close
     const prevClose = meta?.chartPreviousClose ?? meta?.previousClose;
     const changePct = prevClose && prevClose > 0
       ? ((price - prevClose) / prevClose) * 100
@@ -90,55 +100,10 @@ async function fetchAllMarketData(): Promise<MarketItem[]> {
     .map((r) => r.value);
 }
 
-// ── Google News RSS fetcher ─────────────────────────────────
-
-function stripHtml(str: string): string {
-  return str.replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-}
-
-function extractTitles(xml: string, limit: number): string[] {
-  const titles: string[] = [];
-  // Skip the first <title> which is the feed title
-  const regex = /<item[^>]*>[\s\S]*?<title[^>]*>([\s\S]*?)<\/title>/g;
-  let match;
-  while ((match = regex.exec(xml)) !== null && titles.length < limit) {
-    let title = stripHtml(match[1]).trim();
-    if (title.length > 80) title = title.slice(0, 77) + "...";
-    if (title) titles.push(title);
-  }
-  return titles;
-}
-
-async function fetchNewsHeadlines(): Promise<NewsItem[]> {
-  const feeds = [
-    "https://news.google.com/rss/search?q=stock+market+economy+fed&hl=en&gl=US&ceid=US:en",
-    "https://news.google.com/rss/search?q=%EC%BD%94%EC%8A%A4%ED%94%BC+%EC%A6%9D%EC%8B%9C+%EA%B2%BD%EC%A0%9C&hl=ko&gl=KR&ceid=KR:ko",
-  ];
-
-  const results = await Promise.allSettled(
-    feeds.map(async (url) => {
-      const res = await fetchWithTimeout(url, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-      }, 8000);
-      if (!res.ok) return [];
-      const xml = await res.text();
-      return extractTitles(xml, 5);
-    })
-  );
-
-  const allTitles: string[] = [];
-  for (const r of results) {
-    if (r.status === "fulfilled") allTitles.push(...r.value);
-  }
-
-  return allTitles.map((title) => ({ type: "NEWS" as const, label: title }));
-}
-
 // ── Route handler ───────────────────────────────────────────
 
 export async function GET() {
   try {
-    // Fetch market data (cached 60s)
     let market: MarketItem[];
     if (marketCache && Date.now() - marketCache.cachedAt < MARKET_CACHE_TTL) {
       market = marketCache.data;
@@ -147,37 +112,19 @@ export async function GET() {
       if (market.length > 0) {
         marketCache = { data: market, cachedAt: Date.now() };
       } else if (marketCache) {
-        market = marketCache.data; // fallback to stale
-      }
-    }
-
-    // Fetch news (cached 5min)
-    let news: NewsItem[];
-    if (newsCache && Date.now() - newsCache.cachedAt < NEWS_CACHE_TTL) {
-      news = newsCache.data;
-    } else {
-      news = await fetchNewsHeadlines();
-      if (news.length > 0) {
-        newsCache = { data: news, cachedAt: Date.now() };
-      } else if (newsCache) {
-        news = newsCache.data; // fallback to stale
-      } else {
-        news = [];
+        market = marketCache.data;
       }
     }
 
     return NextResponse.json({
       ok: true,
       market,
-      news,
       asOf: new Date().toISOString(),
     });
   } catch (err) {
-    // Return stale cache on error
     return NextResponse.json({
       ok: false,
       market: marketCache?.data ?? [],
-      news: newsCache?.data ?? [],
       error: err instanceof Error ? err.message : "Unknown error",
     });
   }
