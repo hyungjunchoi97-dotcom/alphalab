@@ -47,7 +47,9 @@ const SERIES = [
 // ── Fetch helper ──────────────────────────────────────────────
 
 async function fetchSeries(seriesId: string): Promise<FredObservation[]> {
-  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&sort_order=desc&limit=260`;
+  // Daily series need 1500 obs for 5Y; monthly series need fewer but still enough
+  const limit = ["T10Y2Y", "FEDFUNDS", "DEXKOUS"].includes(seriesId) ? 1500 : 500;
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&sort_order=desc&limit=${limit}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
   if (!res.ok) {
     console.error(`[fred] ${seriesId} HTTP ${res.status}`);

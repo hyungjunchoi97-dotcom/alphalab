@@ -569,6 +569,129 @@ function DetailChart({
   );
 }
 
+// ── CPI YoY Bar Chart ────────────────────────────────────────
+
+function CpiBarChart({
+  observations,
+  lang,
+}: {
+  observations: Observation[];
+  lang: string;
+}) {
+  const W = 900;
+  const H = 300;
+  const PAD = { top: 16, right: 50, bottom: 30, left: 50 };
+  const cw = W - PAD.left - PAD.right;
+  const ch = H - PAD.top - PAD.bottom;
+
+  if (observations.length < 2) return null;
+
+  const vals = observations.map((d) => d.value);
+  const dataMin = Math.min(...vals, 0);
+  const dataMax = Math.max(...vals, 4);
+  const rangeY = dataMax - dataMin || 1;
+  const toY = (v: number) => PAD.top + ch - ((v - dataMin) / rangeY) * ch;
+  const zeroY = toY(0);
+  const barW = Math.max(2, (cw / observations.length) * 0.7);
+  const gap = cw / observations.length;
+
+  function barColor(v: number): string {
+    if (v > 3) return "#f87171";
+    if (v >= 2) return "#fb923c";
+    return "#4ade80";
+  }
+
+  const yLabels = Array.from({ length: 5 }, (_, i) => dataMin + (rangeY * i) / 4);
+  const step = Math.max(1, Math.floor(observations.length / 10));
+
+  const [hovered, setHovered] = useState<{ idx: number; x: number; y: number } | null>(null);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+      {/* Y-axis grid */}
+      {yLabels.map((v, i) => {
+        const y = PAD.top + ch - (i / 4) * ch;
+        return (
+          <g key={i}>
+            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#1a1a1a" strokeWidth="1" />
+            <text x={PAD.left - 6} y={y + 3} textAnchor="end" fill="#555" fontSize="9">{v.toFixed(1)}%</text>
+          </g>
+        );
+      })}
+
+      {/* Fed 2% target line */}
+      {dataMin <= 2 && dataMax >= 2 && (
+        <g>
+          <line x1={PAD.left} y1={toY(2)} x2={W - PAD.right} y2={toY(2)} stroke="#facc15" strokeWidth="1.5" strokeDasharray="6,4" />
+          <text x={W - PAD.right + 4} y={toY(2) + 3} fill="#facc15" fontSize="9">
+            {lang === "kr" ? "목표 2%" : "Target 2%"}
+          </text>
+        </g>
+      )}
+
+      {/* Bars */}
+      {observations.map((obs, i) => {
+        const x = PAD.left + i * gap + (gap - barW) / 2;
+        const y = obs.value >= 0 ? toY(obs.value) : zeroY;
+        const h = Math.abs(toY(obs.value) - zeroY);
+        return (
+          <g key={i}>
+            <rect
+              x={x}
+              y={y}
+              width={barW}
+              height={Math.max(1, h)}
+              fill={barColor(obs.value)}
+              opacity={hovered?.idx === i ? 1 : 0.85}
+              rx={1}
+            />
+            <rect
+              x={PAD.left + i * gap}
+              y={PAD.top}
+              width={gap}
+              height={ch}
+              fill="transparent"
+              onMouseEnter={(e) => {
+                const svg = e.currentTarget.ownerSVGElement;
+                if (!svg) return;
+                setHovered({ idx: i, x: x + barW / 2, y: toY(obs.value) - 8 });
+              }}
+              onMouseLeave={() => setHovered(null)}
+            />
+          </g>
+        );
+      })}
+
+      {/* X-axis labels */}
+      {observations.filter((_, i) => i % step === 0).map((obs, idx) => (
+        <text key={idx} x={PAD.left + (idx * step) * gap + gap / 2} y={H - 8} textAnchor="middle" fill="#444" fontSize="8">
+          {obs.date.slice(0, 7)}
+        </text>
+      ))}
+
+      {/* Tooltip */}
+      {hovered && (
+        <g>
+          <rect
+            x={hovered.x - 55}
+            y={hovered.y - 26}
+            width={110}
+            height={22}
+            rx={4}
+            fill="#1a1a1a"
+            stroke="#333"
+          />
+          <text x={hovered.x} y={hovered.y - 12} textAnchor="middle" fill="#e8e8e8" fontSize="10" fontWeight="600">
+            {lang === "kr"
+              ? `${observations[hovered.idx].date.slice(0, 7)}: CPI +${observations[hovered.idx].value.toFixed(1)}% YoY`
+              : `${observations[hovered.idx].date.slice(0, 7)}: CPI +${observations[hovered.idx].value.toFixed(1)}% YoY`}
+          </text>
+        </g>
+      )}
+    </svg>
+  );
+}
+
 // ── Detail Modal ──────────────────────────────────────────────
 
 function DetailModal({
@@ -576,14 +699,18 @@ function DetailModal({
   series,
   onClose,
   lang,
+  isCpiYoY,
 }: {
   indicator: IndicatorConfig;
   series: SeriesData;
   onClose: () => void;
   lang: string;
+  isCpiYoY?: boolean;
 }) {
-  const [range, setRange] = useState<Range>("2Y");
-  const ranges: Range[] = ["6M", "1Y", "2Y", "5Y"];
+  const [range, setRange] = useState<Range>(isCpiYoY ? "2Y" : "2Y");
+  const cpiRanges: Range[] = ["1Y", "2Y", "5Y"];
+  const defaultRanges: Range[] = ["6M", "1Y", "2Y", "5Y"];
+  const ranges = isCpiYoY ? cpiRanges : defaultRanges;
   const filtered = useMemo(
     () => filterByRange(series.observations, range),
     [series.observations, range]
@@ -649,13 +776,17 @@ function DetailModal({
 
         {/* Chart */}
         <div className="mb-4 rounded-xl p-3" style={{ background: "#111", border: "1px solid #1a1a1a" }}>
-          <DetailChart
-            observations={filtered}
-            color={indicator.sparkColor}
-            zones={indicator.zones}
-            dashedLines={indicator.dashedLines}
-            unit={indicator.unit}
-          />
+          {isCpiYoY ? (
+            <CpiBarChart observations={filtered} lang={lang} />
+          ) : (
+            <DetailChart
+              observations={filtered}
+              color={indicator.sparkColor}
+              zones={indicator.zones}
+              dashedLines={indicator.dashedLines}
+              unit={indicator.unit}
+            />
+          )}
         </div>
 
         {/* Explanation */}
@@ -1812,12 +1943,13 @@ export default function MacroPage() {
       {fxModal && <FxChartModal pair={fxModal} onClose={() => setFxModal(null)} lang={lang} />}
 
       {/* Detail Modal */}
-      {modalId && series[modalId] && INDICATORS[modalId] && (
+      {modalId && INDICATORS[modalId] && (
         <DetailModal
           indicator={INDICATORS[modalId]}
-          series={series[modalId]}
+          series={modalId === "CPIAUCSL" ? (series["CPI_YOY"] || series[modalId] || {} as SeriesData) : (series[modalId] || {} as SeriesData)}
           onClose={() => setModalId(null)}
           lang={lang}
+          isCpiYoY={modalId === "CPIAUCSL"}
         />
       )}
     </div>
