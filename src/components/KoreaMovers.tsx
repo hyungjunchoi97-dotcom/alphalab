@@ -93,7 +93,7 @@ export default function KoreaMovers() {
   const [source, setSource] = useState<string>("");
   const [totalGainers, setTotalGainers] = useState(0);
   const [totalLosers, setTotalLosers] = useState(0);
-  const [showCount, setShowCount] = useState(30);
+  const [showCount, setShowCount] = useState(60);
 
   const fetchMovers = useCallback(async () => {
     try {
@@ -173,7 +173,7 @@ export default function KoreaMovers() {
       {hasMore && (
         <div className="mt-3 flex justify-center">
           <button
-            onClick={() => setShowCount((prev) => prev + 20)}
+            onClick={() => setShowCount((prev) => prev + 30)}
             className="rounded-md border border-card-border bg-card-bg px-4 py-1.5 text-[11px] text-muted transition-colors hover:text-foreground hover:border-accent/50"
           >
             {lang === "kr" ? "더 보기 ▼" : "Show More ▼"}
