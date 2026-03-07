@@ -1,29 +1,44 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 interface AnalysisResult {
-  assessment: "BUY" | "HOLD" | "SELL";
+  signal: "BUY" | "HOLD" | "SELL";
   pattern: {
-    nameEn: string;
-    nameKr: string;
-    interpretation: string;
+    english: string;
+    korean: string;
   };
-  entry: string;
-  target: string;
-  stopLoss: string;
-  entryPercent: string;
-  targetPercent: string;
-  stopLossPercent: string;
-  conviction: number;
-  convictionLabel: "HIGH" | "MEDIUM" | "LOW";
+  interpretation: string;
+  entry: {
+    price: number | null;
+    target: number | null;
+    targetPct: number | null;
+    stopLoss: number | null;
+    stopLossPct: number | null;
+  };
+  conviction: "HIGH" | "MEDIUM" | "LOW";
+}
+
+function convictionPercent(level: string): number {
+  if (level === "HIGH") return 85;
+  if (level === "MEDIUM") return 55;
+  return 25;
+}
+
+function formatPrice(v: number | null): string {
+  if (v == null) return "—";
+  return v.toLocaleString();
+}
+
+function formatPct(v: number | null): string {
+  if (v == null) return "—";
+  const sign = v >= 0 ? "+" : "";
+  return `${sign}${v.toFixed(1)}%`;
 }
 
 export default function AiTradingPage() {
-  const { lang } = useLang();
   const requireAuth = useRequireAuth();
 
   const [image, setImage] = useState<string | null>(null);
@@ -81,7 +96,6 @@ export default function AiTradingPage() {
     try {
       const fd = new FormData();
       fd.append("image", fileObjRef.current);
-      fd.append("lang", lang);
 
       const res = await fetch("/api/ai/analyze-chart", {
         method: "POST",
@@ -240,7 +254,7 @@ export default function AiTradingPage() {
                       <span
                         key={label}
                         className={`px-4 py-1.5 text-xs font-bold tracking-wider ${
-                          result.assessment === label
+                          result.signal === label
                             ? "bg-white text-black"
                             : "border border-[#333] text-[#333]"
                         }`}
@@ -257,11 +271,11 @@ export default function AiTradingPage() {
                     Pattern Identified
                   </h3>
                   <p className="text-sm font-medium text-foreground">
-                    {result.pattern.nameEn}{" "}
-                    <span className="text-[#888]">· {result.pattern.nameKr}</span>
+                    {result.pattern.english}{" "}
+                    <span className="text-[#888]">· {result.pattern.korean}</span>
                   </p>
                   <p className="mt-1 text-xs text-[#888]">
-                    {result.pattern.interpretation}
+                    {result.interpretation}
                   </p>
                 </div>
 
@@ -273,18 +287,17 @@ export default function AiTradingPage() {
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">진입가</p>
-                      <p className="font-mono text-sm text-foreground">{result.entry}</p>
-                      <p className="font-mono text-[10px] text-[#888]">{result.entryPercent}</p>
+                      <p className="font-mono text-sm text-foreground">{formatPrice(result.entry.price)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">목표가</p>
-                      <p className="font-mono text-sm text-foreground">{result.target}</p>
-                      <p className="font-mono text-[10px] text-green-400">{result.targetPercent}</p>
+                      <p className="font-mono text-sm text-foreground">{formatPrice(result.entry.target)}</p>
+                      <p className="font-mono text-[10px] text-green-400">{formatPct(result.entry.targetPct)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">손절가</p>
-                      <p className="font-mono text-sm text-foreground">{result.stopLoss}</p>
-                      <p className="font-mono text-[10px] text-red-400">{result.stopLossPercent}</p>
+                      <p className="font-mono text-sm text-foreground">{formatPrice(result.entry.stopLoss)}</p>
+                      <p className="font-mono text-[10px] text-red-400">{formatPct(result.entry.stopLossPct)}</p>
                     </div>
                   </div>
                 </div>
@@ -298,11 +311,11 @@ export default function AiTradingPage() {
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#222]">
                       <div
                         className="h-full rounded-full bg-green-500 transition-all"
-                        style={{ width: `${result.conviction}%` }}
+                        style={{ width: `${convictionPercent(result.conviction)}%` }}
                       />
                     </div>
                     <span className="text-xs font-bold tracking-wider text-foreground">
-                      {result.convictionLabel}
+                      {result.conviction}
                     </span>
                   </div>
                 </div>

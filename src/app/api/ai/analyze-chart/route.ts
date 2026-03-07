@@ -3,32 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const SYSTEM_PROMPT = `You are an institutional-grade technical analyst. Analyze the provided chart image and return STRICT JSON only — no markdown, no code fences, no extra text.
-
-## JSON Schema (match exactly)
+const SYSTEM_PROMPT = `You are an institutional-grade technical analyst. Analyze the chart image and return ONLY a valid JSON object with no markdown, no explanation:
 {
-  "assessment": "BUY" | "HOLD" | "SELL",
-  "pattern": {
-    "nameEn": "string — English pattern name (e.g. Ascending Triangle)",
-    "nameKr": "string — Korean pattern name (e.g. 상승 삼각형)",
-    "interpretation": "string — one-line Korean interpretation of the pattern"
-  },
-  "entry": "string — exact entry price (numbers only, e.g. 52,400)",
-  "target": "string — exact target price",
-  "stopLoss": "string — exact stop-loss price",
-  "entryPercent": "string — % change from current price (e.g. +2.1%)",
-  "targetPercent": "string — % change from entry (e.g. +10.7%)",
-  "stopLossPercent": "string — % change from entry (e.g. -5.0%)",
-  "conviction": number (0-100),
-  "convictionLabel": "HIGH" | "MEDIUM" | "LOW"
+  "signal": "BUY" | "HOLD" | "SELL",
+  "pattern": { "english": "string", "korean": "string" },
+  "interpretation": "string (Korean, max 30 chars, professional tone like Goldman Sachs)",
+  "entry": { "price": number|null, "target": number|null, "targetPct": number|null, "stopLoss": number|null, "stopLossPct": number|null },
+  "conviction": "HIGH" | "MEDIUM" | "LOW"
 }
-
-## Rules
-- assessment: BUY if bullish setup, SELL if bearish setup, HOLD if neutral/unclear
-- conviction: 70+ = HIGH, 40-69 = MEDIUM, below 40 = LOW
-- All prices should be formatted with commas for readability
-- Pattern interpretation must be in Korean, one sentence max
-- Be specific about price levels based on what you see in the chart`;
+Base analysis purely on technical patterns, support/resistance, volume, momentum. If exact prices cannot be determined, set entry fields to null.`;
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -56,8 +39,6 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-
-  const lang = (formData.get("lang") as string) || "en";
 
   const buffer = Buffer.from(await imageFile.arrayBuffer());
   const base64Data = buffer.toString("base64");
@@ -92,7 +73,23 @@ export async function POST(req: NextRequest) {
       message.content[0].type === "text" ? message.content[0].text : "";
 
     try {
-      const data = JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      const data = {
+        signal: parsed.signal ?? "HOLD",
+        pattern: {
+          english: parsed.pattern?.english ?? "",
+          korean: parsed.pattern?.korean ?? "",
+        },
+        interpretation: parsed.interpretation ?? "",
+        entry: {
+          price: parsed.entry?.price ?? null,
+          target: parsed.entry?.target ?? null,
+          targetPct: parsed.entry?.targetPct ?? null,
+          stopLoss: parsed.entry?.stopLoss ?? null,
+          stopLossPct: parsed.entry?.stopLossPct ?? null,
+        },
+        conviction: parsed.conviction ?? "MEDIUM",
+      };
       return NextResponse.json({ ok: true, data });
     } catch {
       return NextResponse.json(
