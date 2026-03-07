@@ -33,7 +33,7 @@ interface MoverItem {
   tradingValue: number;
 }
 
-// ── In-memory cache (TTL = 10 min) ──────────────────────────
+// ── In-memory cache (TTL = 5 min) ──────────────────────────
 
 interface CacheEntry {
   data: { topValue: MoverItem[]; topGainers: MoverItem[]; topLosers: MoverItem[]; totalGainers: number; totalLosers: number };
@@ -45,7 +45,6 @@ interface CacheEntry {
 const CACHE_TTL = 5 * 60 * 1000;
 let cached: CacheEntry | null = null;
 
-// Exported for health endpoint
 export function getCacheState(): "empty" | "fresh" | "stale" {
   if (!cached) return "empty";
   return Date.now() - cached.cachedAt < CACHE_TTL ? "fresh" : "stale";
@@ -75,18 +74,14 @@ function parseKrxNumber(s: string): number {
 
 export function getBusinessDate(): string {
   const now = new Date();
-  // KST = UTC + 9
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const day = kst.getUTCDay();
   const hour = kst.getUTCHours();
 
-  // Before market close (~16:00 KST), use previous business day
-  // Weekend: Sat=6, Sun=0
-  if (day === 0) kst.setUTCDate(kst.getUTCDate() - 2); // Sun → Fri
-  else if (day === 6) kst.setUTCDate(kst.getUTCDate() - 1); // Sat → Fri
-  else if (hour < 16) kst.setUTCDate(kst.getUTCDate() - 1); // Before close → prev day
+  if (day === 0) kst.setUTCDate(kst.getUTCDate() - 2);
+  else if (day === 6) kst.setUTCDate(kst.getUTCDate() - 1);
+  else if (hour < 16) kst.setUTCDate(kst.getUTCDate() - 1);
 
-  // Check again for weekend (if prev day is Sun)
   const adjusted = kst.getUTCDay();
   if (adjusted === 0) kst.setUTCDate(kst.getUTCDate() - 2);
   else if (adjusted === 6) kst.setUTCDate(kst.getUTCDate() - 1);
@@ -97,7 +92,6 @@ export function getBusinessDate(): string {
   return `${y}${m}${d}`;
 }
 
-/** Subtract N calendar days from a YYYYMMDD string */
 function subtractDays(yyyymmdd: string, n: number): string {
   const y = parseInt(yyyymmdd.slice(0, 4));
   const m = parseInt(yyyymmdd.slice(4, 6)) - 1;
@@ -121,6 +115,7 @@ function toMoverItem(row: KrxStockRow): MoverItem {
   };
 }
 
+// No filtering of extreme % changes — include 상한가(+30%) and 하한가(-30%)
 function processRows(rows: KrxStockRow[]): {
   topValue: MoverItem[];
   topGainers: MoverItem[];
@@ -130,14 +125,11 @@ function processRows(rows: KrxStockRow[]): {
 } {
   const valid = rows.filter(
     (r) =>
-      parseKrxNumber(r.TDD_CLSPRC) > 0 && parseKrxNumber(r.ACC_TRDVAL) > 0
+      parseKrxNumber(r.TDD_CLSPRC) > 0 && parseKrxNumber(r.ACC_TRDVOL) > 0
   );
 
   const byValue = [...valid]
-    .sort(
-      (a, b) =>
-        parseKrxNumber(b.ACC_TRDVAL) - parseKrxNumber(a.ACC_TRDVAL)
-    )
+    .sort((a, b) => parseKrxNumber(b.ACC_TRDVAL) - parseKrxNumber(a.ACC_TRDVAL))
     .slice(0, 10)
     .map(toMoverItem);
 
@@ -155,16 +147,43 @@ function processRows(rows: KrxStockRow[]): {
   return { topValue: byValue, topGainers: byGain, topLosers: byLoss, totalGainers: gainers.length, totalLosers: losers.length };
 }
 
-// ── Fetch single market from KRX ─────────────────────────────
+// ── Fetch single market from KRX (try both endpoints) ───────
 
-async function fetchMarket(
+async function fetchMarketDataDbg(
+  apiKey: string,
+  endpoint: string,
+  basDd: string
+): Promise<KrxStockRow[] | null> {
+  const url = `https://data-dbg.krx.co.kr/svc/apis/sto/${endpoint}?basDd=${basDd}`;
+  console.log(`[KRX-DBG] GET ${url}`);
+  const res = await fetchWithTimeout(url, {
+    method: "GET",
+    headers: {
+      AUTH_KEY: apiKey,
+      Accept: "application/json",
+      "User-Agent": "alphalab/1.0",
+    },
+  }, 10000);
+  console.log(`[KRX-DBG] ${endpoint} status=${res.status}`);
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`KRX-DBG ${endpoint} returned ${res.status}: ${body.slice(0, 200)}`);
+  }
+
+  const json = await res.json();
+  const rows: KrxStockRow[] = json.OutBlock_1;
+  if (!rows || !Array.isArray(rows) || rows.length === 0) return null;
+  return rows;
+}
+
+async function fetchMarketOpenApi(
   apiKey: string,
   endpoint: string,
   basDd: string
 ): Promise<KrxStockRow[] | null> {
   const url = `https://openapi.krx.co.kr/contents/OPP/APIS/sto/${endpoint}`;
-
-  console.log(`[KRX] POST ${url} basDd=${basDd}`);
+  console.log(`[KRX-OPP] POST ${url} basDd=${basDd}`);
   const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: {
@@ -175,13 +194,12 @@ async function fetchMarket(
     },
     body: JSON.stringify({ basDd }),
     redirect: "follow",
-  });
-  console.log(`[KRX] Response ${endpoint} status=${res.status}`);
+  }, 10000);
+  console.log(`[KRX-OPP] ${endpoint} status=${res.status}`);
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    const hint = body.length > 200 ? body.slice(0, 200) + "…" : body;
-    throw new Error(`KRX ${endpoint} returned ${res.status}: ${hint}`);
+    throw new Error(`KRX-OPP ${endpoint} returned ${res.status}: ${body.slice(0, 200)}`);
   }
 
   const json = await res.json();
@@ -190,7 +208,30 @@ async function fetchMarket(
   return rows;
 }
 
-// ── Fetch from KRX Open API (KOSPI + KOSDAQ, with holiday retry) ──
+// Try data-dbg first, then openapi fallback
+async function fetchMarket(
+  apiKey: string,
+  endpoint: string,
+  basDd: string
+): Promise<KrxStockRow[] | null> {
+  try {
+    const rows = await fetchMarketDataDbg(apiKey, endpoint, basDd);
+    if (rows && rows.length > 0) return rows;
+  } catch (e) {
+    console.log(`[KRX] data-dbg failed for ${endpoint}: ${e instanceof Error ? e.message : e}`);
+  }
+
+  try {
+    const rows = await fetchMarketOpenApi(apiKey, endpoint, basDd);
+    if (rows && rows.length > 0) return rows;
+  } catch (e) {
+    console.log(`[KRX] openapi failed for ${endpoint}: ${e instanceof Error ? e.message : e}`);
+  }
+
+  return null;
+}
+
+// ── Fetch from KRX (KOSPI + KOSDAQ, with holiday retry) ──
 
 async function fetchFromKrx(): Promise<{
   topValue: MoverItem[];
@@ -203,20 +244,16 @@ async function fetchFromKrx(): Promise<{
 }> {
   const resolved = resolveKrxKey();
   if (!resolved) {
-    throw new Error(
-      `KRX API key missing — checked: ${KRX_ENV_NAMES.join(", ")}`
-    );
+    throw new Error(`KRX API key missing — checked: ${KRX_ENV_NAMES.join(", ")}`);
   }
   const apiKey = resolved.key;
 
   const startDate = getBusinessDate();
   let lastError = "";
 
-  // Retry up to 5 previous days to handle holidays
   for (let attempt = 0; attempt < 5; attempt++) {
     const basDd = attempt === 0 ? startDate : subtractDays(startDate, attempt);
 
-    // Fetch KOSPI (stk_bydd_trd) and KOSDAQ (ksq_bydd_trd) in parallel
     const [kospiRows, kosdaqRows] = await Promise.all([
       fetchMarket(apiKey, "stk_bydd_trd", basDd).catch(() => null),
       fetchMarket(apiKey, "ksq_bydd_trd", basDd).catch(() => null),
@@ -226,8 +263,10 @@ async function fetchFromKrx(): Promise<{
 
     if (allRows.length === 0) {
       lastError = `KRX empty data for ${basDd}`;
-      continue; // try previous day
+      continue;
     }
+
+    console.log(`[KRX] Got ${allRows.length} rows for ${basDd} (KOSPI: ${kospiRows?.length ?? 0}, KOSDAQ: ${kosdaqRows?.length ?? 0})`);
 
     const data = processRows(allRows);
 
@@ -236,7 +275,7 @@ async function fetchFromKrx(): Promise<{
       asOf: basDd,
       message:
         attempt > 0
-          ? `KRX empty data; fallback to ${basDd} (tried ${attempt + 1} dates)`
+          ? `KRX empty on first date; used ${basDd} (tried ${attempt + 1} dates)`
           : undefined,
     };
   }
@@ -278,7 +317,6 @@ const YAHOO_KR_SYMBOLS: { symbol: string; name: string }[] = [
   { symbol: "036460.KS", name: "한국가스공사" }, { symbol: "011790.KS", name: "SKC" },
   { symbol: "402340.KS", name: "SK스퀘어" }, { symbol: "326030.KS", name: "SK바이오팜" },
   { symbol: "090430.KS", name: "아모레퍼시픽" }, { symbol: "051900.KS", name: "LG생활건강" },
-  // KOSPI additional
   { symbol: "009830.KS", name: "한화솔루션" }, { symbol: "161390.KS", name: "한국타이어앤테크놀로지" },
   { symbol: "006260.KS", name: "LS" }, { symbol: "271560.KS", name: "오리온" },
   { symbol: "078930.KS", name: "GS" }, { symbol: "021240.KS", name: "코웨이" },
@@ -326,7 +364,6 @@ const YAHOO_KR_SYMBOLS: { symbol: string; name: string }[] = [
   { symbol: "068760.KQ", name: "셀트리온제약" }, { symbol: "095700.KQ", name: "제넥신" },
   { symbol: "298380.KQ", name: "에이비엘바이오" }, { symbol: "389030.KQ", name: "지누스" },
   { symbol: "078600.KQ", name: "대주전자재료" }, { symbol: "299030.KQ", name: "하나기술" },
-  // KOSDAQ additional
   { symbol: "005290.KQ", name: "동진쎄미켐" }, { symbol: "060310.KQ", name: "3S" },
   { symbol: "214150.KQ", name: "클래시스" }, { symbol: "140860.KQ", name: "파크시스템스" },
   { symbol: "222080.KQ", name: "씨아이에스" }, { symbol: "031310.KQ", name: "아이즈비전" },
@@ -370,14 +407,7 @@ async function fetchYahooQuote(symbol: string, name: string): Promise<MoverItem 
     const quote = result.indicators?.quote?.[0];
     const volume = quote?.volume?.[0] || 0;
     const code = symbol.replace(/\.(KS|KQ)$/, "");
-    return {
-      code,
-      name,
-      price: Math.round(price),
-      changeRate,
-      volume,
-      tradingValue: Math.round(price * volume),
-    };
+    return { code, name, price: Math.round(price), changeRate, volume, tradingValue: Math.round(price * volume) };
   } catch {
     return null;
   }
@@ -391,7 +421,6 @@ async function fetchFromYahoo(): Promise<{
   totalLosers: number;
   asOf: string;
 }> {
-  // Fetch all in parallel (v8/finance/chart is reliable)
   const results = await Promise.allSettled(
     YAHOO_KR_SYMBOLS.map(s => fetchYahooQuote(s.symbol, s.name))
   );
@@ -428,21 +457,18 @@ export async function GET(req: NextRequest) {
 
   const now = new Date().toISOString();
   const asOfDefault = getBusinessDate();
-  const host = req.headers.get("host") ?? "(unknown)";
 
   try {
-    // Return cache if fresh
     if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
       return NextResponse.json({
         ok: true,
         ...cached.data,
-        source: cached.fetchedAtISO ? "cache" : "cache",
+        source: "cache",
         asOf: cached.asOf,
         fetchedAtISO: cached.fetchedAtISO,
       });
     }
 
-    // Try KRX first, then Yahoo Finance fallback
     let result: { topValue: MoverItem[]; topGainers: MoverItem[]; topLosers: MoverItem[]; totalGainers: number; totalLosers: number; asOf: string; message?: string };
     let source = "krx";
 
@@ -450,6 +476,7 @@ export async function GET(req: NextRequest) {
     if (resolved) {
       try {
         result = await fetchFromKrx();
+        console.log(`[KRX] Success: ${result.totalGainers} gainers, ${result.totalLosers} losers`);
       } catch (krxErr) {
         console.log(`[KRX] Failed: ${krxErr instanceof Error ? krxErr.message : krxErr}, trying Yahoo Finance fallback`);
         result = await fetchFromYahoo();
@@ -484,7 +511,6 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
 
-    // Serve stale cache if available
     if (cached) {
       return NextResponse.json({
         ok: true,
