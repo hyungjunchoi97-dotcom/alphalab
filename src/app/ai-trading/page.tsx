@@ -1,35 +1,29 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 
-const TIMEFRAMES = [
-  { value: "1D", label: "일봉 (1D)" },
-  { value: "1W", label: "주봉 (1W)" },
-  { value: "1M", label: "월봉 (1M)" },
-] as const;
-
-interface PromptItem {
-  id: string;
-  title: string;
-  description: string;
-  content: string;
-}
-
 interface AnalysisResult {
+  assessment: "BUY" | "HOLD" | "SELL";
+  pattern: {
+    nameEn: string;
+    nameKr: string;
+    interpretation: string;
+  };
   entry: string;
-  stopLoss: string;
   target: string;
-  thesis: string;
-  confidence?: number;
-  keyLevels?: { support: string; resistance: string };
-  riskReward?: string;
+  stopLoss: string;
+  entryPercent: string;
+  targetPercent: string;
+  stopLossPercent: string;
+  conviction: number;
+  convictionLabel: "HIGH" | "MEDIUM" | "LOW";
 }
 
 export default function AiTradingPage() {
-  const { t, lang } = useLang();
+  const { lang } = useLang();
   const requireAuth = useRequireAuth();
 
   const [image, setImage] = useState<string | null>(null);
@@ -38,33 +32,9 @@ export default function AiTradingPage() {
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Inputs
-  const [stockName, setStockName] = useState("");
-  const [timeframe, setTimeframe] = useState("1D");
-  const [userPrompt, setUserPrompt] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  // Prompt library modal
-  const [showPromptLib, setShowPromptLib] = useState(false);
-  const [prompts, setPrompts] = useState<PromptItem[]>([]);
-  const [promptsLoading, setPromptsLoading] = useState(false);
-
-  const fetchPrompts = useCallback(async () => {
-    setPromptsLoading(true);
-    try {
-      const res = await fetch("/api/prompts");
-      const json = await res.json();
-      if (json.ok) setPrompts(json.prompts || []);
-    } catch { /* ignore */ }
-    finally { setPromptsLoading(false); }
-  }, []);
-
-  useEffect(() => {
-    if (showPromptLib && prompts.length === 0) fetchPrompts();
-  }, [showPromptLib, prompts.length, fetchPrompts]);
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -99,8 +69,6 @@ export default function AiTradingPage() {
     [handleFile]
   );
 
-  const canSubmit = !!image && !!fileObjRef.current;
-
   const handleAnalyze = async () => {
     if (!fileObjRef.current) {
       setError("Please upload a chart image first");
@@ -113,9 +81,6 @@ export default function AiTradingPage() {
     try {
       const fd = new FormData();
       fd.append("image", fileObjRef.current);
-      if (stockName.trim()) fd.append("stockName", stockName.trim());
-      if (timeframe) fd.append("timeframe", timeframe);
-      if (userPrompt.trim()) fd.append("prompt", userPrompt.trim());
       fd.append("lang", lang);
 
       const res = await fetch("/api/ai/analyze-chart", {
@@ -136,94 +101,27 @@ export default function AiTradingPage() {
     }
   };
 
+  const canSubmit = !!image && !!fileObjRef.current;
+
   return (
     <div className="min-h-screen bg-background" onPaste={onPaste}>
       <AppHeader active="aiTrading" />
 
-      <main className="mx-auto max-w-[1400px] px-4 py-4">
-        {/* Controls row */}
-        <div className="mb-4 space-y-3">
-          <div className="flex flex-wrap items-end gap-4">
-            {/* Stock Name */}
-            <div>
-              <label className="mb-1 block text-[10px] uppercase tracking-wider text-muted">
-                {lang === "kr" ? "종목명" : "Stock Name"}
-              </label>
-              <input
-                type="text"
-                placeholder={lang === "kr" ? "예: 삼성전자, Apple, NVIDIA" : "e.g. Samsung, Apple, NVIDIA"}
-                value={stockName}
-                onChange={(e) => setStockName(e.target.value)}
-                className="w-48 rounded border border-card-border bg-card-bg px-2 py-1 text-xs outline-none focus:border-accent"
-              />
-            </div>
-
-            {/* Timeframe */}
-            <div>
-              <label className="mb-1 block text-[10px] uppercase tracking-wider text-muted">
-                Timeframe
-              </label>
-              <div className="flex gap-px rounded bg-card-border p-px">
-                {TIMEFRAMES.map((tf) => (
-                  <button
-                    key={tf.value}
-                    onClick={() => setTimeframe(tf.value)}
-                    className={`px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                      timeframe === tf.value
-                        ? "bg-accent text-white"
-                        : "bg-card-bg text-muted hover:text-foreground"
-                    }`}
-                  >
-                    {tf.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Analyze button */}
-            <button
-              onClick={() => requireAuth(handleAnalyze)}
-              disabled={!canSubmit || loading}
-              className="rounded bg-accent px-4 py-2 sm:py-1 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-            >
-              {loading ? (lang === "kr" ? "분석 중..." : "Analyzing...") : t("analyze")}
-            </button>
-          </div>
-
-          {/* Analysis Prompt */}
-          <div>
-            <div className="mb-1 flex items-center gap-2">
-              <label className="text-[10px] uppercase tracking-wider text-muted">
-                {lang === "kr" ? "분석 프롬프트" : "Analysis Prompt"}
-              </label>
-              <button
-                onClick={() => setShowPromptLib(true)}
-                className="rounded bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent transition-colors hover:bg-accent/25"
-              >
-                {lang === "kr" ? "프롬프트 라이브러리" : "Prompt Library"}
-              </button>
-            </div>
-            <textarea
-              placeholder={lang === "kr" ? "AI가 차트를 분석할 방법을 설명하세요..." : "Describe how you want AI to analyze this chart..."}
-              value={userPrompt}
-              onChange={(e) => setUserPrompt(e.target.value)}
-              rows={3}
-              className="w-full rounded border border-card-border bg-card-bg px-2.5 py-1.5 text-xs outline-none focus:border-accent resize-y"
-            />
-          </div>
+      <main className="mx-auto max-w-[1400px] px-4 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            AI Technical Analysis
+          </h1>
+          <p className="mt-1 text-sm text-[#888]">
+            Upload a chart to receive an institutional-grade technical assessment
+          </p>
         </div>
 
         {/* Two-column layout */}
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {/* Left: Image upload + preview */}
-          <div className="rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                {t("chartUpload")}
-              </h2>
-            </div>
-
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* LEFT: Upload zone */}
+          <div className="flex flex-col gap-4">
             {!image ? (
               <div
                 onDragOver={(e) => {
@@ -233,14 +131,14 @@ export default function AiTradingPage() {
                 onDragLeave={() => setDragging(false)}
                 onDrop={onDrop}
                 onClick={() => fileRef.current?.click()}
-                className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed py-16 transition-colors ${
+                className={`flex cursor-pointer flex-col items-center justify-center rounded border-2 border-dashed py-24 transition-colors ${
                   dragging
-                    ? "border-accent bg-accent/5"
-                    : "border-card-border hover:border-muted"
+                    ? "border-white/40 bg-white/5"
+                    : "border-[#333] hover:border-[#555]"
                 }`}
               >
                 <svg
-                  className="mb-3 h-8 w-8 text-muted"
+                  className="mb-4 h-10 w-10 text-[#555]"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -252,39 +150,34 @@ export default function AiTradingPage() {
                     d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
                   />
                 </svg>
-                <p className="text-xs text-muted">
-                  {t("uploadHint")}
-                </p>
-                <p className="mt-1 text-[10px] text-muted/60">
-                  PNG, JPG, WEBP supported
-                </p>
+                <p className="text-sm text-[#888]">Drop chart image here</p>
+                <p className="mt-1 text-xs text-[#555]">PNG · JPG · WEBP</p>
               </div>
             ) : (
               <div>
-                <div className="relative overflow-hidden rounded-lg border border-card-border">
+                <div className="relative overflow-hidden rounded border border-[#333]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={image}
                     alt="Uploaded chart"
                     className="w-full object-contain"
                   />
-                  {/* Scanning overlay */}
                   {loading && (
                     <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center">
                       <div className="chart-scan-line absolute left-0 right-0 h-[2px]" style={{
                         background: "linear-gradient(90deg, transparent 0%, #00ff88 20%, #00ffcc 50%, #00ff88 80%, transparent 100%)",
                         boxShadow: "0 0 12px 4px rgba(0,255,136,0.4), 0 0 30px 8px rgba(0,255,136,0.15)",
                       }} />
-                      <div className="chart-scan-text z-10 rounded-lg bg-black/60 px-4 py-2.5 backdrop-blur-sm border border-[#00ff88]/30">
+                      <div className="z-10 rounded bg-black/60 px-4 py-2.5 backdrop-blur-sm border border-[#00ff88]/30">
                         <p className="text-xs font-medium text-[#00ff88] tracking-wide">
-                          {lang === "kr" ? "AI 분석 중" : "Scanning"}<span className="blink-cursor">|</span>
+                          AI 분석 중<span className="blink-cursor">|</span>
                         </p>
                       </div>
                     </div>
                   )}
                 </div>
                 <div className="mt-2 flex items-center justify-between">
-                  <span className="truncate text-[10px] text-muted">
+                  <span className="truncate text-[10px] text-[#666]">
                     {fileName}
                   </span>
                   <button
@@ -292,8 +185,10 @@ export default function AiTradingPage() {
                       setImage(null);
                       setFileName(null);
                       fileObjRef.current = null;
+                      setResult(null);
+                      setError(null);
                     }}
-                    className="text-[10px] text-loss hover:underline"
+                    className="text-[10px] text-[#888] hover:text-white transition-colors"
                   >
                     Remove
                   </button>
@@ -311,157 +206,118 @@ export default function AiTradingPage() {
                 if (file) handleFile(file);
               }}
             />
+
+            <button
+              onClick={() => requireAuth(handleAnalyze)}
+              disabled={!canSubmit || loading}
+              className="w-full py-3 bg-white text-black font-bold text-sm tracking-widest transition-opacity hover:opacity-90 disabled:opacity-30"
+            >
+              {loading ? "ANALYZING..." : "ANALYZE"}
+            </button>
           </div>
 
-          {/* Right: Analysis result */}
-          <div className="rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                {t("analysisResult")}
-              </h2>
-            </div>
-
-            <div className="space-y-3">
-              {/* Confidence bar */}
-              {result?.confidence != null && (
-                <div>
-                  <div className="mb-1 flex items-center justify-between">
-                    <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                      {t("confidence")}
-                    </h3>
-                    <span className={`text-sm font-bold tabular-nums ${
-                      result.confidence >= 70 ? "text-gain" : result.confidence >= 40 ? "text-yellow-400" : "text-loss"
-                    }`}>
-                      {result.confidence}/100
-                    </span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-card-border">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        result.confidence >= 70 ? "bg-gain" : result.confidence >= 40 ? "bg-yellow-400" : "bg-loss"
-                      }`}
-                      style={{ width: `${result.confidence}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Entry + Stop + R:R */}
-              <div className="grid grid-cols-2 gap-2">
-                <ResultField label={t("entry")} value={result?.entry || "—"} />
-                <ResultField label={t("stop")} value={result?.stopLoss || "—"} valueClass="text-loss" />
+          {/* RIGHT: Results panel */}
+          <div className="min-h-[400px]">
+            {!result && !error ? (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-sm text-[#333]">Awaiting analysis...</p>
               </div>
-
-              {/* Target (single) */}
-              <ResultField label={lang === "kr" ? "목표가" : "Target"} value={result?.target || "—"} valueClass="text-gain" />
-
-              {result?.riskReward && (
-                <ResultField label="Risk / Reward" value={result.riskReward} valueClass="text-accent" />
-              )}
-
-              {/* Key Levels */}
-              {result?.keyLevels && (
-                <div className="grid grid-cols-2 gap-2">
-                  <ResultField label="Support" value={result.keyLevels.support} valueClass="text-gain" />
-                  <ResultField label="Resistance" value={result.keyLevels.resistance} valueClass="text-loss" />
-                </div>
-              )}
-
-              {/* Thesis */}
-              <div>
-                <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                  {t("thesis")}
-                </h3>
-                <div className="rounded border border-card-border/60 bg-background px-3 py-2 text-xs leading-relaxed text-muted">
-                  {result?.thesis || t("analyzeHint")}
-                </div>
-              </div>
-
-              {/* Error */}
-              {error && (
-                <div className="rounded border border-loss/30 bg-loss/10 px-3 py-2 text-[10px] text-loss">
+            ) : error ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="rounded border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-400">
                   {error}
                 </div>
-              )}
-            </div>
+              </div>
+            ) : result ? (
+              <div className="space-y-0">
+                {/* 1. TECHNICAL ASSESSMENT */}
+                <div className="py-5 border-b border-[#222]">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#555] mb-3">
+                    Technical Assessment
+                  </h3>
+                  <div className="flex gap-2">
+                    {(["BUY", "HOLD", "SELL"] as const).map((label) => (
+                      <span
+                        key={label}
+                        className={`px-4 py-1.5 text-xs font-bold tracking-wider ${
+                          result.assessment === label
+                            ? "bg-white text-black"
+                            : "border border-[#333] text-[#333]"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. PATTERN IDENTIFIED */}
+                <div className="py-5 border-b border-[#222]">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#555] mb-3">
+                    Pattern Identified
+                  </h3>
+                  <p className="text-sm font-medium text-foreground">
+                    {result.pattern.nameEn}{" "}
+                    <span className="text-[#888]">· {result.pattern.nameKr}</span>
+                  </p>
+                  <p className="mt-1 text-xs text-[#888]">
+                    {result.pattern.interpretation}
+                  </p>
+                </div>
+
+                {/* 3. ENTRY GUIDANCE */}
+                <div className="py-5 border-b border-[#222]">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#555] mb-3">
+                    Entry Guidance
+                  </h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">진입가</p>
+                      <p className="font-mono text-sm text-foreground">{result.entry}</p>
+                      <p className="font-mono text-[10px] text-[#888]">{result.entryPercent}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">목표가</p>
+                      <p className="font-mono text-sm text-foreground">{result.target}</p>
+                      <p className="font-mono text-[10px] text-green-400">{result.targetPercent}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">손절가</p>
+                      <p className="font-mono text-sm text-foreground">{result.stopLoss}</p>
+                      <p className="font-mono text-[10px] text-red-400">{result.stopLossPercent}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. CONVICTION */}
+                <div className="py-5 border-b border-[#222]">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#555] mb-3">
+                    Conviction
+                  </h3>
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#222]">
+                      <div
+                        className="h-full rounded-full bg-green-500 transition-all"
+                        style={{ width: `${result.conviction}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-bold tracking-wider text-foreground">
+                      {result.convictionLabel}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 5. DISCLAIMER */}
+                <div className="pt-5">
+                  <p className="text-xs text-[#444] leading-relaxed">
+                    본 분석은 AlphaLab AI Technical Model에 의해 생성되었으며, 투자 판단의 참고자료로만 활용하시기 바랍니다. 투자 결과에 대한 책임은 투자자 본인에게 있습니다.
+                  </p>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
-        {/* Prompt Library Modal */}
-        {showPromptLib && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowPromptLib(false)}
-          >
-            <div
-              className="mx-4 w-full max-w-lg rounded-[12px] border border-card-border bg-card-bg p-5 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                  <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                    {lang === "kr" ? "프롬프트 라이브러리" : "Prompt Library"}
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setShowPromptLib(false)}
-                  className="text-muted transition-colors hover:text-foreground"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {promptsLoading ? (
-                <div className="py-8 text-center text-[10px] text-muted">Loading...</div>
-              ) : prompts.length === 0 ? (
-                <div className="py-8 text-center text-[10px] text-muted">
-                  {lang === "kr" ? "프롬프트가 없습니다" : "No prompts available"}
-                </div>
-              ) : (
-                <div className="max-h-[400px] space-y-2 overflow-y-auto pr-1">
-                  {prompts.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => {
-                        setUserPrompt(p.content);
-                        setShowPromptLib(false);
-                      }}
-                      className="w-full rounded-lg border border-card-border bg-background p-3 text-left transition-colors hover:border-accent/40"
-                    >
-                      <h3 className="text-xs font-medium">{p.title}</h3>
-                      {p.description && (
-                        <p className="mt-0.5 text-[10px] text-muted line-clamp-2">{p.description}</p>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </main>
-    </div>
-  );
-}
-
-function ResultField({
-  label,
-  value,
-  valueClass = "",
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="rounded border border-card-border/60 bg-background px-2.5 py-2">
-      <p className="text-[9px] uppercase tracking-wider text-muted">{label}</p>
-      <p className={`mt-0.5 text-sm font-medium tabular-nums ${valueClass}`}>
-        {value}
-      </p>
     </div>
   );
 }

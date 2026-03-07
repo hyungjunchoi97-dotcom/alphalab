@@ -3,36 +3,32 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const SYSTEM_PROMPT = `You are an expert technical analyst. Analyze the provided chart image and return STRICT JSON only — no markdown, no code fences, no extra text.
-
-## Analysis Requirements
-
-**Entry**: Exact price level with brief reasoning (e.g. "52,400 — breakout above descending wedge resistance").
-
-**Stop Loss**: Exact price level with % distance from entry (e.g. "49,800 (-5.0% from entry)").
-
-**Target**: Single take-profit level with risk/reward ratio (e.g. "58,000 (1:2.3 R:R)").
-
-**Thesis**: 2-4 sentences of clean, professional technical analysis. Reference specific patterns and indicators visible on the chart. Be concise and actionable.
-
-**Confidence**: Score from 0-100 based on pattern clarity, volume confirmation, and trend alignment.
-
-**Key Levels**: Nearest support and resistance levels visible on the chart.
-
-**Risk/Reward**: Overall risk/reward ratio for the target.
+const SYSTEM_PROMPT = `You are an institutional-grade technical analyst. Analyze the provided chart image and return STRICT JSON only — no markdown, no code fences, no extra text.
 
 ## JSON Schema (match exactly)
 {
-  "entry": "string — exact price with reasoning",
-  "stopLoss": "string — exact price with % distance",
-  "target": "string — price + R:R ratio",
-  "thesis": "string — 2-4 sentences, specific patterns/indicators",
-  "confidence": number (0-100),
-  "keyLevels": { "support": "string", "resistance": "string" },
-  "riskReward": "string — e.g. 1:2.3"
+  "assessment": "BUY" | "HOLD" | "SELL",
+  "pattern": {
+    "nameEn": "string — English pattern name (e.g. Ascending Triangle)",
+    "nameKr": "string — Korean pattern name (e.g. 상승 삼각형)",
+    "interpretation": "string — one-line Korean interpretation of the pattern"
+  },
+  "entry": "string — exact entry price (numbers only, e.g. 52,400)",
+  "target": "string — exact target price",
+  "stopLoss": "string — exact stop-loss price",
+  "entryPercent": "string — % change from current price (e.g. +2.1%)",
+  "targetPercent": "string — % change from entry (e.g. +10.7%)",
+  "stopLossPercent": "string — % change from entry (e.g. -5.0%)",
+  "conviction": number (0-100),
+  "convictionLabel": "HIGH" | "MEDIUM" | "LOW"
 }
 
-If any field is unclear from the chart, provide your best-effort estimate and note uncertainty in the thesis.`;
+## Rules
+- assessment: BUY if bullish setup, SELL if bearish setup, HOLD if neutral/unclear
+- conviction: 70+ = HIGH, 40-69 = MEDIUM, below 40 = LOW
+- All prices should be formatted with commas for readability
+- Pattern interpretation must be in Korean, one sentence max
+- Be specific about price levels based on what you see in the chart`;
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -61,9 +57,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const prompt = (formData.get("prompt") as string) || "";
-  const stockName = (formData.get("stockName") as string) || "";
-  const timeframe = (formData.get("timeframe") as string) || "";
   const lang = (formData.get("lang") as string) || "en";
 
   const buffer = Buffer.from(await imageFile.arrayBuffer());
@@ -74,24 +67,13 @@ export async function POST(req: NextRequest) {
     | "image/gif"
     | "image/webp";
 
-  const userText = [
-    stockName && `Stock: ${stockName}`,
-    timeframe && `Timeframe: ${timeframe}`,
-    prompt && `Additional context: ${prompt}`,
-    "Analyze the chart and respond with strict JSON only.",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
   try {
     const client = new Anthropic({ apiKey });
     const message = await client.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
+      max_tokens: 800,
       temperature: 0.2,
-      system: lang === "kr"
-        ? SYSTEM_PROMPT + "\n\nIMPORTANT: Respond entirely in Korean. All string values in the JSON must be written in Korean."
-        : SYSTEM_PROMPT,
+      system: SYSTEM_PROMPT,
       messages: [
         {
           role: "user",
@@ -100,7 +82,7 @@ export async function POST(req: NextRequest) {
               type: "image",
               source: { type: "base64", media_type: mediaType, data: base64Data },
             },
-            { type: "text", text: userText },
+            { type: "text", text: "Analyze the chart and respond with strict JSON only." },
           ],
         },
       ],
