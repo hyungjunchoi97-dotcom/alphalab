@@ -441,7 +441,7 @@ export default function FlowPage() {
         </div>
 
         {/* ── 투자자별 누적 순매수 ──────────────────────────────── */}
-        <section className={CARD}>
+        <section className={`${CARD} flex flex-col`}>
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <SectionDot title={t("flowCumInvestor")} />
@@ -455,45 +455,49 @@ export default function FlowPage() {
               ))}
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={500}>
-            <LineChart data={cumInvestorData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
-              <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
-              <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => fmtShortKRW(v)} />
-              <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
-              <Legend wrapperStyle={{ fontSize: 10, color: "#9ca3af" }} iconSize={8} />
-              <ReferenceLine y={0} stroke="#374151" strokeDasharray="3 3" />
-              <Line dataKey="foreign" name={t("flowForeign")} stroke="#22c55e" dot={false} strokeWidth={2} />
-              <Line dataKey="institution" name={t("flowInstitution")} stroke="#60a5fa" dot={false} strokeWidth={2} />
-              <Line dataKey="individual" name={t("flowIndividual")} stroke="#f59e0b" dot={false} strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="min-h-0 flex-1" style={{ minHeight: 400 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={cumInvestorData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
+                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
+                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => fmtShortKRW(v)} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
+                <Legend wrapperStyle={{ fontSize: 10, color: "#9ca3af" }} iconSize={8} />
+                <ReferenceLine y={0} stroke="#374151" strokeDasharray="3 3" />
+                <Line dataKey="foreign" name={t("flowForeign")} stroke="#22c55e" dot={false} strokeWidth={2} />
+                <Line dataKey="institution" name={t("flowInstitution")} stroke="#60a5fa" dot={false} strokeWidth={2} />
+                <Line dataKey="individual" name={t("flowIndividual")} stroke="#f59e0b" dot={false} strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </section>
 
         {/* ── 신용잔고 & 대차잔고 ──────────────────────────────── */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {/* LEFT: 신용잔고 */}
-          <section className={CARD}>
+          <section className={`${CARD} flex flex-col`}>
             <SectionDot title={t("flowCreditBalance")} hint={t("flowCreditHint")} />
             <div className="mb-1 flex items-center gap-1">
               <EstBadge label={t("flowEstimated")} />
               <span className="text-[9px] text-muted/50">{t("flowCreditEstNote")}</span>
             </div>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={data.creditBalanceSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
-                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
-                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => `${(v / 10000).toFixed(1)}조`} domain={["auto", "auto"]} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
-                <ReferenceLine
-                  y={data.creditBalanceSeries[0]?.dangerZone || 25000}
-                  stroke="#ef4444"
-                  strokeDasharray="4 4"
-                  label={{ value: t("flowOverheatZone"), fill: "#ef4444", fontSize: 9, position: "right" }}
-                />
-                <Line dataKey="balance" name={t("flowCreditBalance")} stroke="#f59e0b" dot={false} strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="min-h-0 flex-1" style={{ minHeight: 250 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data.creditBalanceSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
+                  <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => `${(v / 10000).toFixed(1)}조`} domain={["auto", "auto"]} />
+                  <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
+                  <ReferenceLine
+                    y={data.creditBalanceSeries[0]?.dangerZone || 25000}
+                    stroke="#ef4444"
+                    strokeDasharray="4 4"
+                    label={{ value: t("flowOverheatZone"), fill: "#ef4444", fontSize: 9, position: "right" }}
+                  />
+                  <Line dataKey="balance" name={t("flowCreditBalance")} stroke="#f59e0b" dot={false} strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
             {/* Signal interpretation */}
             <div className="mt-3 space-y-2 border-t border-card-border pt-3">
               <div className="rounded border border-yellow-500/20 bg-yellow-500/5 px-3 py-2">
@@ -516,21 +520,23 @@ export default function FlowPage() {
           </section>
 
           {/* RIGHT: 대차잔고 */}
-          <section className={CARD}>
+          <section className={`${CARD} flex flex-col`}>
             <SectionDot title={t("flowShortLending")} hint={t("flowShortHint")} />
             <div className="mb-1 flex items-center gap-1">
               <EstBadge label={t("flowEstimated")} />
               <span className="text-[9px] text-muted/50">{t("flowShortEstNote")}</span>
             </div>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={data.shortLendingSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
-                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
-                <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => `${(v / 10000).toFixed(1)}조`} domain={["auto", "auto"]} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
-                <Line dataKey="balance" name={t("flowShortLending")} stroke="#a78bfa" dot={false} strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="min-h-0 flex-1" style={{ minHeight: 250 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data.shortLendingSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
+                  <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => `${(v / 10000).toFixed(1)}조`} domain={["auto", "auto"]} />
+                  <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
+                  <Line dataKey="balance" name={t("flowShortLending")} stroke="#a78bfa" dot={false} strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
             <div className="mt-3 border-t border-card-border pt-2">
               <p className="mb-1.5 text-[10px] font-medium text-muted">{t("flowShortTop5")}</p>
               <table className="w-full text-xs">
