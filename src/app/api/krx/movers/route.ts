@@ -42,7 +42,7 @@ interface CacheEntry {
   fetchedAtISO: string;
 }
 
-const CACHE_TTL = 10 * 60 * 1000;
+const CACHE_TTL = 5 * 60 * 1000;
 let cached: CacheEntry | null = null;
 
 // Exported for health endpoint
@@ -146,12 +146,10 @@ function processRows(rows: KrxStockRow[]): {
 
   const byGain = [...gainers]
     .sort((a, b) => parseFloat(b.FLUC_RT) - parseFloat(a.FLUC_RT))
-    .slice(0, 30)
     .map(toMoverItem);
 
   const byLoss = [...losers]
     .sort((a, b) => parseFloat(a.FLUC_RT) - parseFloat(b.FLUC_RT))
-    .slice(0, 30)
     .map(toMoverItem);
 
   return { topValue: byValue, topGainers: byGain, topLosers: byLoss, totalGainers: gainers.length, totalLosers: losers.length };

@@ -16,6 +16,12 @@ function formatPrice(price: number): string {
   return price.toLocaleString("ko-KR");
 }
 
+function formatVolume(vol: number): string {
+  if (vol >= 1_000_000) return (vol / 1_000_000).toFixed(1) + "M";
+  if (vol >= 1_000) return (vol / 1_000).toFixed(0) + "K";
+  return vol.toLocaleString();
+}
+
 function MoverTable({
   title,
   data,
@@ -38,6 +44,7 @@ function MoverTable({
               <th className="pb-1">{lang === "kr" ? "종목" : "Name"}</th>
               <th className="pb-1 text-right">{lang === "kr" ? "가격" : "Price"}</th>
               <th className="pb-1 text-right">{lang === "kr" ? "등락" : "Chg%"}</th>
+              <th className="pb-1 text-right">{lang === "kr" ? "거래량" : "Volume"}</th>
             </tr>
           </thead>
           <tbody>
@@ -48,7 +55,10 @@ function MoverTable({
               >
                 <td className="py-1 font-mono text-muted">{i + 1}</td>
                 <td className="py-1">
-                  <span className="truncate">{m.name}</span>
+                  <div className="flex flex-col">
+                    <span className="truncate">{m.name}</span>
+                    <span className="text-[9px] text-muted">{m.code}</span>
+                  </div>
                 </td>
                 <td className="py-1 text-right font-mono tabular-nums">
                   {formatPrice(m.price)}
@@ -60,6 +70,9 @@ function MoverTable({
                 >
                   {m.changeRate >= 0 ? "+" : ""}
                   {m.changeRate.toFixed(2)}%
+                </td>
+                <td className="py-1 text-right tabular-nums text-muted">
+                  {formatVolume(m.volume)}
                 </td>
               </tr>
             ))}
@@ -76,6 +89,7 @@ export default function KoreaMovers() {
   const [losers, setLosers] = useState<MoverItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [asOf, setAsOf] = useState<string>("");
+  const [fetchedAt, setFetchedAt] = useState<string>("");
   const [source, setSource] = useState<string>("");
   const [totalGainers, setTotalGainers] = useState(0);
   const [totalLosers, setTotalLosers] = useState(0);
@@ -97,6 +111,7 @@ export default function KoreaMovers() {
           const d = json.asOf.slice(6, 8);
           setAsOf(`${y}.${m}.${d}`);
         }
+        if (json.fetchedAtISO) setFetchedAt(json.fetchedAtISO);
         setSource(json.source || "");
       }
     } catch {
@@ -154,7 +169,7 @@ export default function KoreaMovers() {
       {hasMore && (
         <div className="mt-3 flex justify-center">
           <button
-            onClick={() => setShowCount((prev) => prev + 10)}
+            onClick={() => setShowCount((prev) => prev + 20)}
             className="rounded-md border border-card-border bg-card-bg px-4 py-1.5 text-[11px] text-muted transition-colors hover:text-foreground hover:border-accent/50"
           >
             {lang === "kr" ? "더 보기 ▼" : "Show More ▼"}
@@ -162,14 +177,21 @@ export default function KoreaMovers() {
         </div>
       )}
 
-      {asOf && (
-        <div className="mt-2 text-right text-[10px] text-muted">
-          {lang === "kr" ? `데이터 기준: ${asOf} 장 마감` : `As of: ${asOf} market close`}
-          {source === "mock" && (
-            <span className="ml-1 text-yellow-500">(sample data)</span>
-          )}
-        </div>
-      )}
+      <div className="mt-2 flex items-center justify-end gap-2 text-[10px] text-muted">
+        {asOf && (
+          <span>
+            {lang === "kr" ? `기준: ${asOf}` : `As of: ${asOf}`}
+          </span>
+        )}
+        {fetchedAt && (
+          <span className="tabular-nums">
+            {lang === "kr" ? "업데이트" : "Updated"}: {new Date(fetchedAt).toLocaleString(lang === "kr" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        )}
+        {source === "mock" && (
+          <span className="text-yellow-500">(sample data)</span>
+        )}
+      </div>
     </div>
   );
 }
