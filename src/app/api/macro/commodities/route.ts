@@ -65,12 +65,6 @@ const COMMODITIES: CommodityConfig[] = [
     tooltipEn: "Dual demand: industrial + precious metal",
   },
   {
-    id: "PLATINUM", label: "Platinum", labelKr: "백금",
-    unit: "$/oz", category: "precious", yahooId: "PL=F",
-    tooltipKr: "자동차 촉매 및 산업용 귀금속",
-    tooltipEn: "Automotive catalyst and industrial precious metal",
-  },
-  {
     id: "PALLADIUM", label: "Palladium", labelKr: "팔라듐",
     unit: "$/oz", category: "precious", yahooId: "PA=F",
     tooltipKr: "자동차 배기가스 촉매 핵심 소재",
