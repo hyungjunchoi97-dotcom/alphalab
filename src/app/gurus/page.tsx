@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 
@@ -115,6 +115,63 @@ export default function GurusPage() {
   const selected = selectedId ? guruMap.get(selectedId) || null : null;
   const meta = selectedId ? GURU_META[selectedId] : null;
 
+  // ── Smart Money aggregation ──
+  const { consensus, largestPositions, multiGuruTickers } = useMemo(() => {
+    if (gurus.length === 0) return { consensus: [], largestPositions: [], multiGuruTickers: new Set<string>() };
+
+    // Count guru holders per stock (by company name as key)
+    const stockMap = new Map<string, {
+      ticker: string;
+      company: string;
+      guruIds: string[];
+      totalValue: number;
+    }>();
+
+    for (const guru of gurus) {
+      for (const h of guru.holdings) {
+        const key = h.company.toUpperCase();
+        const existing = stockMap.get(key);
+        if (existing) {
+          if (!existing.guruIds.includes(guru.id)) {
+            existing.guruIds.push(guru.id);
+          }
+          existing.totalValue += h.value;
+          if (!existing.ticker && h.ticker) existing.ticker = h.ticker;
+        } else {
+          stockMap.set(key, {
+            ticker: h.ticker,
+            company: h.company,
+            guruIds: [guru.id],
+            totalValue: h.value,
+          });
+        }
+      }
+    }
+
+    const allStocks = Array.from(stockMap.values());
+
+    // Multi-Guru Consensus: top 10 by guru count
+    const consensus = [...allStocks]
+      .filter((s) => s.guruIds.length >= 2)
+      .sort((a, b) => b.guruIds.length - a.guruIds.length || b.totalValue - a.totalValue)
+      .slice(0, 10);
+
+    // Largest Positions: top 5 by total value
+    const largestPositions = [...allStocks]
+      .sort((a, b) => b.totalValue - a.totalValue)
+      .slice(0, 5);
+
+    // Set of tickers held by 3+ gurus (for badge in detail panel)
+    const multiGuruTickers = new Set<string>();
+    for (const s of allStocks) {
+      if (s.guruIds.length >= 3 && s.ticker) {
+        multiGuruTickers.add(s.ticker.toUpperCase());
+      }
+    }
+
+    return { consensus, largestPositions, multiGuruTickers };
+  }, [gurus]);
+
   return (
     <div style={{ background: "#0a0a0a", minHeight: "100vh", color: "#e5e5e5" }}>
       <AppHeader active="gurus" />
@@ -133,11 +190,190 @@ export default function GurusPage() {
         </div>
 
         {loading ? (
-          <div style={{ textAlign: "center", padding: 60, color: "#666" }}>
-            <div style={{ fontSize: 14 }}>{lang === "kr" ? "15명의 구루 데이터 로딩중..." : "Loading 15 guru portfolios..."}</div>
+          /* Loading skeleton */
+          <div style={{ marginBottom: 32 }}>
+            {/* Overview skeleton */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ width: 200, height: 12, background: "#222", borderRadius: 4, marginBottom: 8 }} />
+              <div style={{ width: 300, height: 10, background: "#1a1a1a", borderRadius: 4, marginBottom: 16 }} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="overview-grid">
+                {[0, 1].map((i) => (
+                  <div key={i} style={{ background: "#111", border: "1px solid #222", borderRadius: 8, padding: 20 }}>
+                    <div style={{ width: 160, height: 10, background: "#222", borderRadius: 4, marginBottom: 16 }} />
+                    {[0, 1, 2, 3, 4].map((j) => (
+                      <div key={j} style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                        <div style={{ width: 50, height: 10, background: "#1a1a1a", borderRadius: 4 }} />
+                        <div style={{ flex: 1, height: 10, background: "#1a1a1a", borderRadius: 4 }} />
+                        <div style={{ width: 60, height: 10, background: "#1a1a1a", borderRadius: 4 }} />
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Guru cards skeleton */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }} className="guru-grid">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: 16, height: 160 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#222" }} />
+                    <div>
+                      <div style={{ width: 80, height: 10, background: "#222", borderRadius: 4, marginBottom: 6 }} />
+                      <div style={{ width: 100, height: 8, background: "#1a1a1a", borderRadius: 4 }} />
+                    </div>
+                  </div>
+                  <div style={{ width: 70, height: 8, background: "#1a1a1a", borderRadius: 4, marginBottom: 16 }} />
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <div style={{ width: 40, height: 16, background: "#1a1a1a", borderRadius: 4 }} />
+                    <div style={{ width: 30, height: 16, background: "#1a1a1a", borderRadius: 4 }} />
+                    <div style={{ width: 40, height: 16, background: "#1a1a1a", borderRadius: 4 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <>
+            {/* ── Smart Money Overview ── */}
+            {gurus.length > 0 && (
+              <div style={{ marginBottom: 32 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <h3 style={{ fontSize: 12, fontWeight: 600, color: "#666", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>
+                    Smart Money Overview
+                  </h3>
+                  <p style={{ fontSize: 11, color: "#555", marginTop: 4 }}>
+                    Q4 2025 · SEC 13F 기준 · 15개 펀드 집계
+                  </p>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="overview-grid">
+                  {/* Left: Multi-Guru Consensus */}
+                  <div style={{ background: "#111", border: "1px solid #222", borderRadius: 8, overflow: "hidden" }}>
+                    <div style={{ padding: "14px 16px", borderBottom: "1px solid #222" }}>
+                      <h4 style={{ fontSize: 11, fontWeight: 600, color: "#888", letterSpacing: "0.05em", textTransform: "uppercase", margin: 0 }}>
+                        {lang === "kr" ? "멀티 구루 컨센서스" : "Multi-Guru Consensus"}
+                      </h4>
+                    </div>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid #1a1a1a" }}>
+                          <th style={{ padding: "8px 16px", textAlign: "left", color: "#555", fontWeight: 500, fontSize: 10 }}>TICKER</th>
+                          <th style={{ padding: "8px 16px", textAlign: "left", color: "#555", fontWeight: 500, fontSize: 10 }}>COMPANY</th>
+                          <th style={{ padding: "8px 16px", textAlign: "center", color: "#555", fontWeight: 500, fontSize: 10 }}>
+                            {lang === "kr" ? "보유 구루 수" : "GURU COUNT"}
+                          </th>
+                          <th style={{ padding: "8px 16px", textAlign: "right", color: "#555", fontWeight: 500, fontSize: 10 }}>
+                            {lang === "kr" ? "구루 목록" : "GURUS"}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {consensus.map((s, i) => (
+                          <tr
+                            key={i}
+                            style={{ borderBottom: "1px solid #1a1a1a" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "#1a1a1a")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                          >
+                            <td style={{ padding: "8px 16px", fontWeight: 600, color: "#fff", fontFamily: "monospace" }}>
+                              {s.ticker || "—"}
+                            </td>
+                            <td style={{ padding: "8px 16px", color: "#888", fontSize: 11 }}>
+                              {s.company}
+                            </td>
+                            <td style={{ padding: "8px 16px", textAlign: "center" }}>
+                              <span style={{ color: s.guruIds.length >= 5 ? "#22c55e" : s.guruIds.length >= 3 ? "#60a5fa" : "#888", fontWeight: 600 }}>
+                                {s.guruIds.length}/15
+                              </span>
+                            </td>
+                            <td style={{ padding: "8px 16px", textAlign: "right" }}>
+                              <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                                {s.guruIds.slice(0, 6).map((gid) => {
+                                  const m = GURU_META[gid];
+                                  return (
+                                    <span
+                                      key={gid}
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        width: 22,
+                                        height: 22,
+                                        borderRadius: "50%",
+                                        background: `${m?.accent || "#888"}22`,
+                                        border: `1px solid ${m?.accent || "#888"}55`,
+                                        fontSize: 8,
+                                        fontWeight: 700,
+                                        color: m?.accent || "#888",
+                                      }}
+                                      title={guruMap.get(gid)?.name || gid}
+                                    >
+                                      {m?.initials || "?"}
+                                    </span>
+                                  );
+                                })}
+                                {s.guruIds.length > 6 && (
+                                  <span style={{ fontSize: 9, color: "#555", alignSelf: "center" }}>
+                                    +{s.guruIds.length - 6}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Right: Largest Positions */}
+                  <div style={{ background: "#111", border: "1px solid #222", borderRadius: 8, overflow: "hidden" }}>
+                    <div style={{ padding: "14px 16px", borderBottom: "1px solid #222" }}>
+                      <h4 style={{ fontSize: 11, fontWeight: 600, color: "#888", letterSpacing: "0.05em", textTransform: "uppercase", margin: 0 }}>
+                        {lang === "kr" ? "최대 보유 종목" : "Largest Positions"}
+                      </h4>
+                    </div>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid #1a1a1a" }}>
+                          <th style={{ padding: "8px 16px", textAlign: "left", color: "#555", fontWeight: 500, fontSize: 10 }}>TICKER</th>
+                          <th style={{ padding: "8px 16px", textAlign: "left", color: "#555", fontWeight: 500, fontSize: 10 }}>COMPANY</th>
+                          <th style={{ padding: "8px 16px", textAlign: "right", color: "#555", fontWeight: 500, fontSize: 10 }}>
+                            {lang === "kr" ? "총 보유가치" : "TOTAL VALUE"}
+                          </th>
+                          <th style={{ padding: "8px 16px", textAlign: "right", color: "#555", fontWeight: 500, fontSize: 10 }}>
+                            {lang === "kr" ? "구루 수" : "GURUS"}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {largestPositions.map((s, i) => (
+                          <tr
+                            key={i}
+                            style={{ borderBottom: "1px solid #1a1a1a" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "#1a1a1a")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                          >
+                            <td style={{ padding: "8px 16px", fontWeight: 600, color: "#fff", fontFamily: "monospace" }}>
+                              {s.ticker || "—"}
+                            </td>
+                            <td style={{ padding: "8px 16px", color: "#888", fontSize: 11 }}>
+                              {s.company}
+                            </td>
+                            <td style={{ padding: "8px 16px", textAlign: "right", color: "#fff", fontWeight: 600 }}>
+                              {formatValue(s.totalValue)}
+                            </td>
+                            <td style={{ padding: "8px 16px", textAlign: "right", color: "#888" }}>
+                              {s.guruIds.length}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Category sections */}
             {CATEGORIES.map((cat) => (
               <div key={cat.id} style={{ marginBottom: 28 }}>
@@ -420,8 +656,23 @@ export default function GurusPage() {
                                 href={`/ideas?ticker=${encodeURIComponent(h.ticker || h.company)}`}
                                 style={{ textDecoration: "none" }}
                               >
-                                <div style={{ fontWeight: 600, color: "#fff" }}>
-                                  {h.ticker || "—"}
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  <span style={{ fontWeight: 600, color: "#fff" }}>
+                                    {h.ticker || "—"}
+                                  </span>
+                                  {h.ticker && multiGuruTickers.has(h.ticker.toUpperCase()) && (
+                                    <span style={{
+                                      padding: "1px 5px",
+                                      borderRadius: 3,
+                                      fontSize: 9,
+                                      fontWeight: 600,
+                                      background: "#1e3a5f",
+                                      color: "#93c5fd",
+                                      whiteSpace: "nowrap",
+                                    }}>
+                                      MULTI-GURU
+                                    </span>
+                                  )}
                                 </div>
                                 <div style={{ fontSize: 11, color: "#888", marginTop: 1 }}>{h.company}</div>
                               </a>
@@ -497,6 +748,7 @@ export default function GurusPage() {
       <style>{`
         @media (max-width: 1024px) {
           .guru-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          .overview-grid { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 768px) {
           .guru-grid { grid-template-columns: repeat(2, 1fr) !important; }
