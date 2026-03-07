@@ -182,10 +182,15 @@ export default function FlowPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Apply date range filter to net flow series
+  // Apply date range filter to net flow series (force-parse numbers)
   const filteredNetFlow = useMemo(() => {
     if (!data) return [];
-    const series = data.netFlowSeries;
+    const series = data.netFlowSeries.map(d => ({
+      date: d.date,
+      individual: Number(d.individual) || 0,
+      foreign: Number(d.foreign) || 0,
+      institution: Number(d.institution) || 0,
+    }));
     // Custom date range
     if (customFrom && customTo) {
       return series.filter(d => d.date >= customFrom && d.date <= customTo);
@@ -335,9 +340,9 @@ export default function FlowPage() {
               </div>
             </div>
 
-            <ResponsiveContainer width="100%" height={420}>
+            <ResponsiveContainer width="100%" height={480}>
               {chartMode === "daily" ? (
-                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }} onClick={handleBarClick}>
+                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }} onClick={handleBarClick} barGap={1} barCategoryGap="20%">
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => fmtShortKRW(v)} />
@@ -347,9 +352,10 @@ export default function FlowPage() {
                     labelFormatter={(l) => String(l)}
                   />
                   <Legend wrapperStyle={{ fontSize: 10, color: "#9ca3af" }} iconSize={8} />
-                  <Bar dataKey="individual" name={t("flowIndividual")} fill="#60a5fa" stackId="a" cursor="pointer" />
-                  <Bar dataKey="foreign" name={t("flowForeign")} fill="#22c55e" stackId="a" cursor="pointer" />
-                  <Bar dataKey="institution" name={t("flowInstitution")} fill="#f59e0b" stackId="a" cursor="pointer" />
+                  <ReferenceLine y={0} stroke="#374151" strokeDasharray="3 3" />
+                  <Bar dataKey="foreign" name={t("flowForeign")} fill="#22c55e" cursor="pointer" />
+                  <Bar dataKey="institution" name={t("flowInstitution")} fill="#f59e0b" cursor="pointer" />
+                  <Bar dataKey="individual" name={t("flowIndividual")} fill="#60a5fa" cursor="pointer" />
                 </BarChart>
               ) : (
                 <LineChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
@@ -456,7 +462,7 @@ export default function FlowPage() {
             </div>
           </div>
           <div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={480}>
               <LineChart data={cumInvestorData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
@@ -481,8 +487,8 @@ export default function FlowPage() {
               <EstBadge label={t("flowEstimated")} />
               <span className="text-[9px] text-muted/50">{t("flowCreditEstNote")}</span>
             </div>
-            <div>
-              <ResponsiveContainer width="100%" height={250}>
+            <div className="mb-0">
+              <ResponsiveContainer width="100%" height={400}>
                 <LineChart data={data.creditBalanceSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
@@ -499,7 +505,7 @@ export default function FlowPage() {
               </ResponsiveContainer>
             </div>
             {/* Signal interpretation */}
-            <div className="mt-3 space-y-2 border-t border-card-border pt-3">
+            <div className="mt-2 space-y-2 border-t border-card-border pt-2">
               <div className="rounded border border-yellow-500/20 bg-yellow-500/5 px-3 py-2">
                 <p className="text-[10px] font-medium text-yellow-400">{lang === "kr" ? "현재 신호" : "Current Signal"}</p>
                 <p className="mt-0.5 text-[10px] text-muted">
@@ -526,8 +532,8 @@ export default function FlowPage() {
               <EstBadge label={t("flowEstimated")} />
               <span className="text-[9px] text-muted/50">{t("flowShortEstNote")}</span>
             </div>
-            <div>
-              <ResponsiveContainer width="100%" height={250}>
+            <div className="mb-0">
+              <ResponsiveContainer width="100%" height={400}>
                 <LineChart data={data.shortLendingSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
