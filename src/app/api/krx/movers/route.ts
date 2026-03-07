@@ -296,6 +296,35 @@ const YAHOO_KR_SYMBOLS: { symbol: string; name: string }[] = [
   { symbol: "078600.KQ", name: "대주전자재료" }, { symbol: "299030.KQ", name: "하나기술" },
 ];
 
+async function fetchYahooQuote(symbol: string, name: string): Promise<MoverItem | null> {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1d`;
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "Mozilla/5.0" } }, 6000);
+    if (!res.ok) return null;
+    const json = await res.json();
+    const result = json.chart?.result?.[0];
+    if (!result) return null;
+    const meta = result.meta;
+    const price = meta.regularMarketPrice;
+    const prevClose = meta.chartPreviousClose || meta.previousClose;
+    if (!price || price === 0 || !prevClose) return null;
+    const changeRate = Math.round(((price - prevClose) / prevClose) * 10000) / 100;
+    const quote = result.indicators?.quote?.[0];
+    const volume = quote?.volume?.[0] || 0;
+    const code = symbol.replace(/\.(KS|KQ)$/, "");
+    return {
+      code,
+      name,
+      price: Math.round(price),
+      changeRate,
+      volume,
+      tradingValue: Math.round(price * volume),
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchFromYahoo(): Promise<{
   topValue: MoverItem[];
   topGainers: MoverItem[];
@@ -304,38 +333,14 @@ async function fetchFromYahoo(): Promise<{
   totalLosers: number;
   asOf: string;
 }> {
-  const symbols = YAHOO_KR_SYMBOLS.map(s => s.symbol);
-  const nameMap = new Map(YAHOO_KR_SYMBOLS.map(s => [s.symbol, s.name]));
+  // Fetch all in parallel (v8/finance/chart is reliable)
+  const results = await Promise.allSettled(
+    YAHOO_KR_SYMBOLS.map(s => fetchYahooQuote(s.symbol, s.name))
+  );
 
-  // Fetch in batches of 30 to avoid URL length limits
-  const batchSize = 30;
   const allItems: MoverItem[] = [];
-
-  for (let i = 0; i < symbols.length; i += batchSize) {
-    const batch = symbols.slice(i, i + batchSize);
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${batch.join(",")}&fields=symbol,regularMarketPrice,regularMarketChangePercent,regularMarketVolume,regularMarketDayHigh,regularMarketDayLow`;
-    try {
-      const res = await fetchWithTimeout(url, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-      }, 8000);
-      if (!res.ok) continue;
-      const json = await res.json();
-      const quotes = json.quoteResponse?.result || [];
-      for (const q of quotes) {
-        if (!q.regularMarketPrice || q.regularMarketPrice === 0) continue;
-        const code = q.symbol.replace(/\.(KS|KQ)$/, "");
-        allItems.push({
-          code,
-          name: nameMap.get(q.symbol) || q.shortName || code,
-          price: Math.round(q.regularMarketPrice),
-          changeRate: Math.round((q.regularMarketChangePercent || 0) * 100) / 100,
-          volume: q.regularMarketVolume || 0,
-          tradingValue: Math.round((q.regularMarketPrice || 0) * (q.regularMarketVolume || 0)),
-        });
-      }
-    } catch {
-      // continue with partial results
-    }
+  for (const r of results) {
+    if (r.status === "fulfilled" && r.value) allItems.push(r.value);
   }
 
   if (allItems.length === 0) throw new Error("Yahoo Finance returned no KR quotes");
