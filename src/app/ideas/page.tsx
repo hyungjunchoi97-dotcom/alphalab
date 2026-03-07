@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 import { FOMO_IDEAS, VALUE_IDEAS, HIGH52_KR, HIGH52_US, type IdeaItem } from "@/lib/ideas.mock";
+import RRGChart from "@/components/RRGChart";
 
 const CARD =
   "rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_1px_2px_rgba(0,0,0,0.3)]";
@@ -36,7 +37,7 @@ function ChgPct({ v }: { v: number }) {
 
 export default function IdeasPage() {
   const { t } = useLang();
-  const [tab, setTab] = useState<"fomo" | "value" | "high52">("fomo");
+  const [tab, setTab] = useState<"fomo" | "value" | "high52" | "rotation">("fomo");
   const [high52Market, setHigh52Market] = useState<"KR" | "US">("KR");
   const [filter5d, setFilter5d] = useState(false);
   const [selected, setSelected] = useState<IdeaItem | null>(null);
@@ -106,7 +107,7 @@ export default function IdeasPage() {
         {/* Tab pills + sub-tabs + filter */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-px rounded bg-card-border p-px w-fit">
-            {(["fomo", "value", "high52"] as const).map((tv) => (
+            {(["fomo", "value", "high52", "rotation"] as const).map((tv) => (
               <button
                 key={tv}
                 onClick={() => {
@@ -122,7 +123,7 @@ export default function IdeasPage() {
                     : "bg-card-bg text-muted hover:text-foreground"
                 }`}
               >
-                {tv === "fomo" ? "FOMO" : tv === "value" ? "VALUE" : "52W HIGH"}
+                {tv === "fomo" ? "FOMO" : tv === "value" ? "VALUE" : tv === "high52" ? "52W HIGH" : "섹터 로테이션"}
               </button>
             ))}
           </div>
@@ -162,8 +163,11 @@ export default function IdeasPage() {
           )}
         </div>
 
+        {/* Rotation tab */}
+        {tab === "rotation" && <RRGChart />}
+
         {/* Two-column layout */}
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+        {tab !== "rotation" && <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
           {/* Left: Ideas list */}
           <section className={`${CARD} lg:col-span-3`}>
             <div className="mb-3 flex items-center gap-2">
@@ -376,7 +380,7 @@ export default function IdeasPage() {
               </div>
             )}
           </section>
-        </div>
+        </div>}
       </main>
     </div>
   );
