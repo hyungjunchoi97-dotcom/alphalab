@@ -36,139 +36,6 @@ function changeToBg(chg: number): string {
   return "#b40000";
 }
 
-// ── US Sector Data (static for now) ──────────────────────────
-
-const US_SECTORS: Sector[] = [
-  {
-    name: "Technology", nameKr: "기술",
-    stocks: [
-      { ticker: "AAPL", name: "Apple", cap: 300, chg: 0.8, price: "$228.50" },
-      { ticker: "MSFT", name: "Microsoft", cap: 280, chg: 1.5, price: "$425.80" },
-      { ticker: "NVDA", name: "NVIDIA", cap: 250, chg: 3.2, price: "$138.50" },
-      { ticker: "AVGO", name: "Broadcom", cap: 80, chg: 1.8, price: "$178.20" },
-      { ticker: "ORCL", name: "Oracle", cap: 50, chg: -0.5, price: "$168.40" },
-      { ticker: "CRM", name: "Salesforce", cap: 35, chg: -1.2, price: "$268.30" },
-      { ticker: "AMD", name: "AMD", cap: 30, chg: 2.5, price: "$118.90" },
-      { ticker: "INTC", name: "Intel", cap: 18, chg: -3.1, price: "$22.40" },
-    ],
-  },
-  {
-    name: "Communication", nameKr: "커뮤니케이션",
-    stocks: [
-      { ticker: "GOOGL", name: "Alphabet", cap: 200, chg: -0.3, price: "$178.50" },
-      { ticker: "META", name: "Meta", cap: 150, chg: 2.0, price: "$598.20" },
-      { ticker: "NFLX", name: "Netflix", cap: 40, chg: 1.2, price: "$925.60" },
-      { ticker: "DIS", name: "Disney", cap: 25, chg: -0.8, price: "$112.30" },
-      { ticker: "CMCSA", name: "Comcast", cap: 18, chg: 0.3, price: "$38.50" },
-    ],
-  },
-  {
-    name: "Consumer", nameKr: "소비재",
-    stocks: [
-      { ticker: "AMZN", name: "Amazon", cap: 200, chg: -1.1, price: "$198.50" },
-      { ticker: "TSLA", name: "Tesla", cap: 85, chg: -2.5, price: "$285.40" },
-      { ticker: "HD", name: "Home Depot", cap: 40, chg: 0.7, price: "$392.10" },
-      { ticker: "MCD", name: "McDonald's", cap: 30, chg: 0.4, price: "$298.60" },
-      { ticker: "NKE", name: "Nike", cap: 18, chg: -1.8, price: "$72.30" },
-      { ticker: "COST", name: "Costco", cap: 38, chg: 0.9, price: "$925.80" },
-    ],
-  },
-  {
-    name: "Financial", nameKr: "금융",
-    stocks: [
-      { ticker: "BRK.B", name: "Berkshire", cap: 90, chg: 0.4, price: "$468.20" },
-      { ticker: "JPM", name: "JP Morgan", cap: 70, chg: 1.1, price: "$245.80" },
-      { ticker: "V", name: "Visa", cap: 55, chg: 0.6, price: "$312.40" },
-      { ticker: "MA", name: "Mastercard", cap: 45, chg: 0.8, price: "$528.60" },
-      { ticker: "BAC", name: "BofA", cap: 30, chg: -0.3, price: "$42.10" },
-      { ticker: "GS", name: "Goldman", cap: 20, chg: 1.5, price: "$585.30" },
-    ],
-  },
-  {
-    name: "Healthcare", nameKr: "헬스케어",
-    stocks: [
-      { ticker: "LLY", name: "Eli Lilly", cap: 80, chg: 1.9, price: "$812.50" },
-      { ticker: "UNH", name: "UnitedHealth", cap: 60, chg: -0.5, price: "$528.40" },
-      { ticker: "JNJ", name: "J&J", cap: 45, chg: 0.3, price: "$158.90" },
-      { ticker: "ABBV", name: "AbbVie", cap: 35, chg: -1.2, price: "$192.30" },
-      { ticker: "PFE", name: "Pfizer", cap: 20, chg: -2.1, price: "$25.80" },
-      { ticker: "MRK", name: "Merck", cap: 30, chg: 0.7, price: "$98.60" },
-    ],
-  },
-  {
-    name: "Energy", nameKr: "에너지",
-    stocks: [
-      { ticker: "XOM", name: "Exxon", cap: 50, chg: -0.9, price: "$108.50" },
-      { ticker: "CVX", name: "Chevron", cap: 35, chg: -0.6, price: "$152.30" },
-      { ticker: "COP", name: "ConocoPhillips", cap: 18, chg: -1.4, price: "$98.20" },
-    ],
-  },
-  {
-    name: "Industrial", nameKr: "산업재",
-    stocks: [
-      { ticker: "GE", name: "GE Aero", cap: 30, chg: 1.3, price: "$198.40" },
-      { ticker: "CAT", name: "Caterpillar", cap: 25, chg: 0.6, price: "$362.10" },
-      { ticker: "RTX", name: "RTX", cap: 20, chg: -0.4, price: "$128.50" },
-      { ticker: "BA", name: "Boeing", cap: 15, chg: -2.8, price: "$172.30" },
-      { ticker: "HON", name: "Honeywell", cap: 18, chg: 0.2, price: "$212.40" },
-    ],
-  },
-];
-
-// ── JP Sector Data (static for now) ──────────────────────────
-
-const JP_SECTORS: Sector[] = [
-  {
-    name: "Technology", nameKr: "기술",
-    stocks: [
-      { ticker: "6758", name: "Sony", nameKr: "소니", cap: 150, chg: 1.3, price: "¥14,250" },
-      { ticker: "6501", name: "Hitachi", nameKr: "히타치", cap: 60, chg: 0.8, price: "¥3,850" },
-      { ticker: "6861", name: "Keyence", nameKr: "키엔스", cap: 130, chg: -0.5, price: "¥62,400" },
-      { ticker: "6857", name: "Advantest", nameKr: "어드밴테스트", cap: 45, chg: 3.0, price: "¥5,420" },
-    ],
-  },
-  {
-    name: "Automotive", nameKr: "자동차",
-    stocks: [
-      { ticker: "7203", name: "Toyota", nameKr: "도요타", cap: 300, chg: 0.5, price: "¥2,780" },
-      { ticker: "7267", name: "Honda", nameKr: "혼다", cap: 60, chg: -0.3, price: "¥1,520" },
-      { ticker: "7974", name: "Nintendo", nameKr: "닌텐도", cap: 80, chg: 1.8, price: "¥8,250" },
-      { ticker: "7201", name: "Nissan", nameKr: "닛산", cap: 15, chg: -2.5, price: "¥420" },
-    ],
-  },
-  {
-    name: "Finance", nameKr: "금융",
-    stocks: [
-      { ticker: "8306", name: "MUFG", nameKr: "미쓰비시UFJ", cap: 100, chg: 0.9, price: "¥1,820" },
-      { ticker: "8316", name: "SMFG", nameKr: "미쓰이스미토모", cap: 60, chg: 0.4, price: "¥3,250" },
-      { ticker: "8035", name: "Tokyo Electron", nameKr: "도쿄일렉트론", cap: 90, chg: 2.4, price: "¥24,800" },
-    ],
-  },
-  {
-    name: "Consumer", nameKr: "소비재",
-    stocks: [
-      { ticker: "9983", name: "Fast Retailing", nameKr: "패스트리테일링", cap: 100, chg: -0.4, price: "¥42,500" },
-      { ticker: "2914", name: "JT", nameKr: "일본담배", cap: 40, chg: 0.6, price: "¥4,180" },
-      { ticker: "9433", name: "KDDI", nameKr: "KDDI", cap: 45, chg: 0.2, price: "¥4,850" },
-    ],
-  },
-  {
-    name: "Industrial", nameKr: "산업재",
-    stocks: [
-      { ticker: "6367", name: "Daikin", nameKr: "다이킨", cap: 55, chg: 0.7, price: "¥22,600" },
-      { ticker: "7011", name: "Mitsubishi HI", nameKr: "미쓰비시중공업", cap: 40, chg: 1.9, price: "¥2,180" },
-      { ticker: "4568", name: "Daiichi Sankyo", nameKr: "다이이치산쿄", cap: 70, chg: 1.2, price: "¥4,680" },
-    ],
-  },
-  {
-    name: "Healthcare", nameKr: "헬스케어",
-    stocks: [
-      { ticker: "4519", name: "Chugai Pharma", nameKr: "추가이제약", cap: 50, chg: 1.4, price: "¥6,350" },
-      { ticker: "4502", name: "Takeda", nameKr: "다케다", cap: 45, chg: 0.3, price: "¥4,120" },
-    ],
-  },
-];
-
 type Market = "KR" | "US" | "JP";
 
 // ── Tooltip state ──────────────────────────────────────────
@@ -254,10 +121,18 @@ export default function HeatmapTreemap() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { lang } = useLang();
 
-  // Live KR data
+  // Live data for each market
   const [krSectors, setKrSectors] = useState<Sector[]>([]);
   const [krLoading, setKrLoading] = useState(true);
   const [krAsOf, setKrAsOf] = useState<string>("");
+
+  const [usSectors, setUsSectors] = useState<Sector[]>([]);
+  const [usLoading, setUsLoading] = useState(true);
+  const [usAsOf, setUsAsOf] = useState<string>("");
+
+  const [jpSectors, setJpSectors] = useState<Sector[]>([]);
+  const [jpLoading, setJpLoading] = useState(true);
+  const [jpAsOf, setJpAsOf] = useState<string>("");
 
   useEffect(() => {
     const el = containerRef.current;
@@ -288,11 +163,47 @@ export default function HeatmapTreemap() {
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
-  const sectors = activeMarket === "KR"
-    ? krSectors
-    : activeMarket === "US"
-      ? US_SECTORS
-      : JP_SECTORS;
+  // Fetch live US heatmap data
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchUs() {
+      try {
+        const res = await fetch("/api/heatmap?market=us");
+        const json = await res.json();
+        if (!cancelled && json.ok) {
+          setUsSectors(json.sectors);
+          setUsAsOf(json.asOf);
+        }
+      } catch { /* */ }
+      finally { if (!cancelled) setUsLoading(false); }
+    }
+    fetchUs();
+    const id = setInterval(fetchUs, 60 * 1000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  // Fetch live JP heatmap data
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchJp() {
+      try {
+        const res = await fetch("/api/heatmap?market=jp");
+        const json = await res.json();
+        if (!cancelled && json.ok) {
+          setJpSectors(json.sectors);
+          setJpAsOf(json.asOf);
+        }
+      } catch { /* */ }
+      finally { if (!cancelled) setJpLoading(false); }
+    }
+    fetchJp();
+    const id = setInterval(fetchJp, 60 * 1000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  const sectors = activeMarket === "KR" ? krSectors : activeMarket === "US" ? usSectors : jpSectors;
+  const asOf = activeMarket === "KR" ? krAsOf : activeMarket === "US" ? usAsOf : jpAsOf;
+  const isLoading = activeMarket === "KR" ? krLoading : activeMarket === "US" ? usLoading : jpLoading;
 
   const sectorCaps = sectors.map((s) => ({
     cap: s.stocks.reduce((sum, st) => sum + st.cap, 0),
@@ -313,8 +224,6 @@ export default function HeatmapTreemap() {
     setTooltip(null);
   }, []);
 
-  const isLoading = activeMarket === "KR" && krLoading;
-
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
@@ -333,20 +242,33 @@ export default function HeatmapTreemap() {
             </button>
           ))}
         </div>
-        {activeMarket === "KR" && krAsOf && (
+        {asOf && (
           <span className="text-[9px] text-muted tabular-nums">
-            {new Date(krAsOf).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            {new Date(asOf).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
-        )}
-        {activeMarket !== "KR" && (
-          <span className="text-[9px] text-muted">(sample)</span>
         )}
       </div>
 
       <div ref={containerRef} className="relative select-none" style={{ height: 400 }}>
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
-            <span className="text-xs text-muted animate-pulse">Loading live data...</span>
+            <div className="flex flex-col items-center gap-2">
+              <div className="grid grid-cols-4 gap-1">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="animate-pulse rounded"
+                    style={{
+                      width: 40 + Math.random() * 40,
+                      height: 30 + Math.random() * 20,
+                      backgroundColor: `hsl(0 0% ${15 + Math.random() * 10}%)`,
+                      animationDelay: `${i * 0.05}s`,
+                    }}
+                  />
+                ))}
+              </div>
+              <span className="text-xs text-muted animate-pulse">Loading live data...</span>
+            </div>
           </div>
         ) : sectors.length === 0 ? (
           <div className="flex h-full items-center justify-center">
