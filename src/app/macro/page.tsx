@@ -1293,22 +1293,30 @@ export default function MacroPage() {
   const chartData = useMemo(() => filterByRange(netLiquidity, range), [netLiquidity, range]);
   const sp500Filtered = useMemo(() => filterByRange(sp500Raw, range), [sp500Raw, range]);
 
-  // Merge net liquidity + S&P500 by date for Recharts
+  // Merge net liquidity + S&P500 by nearest date (WALCL=Wed, SP500=Mon)
   const mergedChartData = useMemo(() => {
-    const sp500Map = new Map(sp500Filtered.map((d) => [d.date, d.value]));
-    let lastSp = 0;
+    if (chartData.length === 0) return [];
+    const sorted = [...sp500Filtered].sort((a, b) => a.date.localeCompare(b.date));
+    let spIdx = 0;
+    let lastSp: number | undefined;
+
     return chartData.map((d) => {
-      const sp = sp500Map.get(d.date) ?? lastSp;
-      if (sp) lastSp = sp;
-      return { date: d.date, netLiquidity: d.value, sp500: sp || undefined };
+      // Advance pointer to last S&P500 value on or before this date
+      while (spIdx < sorted.length && sorted[spIdx].date <= d.date) {
+        lastSp = sorted[spIdx].value;
+        spIdx++;
+      }
+      return { date: d.date, liquidity: d.value, sp500: lastSp };
     });
   }, [chartData, sp500Filtered]);
 
   const correlation = useMemo(() => {
-    const nl = mergedChartData.map((d) => d.netLiquidity);
-    const sp = mergedChartData.filter((d) => d.sp500).map((d) => d.sp500!);
-    if (nl.length < 3 || sp.length < 3) return 0;
-    return calcCorrelation(nl.slice(-sp.length), sp);
+    const withBoth = mergedChartData.filter((d) => d.sp500 != null);
+    if (withBoth.length < 3) return 0;
+    return calcCorrelation(
+      withBoth.map((d) => d.liquidity),
+      withBoth.map((d) => d.sp500!)
+    );
   }, [mergedChartData]);
 
   const ranges: Range[] = ["6M", "1Y", "2Y", "5Y"];
@@ -1484,73 +1492,54 @@ export default function MacroPage() {
               <span style={{ color: "#444" }}>Loading...</span>
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={360}>
-              <ComposedChart data={mergedChartData} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
-                <defs>
-                  <linearGradient id="nlGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.2} />
-                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
+            <ResponsiveContainer width="100%" height={400}>
+              <ComposedChart data={mergedChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 10, fill: "#555" }}
-                  tickFormatter={(v: string) => v.slice(0, 7)}
-                  interval="preserveStartEnd"
-                  minTickGap={60}
-                />
+                <XAxis dataKey="date" stroke="#444" tick={{ fill: "#666", fontSize: 11 }} tickFormatter={(v: string) => v.slice(0, 7)} minTickGap={60} />
                 <YAxis
                   yAxisId="left"
-                  tick={{ fontSize: 10, fill: "#22c55e" }}
+                  orientation="left"
+                  stroke="#22c55e"
+                  tick={{ fill: "#22c55e", fontSize: 11 }}
                   tickFormatter={(v: number) => `${v.toFixed(1)}T`}
-                  domain={["auto", "auto"]}
-                  width={60}
                 />
                 <YAxis
                   yAxisId="right"
                   orientation="right"
-                  tick={{ fontSize: 10, fill: "#3b82f6" }}
+                  stroke="#3b82f6"
+                  tick={{ fill: "#3b82f6", fontSize: 11 }}
                   tickFormatter={(v: number) => v.toLocaleString()}
-                  domain={["auto", "auto"]}
-                  width={60}
                 />
                 <RechartsTooltip
-                  contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, fontSize: 11 }}
+                  contentStyle={{ background: "#111", border: "1px solid #333", borderRadius: 6, fontSize: 11 }}
                   labelStyle={{ color: "#888", fontSize: 10 }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={(value: any, name: any) => {
                     const v = Number(value);
                     if (isNaN(v)) return ["-", String(name)];
-                    if (name === "netLiquidity") return [`${v.toFixed(2)}T`, lang === "kr" ? "순유동성" : "Net Liquidity"];
+                    if (String(name) === (lang === "kr" ? "순유동성" : "Net Liquidity")) return [`${v.toFixed(2)}T`, lang === "kr" ? "순유동성" : "Net Liquidity"];
                     return [v.toLocaleString(), "S&P 500"];
                   }}
                 />
-                <Legend
-                  wrapperStyle={{ fontSize: 11 }}
-                  formatter={(value: string) => {
-                    if (value === "netLiquidity") return <span style={{ color: "#22c55e" }}>{lang === "kr" ? "순유동성 (T$)" : "Net Liquidity (T$)"}</span>;
-                    return <span style={{ color: "#3b82f6" }}>S&P 500</span>;
-                  }}
-                />
+                <Legend />
                 <Area
                   yAxisId="left"
                   type="monotone"
-                  dataKey="netLiquidity"
+                  dataKey="liquidity"
+                  name={lang === "kr" ? "순유동성" : "Net Liquidity"}
+                  fill="#22c55e22"
                   stroke="#22c55e"
-                  strokeWidth={2.5}
-                  fill="url(#nlGrad)"
+                  strokeWidth={2}
                   dot={false}
-                  name="netLiquidity"
                 />
                 <Line
                   yAxisId="right"
                   type="monotone"
                   dataKey="sp500"
+                  name="S&P 500"
                   stroke="#3b82f6"
-                  strokeWidth={1.5}
+                  strokeWidth={2}
                   dot={false}
-                  name="sp500"
                   connectNulls
                 />
               </ComposedChart>
