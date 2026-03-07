@@ -72,7 +72,7 @@ let cache: { data: Record<string, any>; cachedAt: number } | null = null;
 async function fetchStockData(def: StockDef): Promise<StockData | null> {
   const symbol = `${def.ticker}.KS`;
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=3mo&interval=1d`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1y&interval=1d`;
     const res = await fetchWithTimeout(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
     }, 8000);

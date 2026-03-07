@@ -168,6 +168,8 @@ export default function FlowPage() {
   const [netBuyTab, setNetBuyTab] = useState<"foreign" | "institution">("foreign");
   const [cumPeriod, setCumPeriod] = useState<5 | 20 | 60>(60);
   const [dateRange, setDateRange] = useState<number>(30);
+  const [creditPeriod, setCreditPeriod] = useState<30 | 90 | 180 | 365>(90);
+  const [shortPeriod, setShortPeriod] = useState<30 | 90 | 180 | 365>(90);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [data, setData] = useState<FlowData | null>(null);
@@ -482,14 +484,22 @@ export default function FlowPage() {
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {/* LEFT: 신용잔고 */}
           <section className={`${CARD} flex flex-col`}>
-            <SectionDot title={t("flowCreditBalance")} hint={t("flowCreditHint")} />
-            <div className="mb-1 flex items-center gap-1">
-              <EstBadge label={t("flowEstimated")} />
-              <span className="text-[9px] text-muted/50">{t("flowCreditEstNote")}</span>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <SectionDot title={t("flowCreditBalance")} hint={t("flowCreditHint")} />
+                <EstBadge label={t("flowEstimated")} />
+              </div>
+              <div className="flex gap-px rounded bg-card-border p-px">
+                {([30, 90, 180, 365] as const).map((p) => (
+                  <button key={p} onClick={() => setCreditPeriod(p)} className={TAB_BTN(creditPeriod === p)}>
+                    {p <= 30 ? "1M" : p <= 90 ? "3M" : p <= 180 ? "6M" : "1Y"}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="mb-0">
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={data.creditBalanceSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+            <div>
+              <ResponsiveContainer width="100%" height={380}>
+                <LineChart data={data.creditBalanceSeries.slice(-creditPeriod)} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => `${(v / 10000).toFixed(1)}조`} domain={["auto", "auto"]} />
@@ -505,7 +515,7 @@ export default function FlowPage() {
               </ResponsiveContainer>
             </div>
             {/* Signal interpretation */}
-            <div className="mt-2 space-y-2 border-t border-card-border pt-2">
+            <div className="mt-1 border-t border-card-border pt-2">
               <div className="rounded border border-yellow-500/20 bg-yellow-500/5 px-3 py-2">
                 <p className="text-[10px] font-medium text-yellow-400">{lang === "kr" ? "현재 신호" : "Current Signal"}</p>
                 <p className="mt-0.5 text-[10px] text-muted">
@@ -527,14 +537,22 @@ export default function FlowPage() {
 
           {/* RIGHT: 대차잔고 */}
           <section className={`${CARD} flex flex-col`}>
-            <SectionDot title={t("flowShortLending")} hint={t("flowShortHint")} />
-            <div className="mb-1 flex items-center gap-1">
-              <EstBadge label={t("flowEstimated")} />
-              <span className="text-[9px] text-muted/50">{t("flowShortEstNote")}</span>
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <SectionDot title={t("flowShortLending")} hint={t("flowShortHint")} />
+                <EstBadge label={t("flowEstimated")} />
+              </div>
+              <div className="flex gap-px rounded bg-card-border p-px">
+                {([30, 90, 180, 365] as const).map((p) => (
+                  <button key={p} onClick={() => setShortPeriod(p)} className={TAB_BTN(shortPeriod === p)}>
+                    {p <= 30 ? "1M" : p <= 90 ? "3M" : p <= 180 ? "6M" : "1Y"}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="mb-0">
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={data.shortLendingSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+            <div>
+              <ResponsiveContainer width="100%" height={380}>
+                <LineChart data={data.shortLendingSeries.slice(-shortPeriod)} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => `${(v / 10000).toFixed(1)}조`} domain={["auto", "auto"]} />
