@@ -41,6 +41,18 @@ const COMMODITIES: CommodityConfig[] = [
     tooltipEn: "Refining margins and consumer price indicator",
   },
   {
+    id: "URANIUM", label: "Uranium ETF (URA)", labelKr: "우라늄",
+    unit: "$/share", category: "energy", yahooId: "URA",
+    tooltipKr: "원전 연료 핵심 소재 (SMR/원전 르네상스)",
+    tooltipEn: "Nuclear fuel key material (SMR/nuclear renaissance)",
+  },
+  {
+    id: "LNG_PROXY", label: "LNG (Cheniere)", labelKr: "LNG",
+    unit: "$", category: "energy", yahooId: "LNG",
+    tooltipKr: "LNG 수출 대표 기업 (천연가스 프록시)",
+    tooltipEn: "Leading LNG exporter (natural gas proxy)",
+  },
+  {
     id: "GOLD", label: "Gold", labelKr: "금",
     unit: "$/oz", category: "precious", yahooId: "GC=F",
     tooltipKr: "안전자산 수요 지표",
@@ -77,10 +89,28 @@ const COMMODITIES: CommodityConfig[] = [
     tooltipEn: "Key lightweight material (auto/aerospace)",
   },
   {
-    id: "LITHIUM", label: "Lithium ETF (LIT)", labelKr: "리튬 ETF",
+    id: "NICKEL", label: "Nickel", labelKr: "니켈",
+    unit: "$/ton", category: "industrial", yahooId: "NI=F",
+    tooltipKr: "스테인리스강 및 배터리 핵심 소재",
+    tooltipEn: "Key material for stainless steel and batteries",
+  },
+  {
+    id: "LITHIUM", label: "Lithium ETF (LIT)", labelKr: "리튬",
     unit: "$", category: "battery", yahooId: "LIT",
     tooltipKr: "2차전지 핵심 소재 (EV/ESS 수요)",
     tooltipEn: "Key battery material (EV/ESS demand)",
+  },
+  {
+    id: "RAREEARTH", label: "Rare Earth ETF (REMX)", labelKr: "희토류 ETF",
+    unit: "$", category: "battery", yahooId: "REMX",
+    tooltipKr: "전기차/방산 핵심 희토류 소재",
+    tooltipEn: "Critical rare earth materials for EV/defense",
+  },
+  {
+    id: "COBALT", label: "Cobalt (VALE proxy)", labelKr: "코발트",
+    unit: "$", category: "battery", yahooId: "VALE",
+    tooltipKr: "배터리 핵심 소재 (VALE 프록시)",
+    tooltipEn: "Key battery material (VALE mining proxy)",
   },
 ];
 
