@@ -481,7 +481,7 @@ export default function FlowPage() {
         </section>
 
         {/* ── 신용잔고 & 대차잔고 ──────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start">
           {/* LEFT: 신용잔고 */}
           <section className={`${CARD} flex flex-col`}>
             <div className="mb-2 flex items-center justify-between">
