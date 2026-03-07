@@ -371,115 +371,103 @@ export default function IdeasPage() {
                     </div>
                   </div>
 
-                  {/* Metrics row */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {(
-                      [
-                        ["1D", selected.metrics.chg1d],
-                        ["5D", selected.metrics.chg5d],
-                        ["20D", selected.metrics.chg20d],
-                      ] as const
-                    ).map(([label, val]) => (
-                      <div key={label} className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
-                        <p className="text-[9px] uppercase tracking-wider text-muted">{label}</p>
-                        <p className="mt-0.5 text-xs font-medium tabular-nums"><ChgPct v={val} /></p>
-                      </div>
-                    ))}
-                  </div>
+                  {/* Metrics row (value tab only - fomo has PRICE MOMENTUM section) */}
+                  {tab === "value" && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {(
+                        [
+                          ["1D", selected.metrics.chg1d],
+                          ["5D", selected.metrics.chg5d],
+                          ["20D", selected.metrics.chg20d],
+                        ] as const
+                      ).map(([label, val]) => (
+                        <div key={label} className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
+                          <p className="text-[9px] uppercase tracking-wider text-muted">{label}</p>
+                          <p className="mt-0.5 text-xs font-medium tabular-nums"><ChgPct v={val} /></p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* FOMO detail: Goldman Sachs style */}
                   {tab === "fomo" && "volumeRatio" in selected && (() => {
                     const fomo = selected as FomoItem;
                     const volRatio = fomo.volumeRatio;
-                    const barPct = Math.min(volRatio / 5 * 100, 100);
+                    const barPct = Math.min(volRatio / 10 * 100, 100);
+                    const avgVol = volRatio > 0 ? fomo.volume / volRatio : 0;
                     const signalTag = fomo.tag;
                     const signalExplanations: Record<string, { kr: string; en: string }> = {
-                      "VOLUME SPIKE": { kr: "20일 평균 대비 거래량 2배 이상 급증. 기관/외국인 대량 매수 가능성.", en: "Volume exceeded 2x the 20-day average. Possible institutional accumulation." },
-                      "MOMO": { kr: "단기 모멘텀 가속. 5일/20일 수익률 모두 양(+)으로 추세 지속.", en: "Short-term momentum accelerating. Both 5D and 20D returns positive." },
-                      "BREAKOUT": { kr: "52주 신고가 근접 또는 돌파. 기술적 저항선 상향 이탈.", en: "Near or breaking 52-week high. Technical resistance breakout." },
-                      "52W HIGH": { kr: "52주 최고가 경신. 강한 상승 추세 확인.", en: "52-week high reached. Strong uptrend confirmed." },
-                      "PULLBACK": { kr: "단기 조정 후 반등 시도. 저점 매수 기회 탐색.", en: "Attempting rebound after short-term pullback." },
+                      "VOLUME SPIKE": { kr: `평균 대비 ${volRatio.toFixed(0)}배 이상 거래량. 기관/세력 개입 가능성`, en: `Volume surged ${volRatio.toFixed(0)}x above average. Possible institutional activity` },
+                      "BREAKOUT": { kr: "최근 20일 고점 돌파. 신규 상승 추세 시작 신호", en: "Broke above 20-day high. New uptrend initiation signal" },
+                      "MOMO": { kr: "가격과 거래량 모두 상승. 추세 추종 매매 포착", en: "Price and volume both rising. Trend-following signal detected" },
+                      "52W HIGH": { kr: "52주 최고가 경신. 강한 상승 추세 확인", en: "52-week high reached. Strong uptrend confirmed" },
+                      "PULLBACK": { kr: "단기 조정 후 반등 시도. 저점 매수 기회 탐색", en: "Rebound attempt after pullback. Potential dip-buy opportunity" },
                     };
-                    const explanation = signalExplanations[signalTag] || { kr: "복합 시그널 감지.", en: "Composite signal detected." };
+                    const explanation = signalExplanations[signalTag] || { kr: "복합 시그널 감지", en: "Composite signal detected" };
                     return (
-                      <div className="space-y-3">
+                      <div className="space-y-0">
                         {/* WHY THIS IS A FOMO SIGNAL */}
-                        <div className="rounded border border-card-border/60 bg-background p-3">
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted mb-2">
-                            {lang === "kr" ? "FOMO 시그널 근거" : "WHY THIS IS A FOMO SIGNAL"}
+                        <div className="border-b border-[#1e1e1e] py-3">
+                          <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
+                            WHY THIS IS A FOMO SIGNAL
                           </p>
-                          <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px] mb-1.5">
+                            <span className="text-[#888]">{lang === "kr" ? "거래량 급증" : "Volume Surge"}</span>
+                            <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}x {lang === "kr" ? "평균 대비" : "vs avg"}</span>
+                          </div>
+                          <div className="relative h-2 w-full overflow-hidden rounded-sm bg-[#1e1e1e]">
+                            <div
+                              className={`absolute inset-y-0 left-0 rounded-sm ${volRatio >= 5 ? "bg-yellow-400" : volRatio >= 3 ? "bg-gain" : "bg-accent"}`}
+                              style={{ width: `${barPct}%` }}
+                            />
+                          </div>
+                          <div className="mt-2.5 space-y-1">
                             <div className="flex items-center justify-between text-[10px]">
-                              <span className="text-muted">{lang === "kr" ? "거래량 비율" : "Volume Ratio"}</span>
-                              <span className={`font-mono font-bold tabular-nums ${volRatio >= 3 ? "text-yellow-400" : volRatio >= 2 ? "text-gain" : "text-foreground"}`}>
-                                {volRatio.toFixed(1)}x
-                              </span>
+                              <span className="text-[#666]">{lang === "kr" ? "오늘 거래량" : "Today Volume"}</span>
+                              <span className="font-mono text-white">{formatVol(fomo.volume)}</span>
                             </div>
-                            <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-card-border/60">
-                              <div
-                                className={`absolute inset-y-0 left-0 rounded-full transition-all ${volRatio >= 3 ? "bg-yellow-400" : volRatio >= 2 ? "bg-gain" : "bg-accent"}`}
-                                style={{ width: `${barPct}%` }}
-                              />
-                              <div className="absolute inset-y-0 left-[40%] w-px bg-muted/30" title="2x" />
-                              <div className="absolute inset-y-0 left-[60%] w-px bg-muted/30" title="3x" />
-                            </div>
-                            <div className="flex justify-between text-[8px] text-muted/50 tabular-nums">
-                              <span>0x</span><span>2x</span><span>3x</span><span>5x+</span>
-                            </div>
-                            <div className="flex items-center justify-between text-[10px] mt-1">
-                              <span className="text-muted">{lang === "kr" ? "거래량" : "Volume"}</span>
-                              <span className="font-mono tabular-nums">{formatVol(fomo.volume)}</span>
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-[#666]">{lang === "kr" ? "평균 거래량 (20D)" : "Avg Volume (20D)"}</span>
+                              <span className="font-mono text-[#888]">{formatVol(avgVol)}</span>
                             </div>
                           </div>
                         </div>
 
                         {/* PRICE MOMENTUM */}
-                        <div className="rounded border border-card-border/60 bg-background p-3">
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted mb-2">
-                            {lang === "kr" ? "가격 모멘텀" : "PRICE MOMENTUM"}
+                        <div className="border-b border-[#1e1e1e] py-3">
+                          <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
+                            PRICE MOMENTUM
                           </p>
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             {([["1D", selected.metrics.chg1d], ["5D", selected.metrics.chg5d], ["20D", selected.metrics.chg20d]] as const).map(([label, val]) => (
-                              <div key={label} className="flex items-center gap-2">
-                                <span className="w-6 text-[9px] font-mono text-muted">{label}</span>
-                                <div className="relative flex-1 h-1.5 rounded-full bg-card-border/40 overflow-hidden">
-                                  {val >= 0 ? (
-                                    <div className="absolute inset-y-0 left-1/2 rounded-r-full bg-gain" style={{ width: `${Math.min(Math.abs(val) * 2, 50)}%` }} />
-                                  ) : (
-                                    <div className="absolute inset-y-0 rounded-l-full bg-loss" style={{ right: '50%', width: `${Math.min(Math.abs(val) * 2, 50)}%` }} />
-                                  )}
+                              <div key={label} className="flex items-center justify-between">
+                                <span className="w-8 text-[10px] font-mono text-[#666]">{label}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`text-[10px] ${val >= 0 ? "text-gain" : "text-loss"}`}>
+                                    {val >= 0 ? "\u25B2" : "\u25BC"}
+                                  </span>
+                                  <span className={`font-mono text-[11px] font-medium tabular-nums ${val >= 0 ? "text-gain" : "text-loss"}`}>
+                                    {val >= 0 ? "+" : ""}{val.toFixed(2)}%
+                                  </span>
                                 </div>
-                                <span className={`w-14 text-right text-[10px] font-mono tabular-nums ${val >= 0 ? "text-gain" : "text-loss"}`}>
-                                  {val >= 0 ? "+" : ""}{val.toFixed(2)}%
-                                </span>
                               </div>
                             ))}
                           </div>
                         </div>
 
                         {/* SIGNAL TYPE */}
-                        <div className="rounded border border-card-border/60 bg-background p-3">
-                          <p className="text-[9px] font-semibold uppercase tracking-wider text-muted mb-2">
-                            {lang === "kr" ? "시그널 유형" : "SIGNAL TYPE"}
+                        <div className="py-3">
+                          <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
+                            SIGNAL TYPE
                           </p>
-                          <div className="flex items-start gap-2">
-                            <span className={`shrink-0 rounded px-1.5 py-px text-[9px] font-bold ${TAG_COLORS[signalTag] || "bg-muted/20 text-muted"}`}>
+                          <div className="flex items-start gap-2.5">
+                            <span className={`shrink-0 rounded px-2 py-0.5 text-[9px] font-bold ${TAG_COLORS[signalTag] || "bg-muted/20 text-muted"}`}>
                               {signalTag}
                             </span>
-                            <p className="text-[10px] leading-relaxed text-muted">
+                            <p className="text-[10px] leading-relaxed text-[#888]">
                               {lang === "kr" ? explanation.kr : explanation.en}
                             </p>
                           </div>
-                          {(selected.metrics.near52wHigh || selected.metrics.volumeSpike) && (
-                            <div className="flex gap-1.5 mt-2">
-                              {selected.metrics.near52wHigh && (
-                                <span className="rounded bg-gain/15 px-1.5 py-px text-[8px] font-medium text-gain border border-gain/20">NEAR 52W HIGH</span>
-                              )}
-                              {selected.metrics.volumeSpike && (
-                                <span className="rounded bg-yellow-500/15 px-1.5 py-px text-[8px] font-medium text-yellow-400 border border-yellow-500/20">VOL SPIKE</span>
-                              )}
-                            </div>
-                          )}
                         </div>
                       </div>
                     );
