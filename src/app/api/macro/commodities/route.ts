@@ -83,10 +83,10 @@ const COMMODITIES: CommodityConfig[] = [
     tooltipEn: "Key lightweight material (auto/aerospace)",
   },
   {
-    id: "NICKEL", label: "Nickel ETF (JJN)", labelKr: "니켈",
-    unit: "$", category: "industrial", yahooId: "JJN",
-    tooltipKr: "스테인리스강 및 배터리 핵심 소재 (JJN ETF)",
-    tooltipEn: "Key material for stainless steel and batteries (JJN ETF)",
+    id: "ZINC", label: "Zinc", labelKr: "아연",
+    unit: "$/ton", category: "industrial", yahooId: "ZNC=F",
+    tooltipKr: "아연도금·합금 핵심 소재 (건설·자동차)",
+    tooltipEn: "Key galvanizing & alloy material (construction/auto)",
   },
   {
     id: "LITHIUM", label: "Lithium ETF (LIT)", labelKr: "리튬",
