@@ -166,7 +166,7 @@ export default function FlowPage() {
   const { t, lang } = useLang();
   const [chartMode, setChartMode] = useState<"daily" | "cumulative">("daily");
   const [netBuyTab, setNetBuyTab] = useState<"foreign" | "institution">("foreign");
-  const [cumPeriod, setCumPeriod] = useState<5 | 20 | 60>(20);
+  const [cumPeriod, setCumPeriod] = useState<5 | 20 | 60>(60);
   const [dateRange, setDateRange] = useState<number>(30);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -335,7 +335,7 @@ export default function FlowPage() {
               </div>
             </div>
 
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={420}>
               {chartMode === "daily" ? (
                 <BarChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }} onClick={handleBarClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
@@ -455,8 +455,8 @@ export default function FlowPage() {
               ))}
             </div>
           </div>
-          <div className="min-h-0 flex-1" style={{ minHeight: 400 }}>
-            <ResponsiveContainer width="100%" height="100%">
+          <div>
+            <ResponsiveContainer width="100%" height={400}>
               <LineChart data={cumInvestorData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
@@ -481,8 +481,8 @@ export default function FlowPage() {
               <EstBadge label={t("flowEstimated")} />
               <span className="text-[9px] text-muted/50">{t("flowCreditEstNote")}</span>
             </div>
-            <div className="min-h-0 flex-1" style={{ minHeight: 250 }}>
-              <ResponsiveContainer width="100%" height="100%">
+            <div>
+              <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={data.creditBalanceSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
@@ -526,8 +526,8 @@ export default function FlowPage() {
               <EstBadge label={t("flowEstimated")} />
               <span className="text-[9px] text-muted/50">{t("flowShortEstNote")}</span>
             </div>
-            <div className="min-h-0 flex-1" style={{ minHeight: 250 }}>
-              <ResponsiveContainer width="100%" height="100%">
+            <div>
+              <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={data.shortLendingSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
