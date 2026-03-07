@@ -3,16 +3,17 @@ import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 export const runtime = "nodejs";
 
-// ── Top KOSPI/KOSDAQ stock list ──────────────────────────────
+// ── Stock definitions ────────────────────────────────────────
 
 interface StockDef {
   ticker: string;
-  symbol: string; // Yahoo Finance symbol
+  symbol: string;
   name: string;
   market: "KR" | "US";
 }
 
 const KR_STOCKS: StockDef[] = [
+  // KOSPI large-cap
   { ticker: "005930", symbol: "005930.KS", name: "Samsung Elec", market: "KR" },
   { ticker: "000660", symbol: "000660.KS", name: "SK Hynix", market: "KR" },
   { ticker: "373220", symbol: "373220.KS", name: "LG Energy", market: "KR" },
@@ -58,11 +59,53 @@ const KR_STOCKS: StockDef[] = [
   { ticker: "259960", symbol: "259960.KS", name: "Krafton", market: "KR" },
   { ticker: "377300", symbol: "377300.KS", name: "Kakao Pay", market: "KR" },
   { ticker: "035900", symbol: "035900.KS", name: "JYP Ent", market: "KR" },
+  // KOSPI mid-cap additions
+  { ticker: "316140", symbol: "316140.KS", name: "Woori Financial", market: "KR" },
+  { ticker: "024110", symbol: "024110.KS", name: "Industrial Bank", market: "KR" },
+  { ticker: "009830", symbol: "009830.KS", name: "Hanwha Solutions", market: "KR" },
+  { ticker: "267250", symbol: "267250.KS", name: "HD Hyundai", market: "KR" },
+  { ticker: "329180", symbol: "329180.KS", name: "HD Hyundai Heavy", market: "KR" },
+  { ticker: "010140", symbol: "010140.KS", name: "Samsung Heavy", market: "KR" },
+  { ticker: "000720", symbol: "000720.KS", name: "Hyundai E&C", market: "KR" },
+  { ticker: "047050", symbol: "047050.KS", name: "Posco Intl", market: "KR" },
+  { ticker: "004020", symbol: "004020.KS", name: "Hyundai Steel", market: "KR" },
+  { ticker: "003410", symbol: "003410.KS", name: "Ssangyong C&E", market: "KR" },
+  { ticker: "090430", symbol: "090430.KS", name: "Amorepacific", market: "KR" },
+  { ticker: "097950", symbol: "097950.KS", name: "CJ CheilJedang", market: "KR" },
+  { ticker: "004170", symbol: "004170.KS", name: "Shinsegae", market: "KR" },
+  { ticker: "069960", symbol: "069960.KS", name: "Hyundai Dept Store", market: "KR" },
+  { ticker: "271560", symbol: "271560.KS", name: "Orion", market: "KR" },
+  { ticker: "302440", symbol: "302440.KS", name: "SK Bioscience", market: "KR" },
+  { ticker: "207940", symbol: "207940.KS", name: "Samsung Biologics", market: "KR" },
+  { ticker: "128940", symbol: "128940.KS", name: "Hanmi Pharma", market: "KR" },
+  { ticker: "180640", symbol: "180640.KS", name: "Hanmi Science", market: "KR" },
+  { ticker: "021240", symbol: "021240.KS", name: "Coway", market: "KR" },
+  { ticker: "011170", symbol: "011170.KS", name: "Lotte Chem", market: "KR" },
+  { ticker: "016360", symbol: "016360.KS", name: "Samsung Securities", market: "KR" },
+  { ticker: "071050", symbol: "071050.KS", name: "Korea Investment", market: "KR" },
+  { ticker: "034220", symbol: "034220.KS", name: "LG Display", market: "KR" },
+  { ticker: "402340", symbol: "402340.KS", name: "SK Square", market: "KR" },
+  // KOSDAQ
   { ticker: "041510", symbol: "041510.KQ", name: "SM Ent", market: "KR" },
   { ticker: "086520", symbol: "086520.KQ", name: "Ecopro", market: "KR" },
   { ticker: "403870", symbol: "403870.KQ", name: "HPSP", market: "KR" },
   { ticker: "196170", symbol: "196170.KQ", name: "Alteogen", market: "KR" },
   { ticker: "293490", symbol: "293490.KQ", name: "Caway", market: "KR" },
+  { ticker: "145020", symbol: "145020.KQ", name: "Hugel", market: "KR" },
+  { ticker: "112040", symbol: "112040.KQ", name: "Wemade", market: "KR" },
+  { ticker: "263750", symbol: "263750.KQ", name: "Pearl Abyss", market: "KR" },
+  { ticker: "357780", symbol: "357780.KQ", name: "Soulbrain", market: "KR" },
+  { ticker: "058470", symbol: "058470.KQ", name: "Rino Industrial", market: "KR" },
+  { ticker: "039030", symbol: "039030.KQ", name: "Iotree", market: "KR" },
+  { ticker: "348150", symbol: "348150.KQ", name: "Kaka Games", market: "KR" },
+  { ticker: "240810", symbol: "240810.KQ", name: "Won Ik Material", market: "KR" },
+  { ticker: "060310", symbol: "060310.KQ", name: "3S Korea", market: "KR" },
+  { ticker: "095340", symbol: "095340.KQ", name: "ISC", market: "KR" },
+  { ticker: "200710", symbol: "200710.KQ", name: "Ato Solutions", market: "KR" },
+  { ticker: "028300", symbol: "028300.KQ", name: "HLB", market: "KR" },
+  { ticker: "078600", symbol: "078600.KQ", name: "Daejoo Elec", market: "KR" },
+  { ticker: "336260", symbol: "336260.KQ", name: "Doo San Tesna", market: "KR" },
+  { ticker: "443060", symbol: "443060.KQ", name: "LS Materials", market: "KR" },
 ];
 
 const US_STOCKS: StockDef[] = [
@@ -104,7 +147,40 @@ const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let cache: { data: any; cachedAt: number } | null = null;
 
-// ── Yahoo Finance fetcher ────────────────────────────────────
+// ── Yahoo Finance crumb management ──────────────────────────
+
+let crumbData: { crumb: string; cookie: string; fetchedAt: number } | null = null;
+const CRUMB_TTL = 30 * 60 * 1000; // 30 min
+
+async function getYahooCrumb(): Promise<{ crumb: string; cookie: string } | null> {
+  if (crumbData && Date.now() - crumbData.fetchedAt < CRUMB_TTL) {
+    return { crumb: crumbData.crumb, cookie: crumbData.cookie };
+  }
+  try {
+    const cookieRes = await fetchWithTimeout("https://fc.yahoo.com", {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      redirect: "manual",
+    }, 5000);
+    const setCookie = cookieRes.headers.get("set-cookie") || "";
+    const cookie = setCookie.split(";")[0] || "";
+
+    const crumbRes = await fetchWithTimeout(
+      "https://query2.finance.yahoo.com/v1/test/getcrumb",
+      { headers: { "User-Agent": "Mozilla/5.0", Cookie: cookie } },
+      5000
+    );
+    if (!crumbRes.ok) return null;
+    const crumb = await crumbRes.text();
+    if (!crumb || crumb.length < 5) return null;
+
+    crumbData = { crumb, cookie, fetchedAt: Date.now() };
+    return { crumb, cookie };
+  } catch {
+    return null;
+  }
+}
+
+// ── Yahoo Finance chart fetcher ─────────────────────────────
 
 interface StockData {
   ticker: string;
@@ -119,6 +195,7 @@ interface StockData {
   avgVolume20d: number;
   volumeRatio: number;
   fiftyTwoWeekHigh: number;
+  fiftyTwoWeekLow: number;
   distTo52wHigh: number;
   near52wHigh: boolean;
 }
@@ -163,6 +240,7 @@ async function fetchStockData(stock: StockDef): Promise<StockData | null> {
     const volumeRatio = avgVol20 > 0 ? todayVol / avgVol20 : 1;
 
     const fiftyTwoWeekHigh = meta.fiftyTwoWeekHigh || Math.max(...closes);
+    const fiftyTwoWeekLow = meta.fiftyTwoWeekLow || Math.min(...closes);
     const distTo52wHigh = fiftyTwoWeekHigh > 0 ? ((price / fiftyTwoWeekHigh) - 1) * 100 : 0;
 
     return {
@@ -177,69 +255,196 @@ async function fetchStockData(stock: StockDef): Promise<StockData | null> {
       volume: todayVol,
       avgVolume20d: Math.round(avgVol20),
       volumeRatio: Math.round(volumeRatio * 100) / 100,
-      fiftyTwoWeekHigh,
+      fiftyTwoWeekHigh: Math.round(fiftyTwoWeekHigh * 100) / 100,
+      fiftyTwoWeekLow: Math.round(fiftyTwoWeekLow * 100) / 100,
       distTo52wHigh: Math.round(distTo52wHigh * 100) / 100,
-      near52wHigh: distTo52wHigh >= -3,
+      near52wHigh: distTo52wHigh >= -2,
     };
   } catch {
     return null;
   }
 }
 
-// ── Screening logic ──────────────────────────────────────────
+// ── Yahoo Finance fundamentals via quoteSummary ─────────────
 
-function toIdea(s: StockData, tag: string) {
-  return {
-    ticker: s.ticker,
-    name: s.name,
-    price: s.price,
-    chgPct: s.chgPct,
-    tag,
-    metrics: {
-      chg1d: s.chg1d,
-      chg5d: s.chg5d,
-      chg20d: s.chg20d,
-      near52wHigh: s.near52wHigh,
-      volumeSpike: s.volumeRatio >= 2,
-      tradingValue: 0,
-    },
-  };
+interface Fundamentals {
+  per: number | null;
+  pbr: number | null;
+  roe: number | null;
+  divYield: number | null;
 }
 
-function screenFomo(stocks: StockData[]) {
-  // FOMO: sort by volume spike ratio (today vol / 20d avg vol), descending
+async function fetchFundamentals(
+  symbols: string[],
+  auth: { crumb: string; cookie: string }
+): Promise<Map<string, Fundamentals>> {
+  const map = new Map<string, Fundamentals>();
+
+  const results = await Promise.allSettled(
+    symbols.map(async (sym) => {
+      const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(sym)}?modules=summaryDetail,financialData,defaultKeyStatistics&crumb=${auth.crumb}`;
+      const res = await fetchWithTimeout(url, {
+        headers: { "User-Agent": "Mozilla/5.0", Cookie: auth.cookie },
+      }, 6000);
+      if (!res.ok) return null;
+      const json = await res.json();
+      const r = json.quoteSummary?.result?.[0];
+      if (!r) return null;
+
+      const sd = r.summaryDetail || {};
+      const fd = r.financialData || {};
+      const ks = r.defaultKeyStatistics || {};
+
+      const per = sd.trailingPE?.raw ?? ks.trailingPE?.raw ?? ks.forwardPE?.raw ?? null;
+      const pbr = sd.priceToBook?.raw ?? ks.priceToBook?.raw ?? null;
+      const roe = fd.returnOnEquity?.raw ?? null;
+      const divYield = sd.dividendYield?.raw ?? null;
+
+      // Extract ticker from symbol (005930.KS -> 005930, AAPL -> AAPL)
+      const ticker = sym.replace(/\.(KS|KQ)$/, "");
+      return { ticker, per, pbr, roe, divYield };
+    })
+  );
+
+  for (const r of results) {
+    if (r.status === "fulfilled" && r.value) {
+      map.set(r.value.ticker, {
+        per: r.value.per,
+        pbr: r.value.pbr,
+        roe: r.value.roe,
+        divYield: r.value.divYield,
+      });
+    }
+  }
+
+  return map;
+}
+
+// ── Screening logic ──────────────────────────────────────────
+
+interface FomoItem {
+  ticker: string;
+  name: string;
+  price: number;
+  chgPct: number;
+  tag: string;
+  volumeRatio: number;
+  volume: number;
+  metrics: { chg1d: number; chg5d: number; chg20d: number; near52wHigh: boolean; volumeSpike: boolean; tradingValue: number };
+}
+
+interface ValueItem {
+  ticker: string;
+  name: string;
+  price: number;
+  chgPct: number;
+  tag: string;
+  per: number | null;
+  pbr: number | null;
+  roe: number | null;
+  divYield: number | null;
+  metrics: { chg1d: number; chg5d: number; chg20d: number; near52wHigh: boolean; volumeSpike: boolean; tradingValue: number };
+}
+
+interface High52Item {
+  ticker: string;
+  name: string;
+  price: number;
+  chgPct: number;
+  tag: string;
+  fiftyTwoWeekHigh: number;
+  distTo52wHigh: number;
+  metrics: { chg1d: number; chg5d: number; chg20d: number; near52wHigh: boolean; volumeSpike: boolean; tradingValue: number };
+}
+
+function screenFomo(stocks: StockData[]): FomoItem[] {
   return [...stocks]
     .filter(s => s.volumeRatio > 1)
     .sort((a, b) => b.volumeRatio - a.volumeRatio)
-    .slice(0, 20)
+    .slice(0, 30)
     .map(s => {
       let tag = "MOMO";
       if (s.volumeRatio >= 2.5) tag = "VOLUME SPIKE";
       else if (s.near52wHigh) tag = "52W HIGH";
       else if (s.chg5d > 5) tag = "BREAKOUT";
-      return toIdea(s, tag);
+      return {
+        ticker: s.ticker,
+        name: s.name,
+        price: s.price,
+        chgPct: s.chgPct,
+        tag,
+        volumeRatio: s.volumeRatio,
+        volume: s.volume,
+        metrics: {
+          chg1d: s.chg1d, chg5d: s.chg5d, chg20d: s.chg20d,
+          near52wHigh: s.near52wHigh, volumeSpike: s.volumeRatio >= 2, tradingValue: 0,
+        },
+      };
     });
 }
 
-function screenValue(stocks: StockData[]) {
-  // VALUE: stocks with negative 20D chg (pullback) but positive 1D (bounce starting)
-  return [...stocks]
-    .filter(s => s.chg20d < -3)
-    .sort((a, b) => a.chg20d - b.chg20d)
-    .slice(0, 20)
+function screenValue(stocks: StockData[], fundMap: Map<string, Fundamentals>): ValueItem[] {
+  // Stocks with low PE or positive dividend yield or recent pullback
+  const candidates = [...stocks]
     .map(s => {
-      const tag = s.chg1d > 0 ? "BREAKOUT" : "PULLBACK";
-      return toIdea(s, tag);
-    });
+      const f = fundMap.get(s.ticker);
+      return { ...s, f };
+    })
+    .filter(s => {
+      // Has some fundamental data OR has pulled back significantly
+      if (s.f && s.f.per !== null && s.f.per > 0 && s.f.per < 20) return true;
+      if (s.f && s.f.divYield !== null && s.f.divYield > 0.02) return true;
+      if (s.chg20d < -5) return true;
+      return false;
+    })
+    .sort((a, b) => {
+      // Sort: low PE first, then pullback
+      const aPe = a.f?.per ?? 999;
+      const bPe = b.f?.per ?? 999;
+      return aPe - bPe;
+    })
+    .slice(0, 30);
+
+  return candidates.map(s => {
+    let tag = "VALUE";
+    if (s.f?.divYield && s.f.divYield > 0.03) tag = "HIGH DIV";
+    else if (s.chg20d < -10) tag = "PULLBACK";
+    else if (s.f?.per && s.f.per < 8) tag = "LOW PER";
+    return {
+      ticker: s.ticker,
+      name: s.name,
+      price: s.price,
+      chgPct: s.chgPct,
+      tag,
+      per: s.f?.per ?? null,
+      pbr: s.f?.pbr ?? null,
+      roe: s.f?.roe ? Math.round(s.f.roe * 10000) / 100 : null,
+      divYield: s.f?.divYield ? Math.round(s.f.divYield * 10000) / 100 : null,
+      metrics: {
+        chg1d: s.chg1d, chg5d: s.chg5d, chg20d: s.chg20d,
+        near52wHigh: s.near52wHigh, volumeSpike: s.volumeRatio >= 2, tradingValue: 0,
+      },
+    };
+  });
 }
 
-function screenHigh52(stocks: StockData[]) {
-  // 52W HIGH: stocks within 3% of 52-week high
+function screenHigh52(stocks: StockData[]): High52Item[] {
   return [...stocks]
-    .filter(s => s.distTo52wHigh >= -3)
+    .filter(s => s.distTo52wHigh >= -2)
     .sort((a, b) => b.distTo52wHigh - a.distTo52wHigh)
-    .slice(0, 60)
-    .map(s => toIdea(s, "52W HIGH"));
+    .map(s => ({
+      ticker: s.ticker,
+      name: s.name,
+      price: s.price,
+      chgPct: s.chgPct,
+      tag: "52W HIGH",
+      fiftyTwoWeekHigh: s.fiftyTwoWeekHigh,
+      distTo52wHigh: s.distTo52wHigh,
+      metrics: {
+        chg1d: s.chg1d, chg5d: s.chg5d, chg20d: s.chg20d,
+        near52wHigh: true, volumeSpike: s.volumeRatio >= 2, tradingValue: 0,
+      },
+    }));
 }
 
 // ── Route handler ────────────────────────────────────────────
@@ -250,8 +455,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ...cache.data, source: "cache" });
     }
 
+    // Fetch chart data for all stocks in parallel
     const allStocks = [...KR_STOCKS, ...US_STOCKS];
-
     const results = await Promise.allSettled(
       allStocks.map(s => fetchStockData(s))
     );
@@ -261,13 +466,37 @@ export async function GET(req: NextRequest) {
       .map(r => r.value)
       .filter((s): s is StockData => s !== null);
 
+    // Fetch fundamentals for VALUE screener candidates
+    const auth = await getYahooCrumb();
+    let fundMap = new Map<string, Fundamentals>();
+    if (auth) {
+      // Fetch fundamentals for all stocks (we need them for VALUE screener)
+      const symbolsToFetch = stocks.map(s => {
+        const def = allStocks.find(d => d.ticker === s.ticker);
+        return def?.symbol || s.ticker;
+      });
+      // Batch in groups of 30 to avoid overwhelming
+      const batches: string[][] = [];
+      for (let i = 0; i < symbolsToFetch.length; i += 30) {
+        batches.push(symbolsToFetch.slice(i, i + 30));
+      }
+      const batchResults = await Promise.allSettled(
+        batches.map(batch => fetchFundamentals(batch, auth))
+      );
+      for (const r of batchResults) {
+        if (r.status === "fulfilled") {
+          for (const [k, v] of r.value) fundMap.set(k, v);
+        }
+      }
+    }
+
     const krStocks = stocks.filter(s => s.market === "KR");
     const usStocks = stocks.filter(s => s.market === "US");
 
     const responseData = {
       ok: true,
       fomo: screenFomo(stocks),
-      value: screenValue(stocks),
+      value: screenValue(stocks, fundMap),
       high52kr: screenHigh52(krStocks),
       high52us: screenHigh52(usStocks),
       totalStocks: stocks.length,

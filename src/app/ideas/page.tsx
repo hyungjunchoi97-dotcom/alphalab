@@ -11,21 +11,44 @@ const TH =
   "pb-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted";
 const TD = "py-1.5";
 
-interface IdeaItem {
+// ── Types ────────────────────────────────────────────────────
+
+interface FomoItem {
   ticker: string;
   name: string;
   price: number;
   chgPct: number;
   tag: string;
-  metrics: {
-    chg1d: number;
-    chg5d: number;
-    chg20d: number;
-    near52wHigh: boolean;
-    volumeSpike: boolean;
-    tradingValue: number;
-  };
+  volumeRatio: number;
+  volume: number;
+  metrics: { chg1d: number; chg5d: number; chg20d: number; near52wHigh: boolean; volumeSpike: boolean; tradingValue: number };
 }
+
+interface ValueItem {
+  ticker: string;
+  name: string;
+  price: number;
+  chgPct: number;
+  tag: string;
+  per: number | null;
+  pbr: number | null;
+  roe: number | null;
+  divYield: number | null;
+  metrics: { chg1d: number; chg5d: number; chg20d: number; near52wHigh: boolean; volumeSpike: boolean; tradingValue: number };
+}
+
+interface High52Item {
+  ticker: string;
+  name: string;
+  price: number;
+  chgPct: number;
+  tag: string;
+  fiftyTwoWeekHigh: number;
+  distTo52wHigh: number;
+  metrics: { chg1d: number; chg5d: number; chg20d: number; near52wHigh: boolean; volumeSpike: boolean; tradingValue: number };
+}
+
+type AnyItem = FomoItem | ValueItem | High52Item;
 
 interface AiResult {
   bullets: string[];
@@ -39,6 +62,9 @@ const TAG_COLORS: Record<string, string> = {
   "VOLUME SPIKE": "bg-yellow-500/20 text-yellow-400",
   PULLBACK: "bg-purple-500/20 text-purple-400",
   BREAKOUT: "bg-teal-500/20 text-teal-400",
+  VALUE: "bg-blue-500/20 text-blue-400",
+  "LOW PER": "bg-cyan-500/20 text-cyan-400",
+  "HIGH DIV": "bg-green-500/20 text-green-400",
 };
 
 function ChgPct({ v }: { v: number }) {
@@ -50,24 +76,164 @@ function ChgPct({ v }: { v: number }) {
   );
 }
 
+function formatVol(v: number): string {
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + "M";
+  if (v >= 1_000) return (v / 1_000).toFixed(0) + "K";
+  return v.toLocaleString();
+}
+
+// ── Per-tab tables ──────────────────────────────────────────
+
+function FomoTable({ items, selected, onSelect, lang }: { items: FomoItem[]; selected: string | null; onSelect: (item: FomoItem) => void; lang: "en" | "kr" }) {
+  return (
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="border-b border-card-border">
+          <th className={TH}>Ticker</th>
+          <th className={TH}>Name</th>
+          <th className={`${TH} text-right`}>Price</th>
+          <th className={`${TH} text-right`}>Chg%</th>
+          <th className={`${TH} text-right`}>{lang === "kr" ? "거래량비" : "Vol Ratio"}</th>
+          <th className={TH}>Tag</th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((item) => (
+          <tr
+            key={item.ticker}
+            onClick={() => onSelect(item)}
+            className={`cursor-pointer border-b border-card-border/40 transition-colors ${
+              selected === item.ticker ? "bg-accent/10" : "hover:bg-card-border/20"
+            }`}
+          >
+            <td className={`${TD} text-accent`}>{item.ticker}</td>
+            <td className={TD}>{item.name}</td>
+            <td className={`${TD} text-right tabular-nums`}>{item.price.toLocaleString()}</td>
+            <td className={`${TD} text-right tabular-nums`}><ChgPct v={item.chgPct} /></td>
+            <td className={`${TD} text-right tabular-nums font-medium ${item.volumeRatio >= 2 ? "text-yellow-400" : "text-muted"}`}>
+              {item.volumeRatio.toFixed(1)}x
+            </td>
+            <td className={TD}>
+              <span className={`inline-block rounded px-1.5 py-px text-[9px] font-medium ${TAG_COLORS[item.tag] || "bg-muted/20 text-muted"}`}>
+                {item.tag}
+              </span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function ValueTable({ items, selected, onSelect, lang }: { items: ValueItem[]; selected: string | null; onSelect: (item: ValueItem) => void; lang: "en" | "kr" }) {
+  return (
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="border-b border-card-border">
+          <th className={TH}>Ticker</th>
+          <th className={TH}>Name</th>
+          <th className={`${TH} text-right`}>Price</th>
+          <th className={`${TH} text-right`}>PER</th>
+          <th className={`${TH} text-right`}>ROE</th>
+          <th className={`${TH} text-right`}>{lang === "kr" ? "배당률" : "Div%"}</th>
+          <th className={TH}>Tag</th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((item) => (
+          <tr
+            key={item.ticker}
+            onClick={() => onSelect(item)}
+            className={`cursor-pointer border-b border-card-border/40 transition-colors ${
+              selected === item.ticker ? "bg-accent/10" : "hover:bg-card-border/20"
+            }`}
+          >
+            <td className={`${TD} text-accent`}>{item.ticker}</td>
+            <td className={TD}>{item.name}</td>
+            <td className={`${TD} text-right tabular-nums`}>{item.price.toLocaleString()}</td>
+            <td className={`${TD} text-right tabular-nums ${item.per && item.per < 10 ? "text-gain font-medium" : "text-muted"}`}>
+              {item.per != null ? item.per.toFixed(1) : "—"}
+            </td>
+            <td className={`${TD} text-right tabular-nums ${item.roe && item.roe > 15 ? "text-gain" : "text-muted"}`}>
+              {item.roe != null ? `${item.roe.toFixed(1)}%` : "—"}
+            </td>
+            <td className={`${TD} text-right tabular-nums ${item.divYield && item.divYield > 3 ? "text-gain" : "text-muted"}`}>
+              {item.divYield != null ? `${item.divYield.toFixed(1)}%` : "—"}
+            </td>
+            <td className={TD}>
+              <span className={`inline-block rounded px-1.5 py-px text-[9px] font-medium ${TAG_COLORS[item.tag] || "bg-muted/20 text-muted"}`}>
+                {item.tag}
+              </span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function High52Table({ items, selected, onSelect, lang }: { items: High52Item[]; selected: string | null; onSelect: (item: High52Item) => void; lang: "en" | "kr" }) {
+  return (
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="border-b border-card-border">
+          <th className={TH}>Ticker</th>
+          <th className={TH}>Name</th>
+          <th className={`${TH} text-right`}>{lang === "kr" ? "현재가" : "Price"}</th>
+          <th className={`${TH} text-right`}>{lang === "kr" ? "52주 고가" : "52W High"}</th>
+          <th className={`${TH} text-right`}>{lang === "kr" ? "고가대비" : "Dist%"}</th>
+          <th className={`${TH} text-right`}>Chg%</th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((item) => (
+          <tr
+            key={item.ticker}
+            onClick={() => onSelect(item)}
+            className={`cursor-pointer border-b border-card-border/40 transition-colors ${
+              selected === item.ticker ? "bg-accent/10" : "hover:bg-card-border/20"
+            }`}
+          >
+            <td className={`${TD} text-accent`}>{item.ticker}</td>
+            <td className={TD}>{item.name}</td>
+            <td className={`${TD} text-right tabular-nums`}>{item.price.toLocaleString()}</td>
+            <td className={`${TD} text-right tabular-nums text-muted`}>{item.fiftyTwoWeekHigh.toLocaleString()}</td>
+            <td className={`${TD} text-right tabular-nums font-medium ${item.distTo52wHigh >= -0.5 ? "text-gain" : "text-yellow-400"}`}>
+              {item.distTo52wHigh >= 0 ? "+" : ""}{item.distTo52wHigh.toFixed(1)}%
+            </td>
+            <td className={`${TD} text-right tabular-nums`}><ChgPct v={item.chgPct} /></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// ── Main page ────────────────────────────────────────────────
+
 export default function IdeasPage() {
   const { t, lang } = useLang();
   const [tab, setTab] = useState<"fomo" | "value" | "high52" | "rotation">("fomo");
   const [high52Market, setHigh52Market] = useState<"KR" | "US">("KR");
-  const [filter5d, setFilter5d] = useState(false);
-  const [selected, setSelected] = useState<IdeaItem | null>(null);
+  const [selected, setSelected] = useState<AnyItem | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCount, setShowCount] = useState(20);
 
-  // Real data from API
-  const [fomoIdeas, setFomoIdeas] = useState<IdeaItem[]>([]);
-  const [valueIdeas, setValueIdeas] = useState<IdeaItem[]>([]);
-  const [high52Kr, setHigh52Kr] = useState<IdeaItem[]>([]);
-  const [high52Us, setHigh52Us] = useState<IdeaItem[]>([]);
+  // Data
+  const [fomoIdeas, setFomoIdeas] = useState<FomoItem[]>([]);
+  const [valueIdeas, setValueIdeas] = useState<ValueItem[]>([]);
+  const [high52Kr, setHigh52Kr] = useState<High52Item[]>([]);
+  const [high52Us, setHigh52Us] = useState<High52Item[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [asOf, setAsOf] = useState<string | null>(null);
+  const [totalStocks, setTotalStocks] = useState(0);
 
   const fetchScreener = useCallback(async () => {
+    setDataLoading(true);
+    setDataError(null);
     try {
       const res = await fetch("/api/ideas/screener");
       const json = await res.json();
@@ -76,9 +242,13 @@ export default function IdeasPage() {
         setValueIdeas(json.value || []);
         setHigh52Kr(json.high52kr || []);
         setHigh52Us(json.high52us || []);
+        if (json.asOf) setAsOf(json.asOf);
+        setTotalStocks(json.totalStocks || 0);
+      } else {
+        setDataError(json.error || "Failed to load screener data");
       }
-    } catch {
-      // silent
+    } catch (err) {
+      setDataError(err instanceof Error ? err.message : "Network error");
     } finally {
       setDataLoading(false);
     }
@@ -88,21 +258,12 @@ export default function IdeasPage() {
     fetchScreener();
   }, [fetchScreener]);
 
-  const rawIdeas =
-    tab === "fomo"
-      ? fomoIdeas
-      : tab === "value"
-        ? valueIdeas
-        : high52Market === "KR"
-          ? high52Kr
-          : high52Us;
+  // Reset show count when switching tabs
+  useEffect(() => {
+    setShowCount(20);
+  }, [tab, high52Market]);
 
-  const ideas =
-    tab === "high52" && filter5d
-      ? rawIdeas.filter((i) => i.metrics.chg5d > 10)
-      : rawIdeas;
-
-  const handleSelect = (item: IdeaItem) => {
+  const handleSelect = (item: AnyItem) => {
     setSelected(item);
     setAiResult(null);
     setError(null);
@@ -141,12 +302,17 @@ export default function IdeasPage() {
     }
   };
 
+  // Get display items with pagination
+  const rawHigh52 = high52Market === "KR" ? high52Kr : high52Us;
+  const displayHigh52 = rawHigh52.slice(0, showCount);
+  const hasMore52 = showCount < rawHigh52.length;
+
   return (
     <div className="min-h-screen bg-background">
       <AppHeader active="ideas" />
 
       <main className="mx-auto max-w-[1400px] px-4 py-4 space-y-3">
-        {/* Tab pills + sub-tabs + filter */}
+        {/* Tab pills + sub-tabs */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-px rounded bg-card-border p-px w-fit">
             {(["fomo", "value", "high52", "rotation"] as const).map((tv) => (
@@ -157,7 +323,6 @@ export default function IdeasPage() {
                   setSelected(null);
                   setAiResult(null);
                   setError(null);
-                  setFilter5d(false);
                 }}
                 className={`px-3 py-1 text-xs font-medium transition-colors ${
                   tab === tv
@@ -171,37 +336,34 @@ export default function IdeasPage() {
           </div>
 
           {tab === "high52" && (
-            <>
-              <div className="flex gap-px rounded bg-card-border p-px w-fit">
-                {(["KR", "US"] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => {
-                      setHigh52Market(m);
-                      setSelected(null);
-                      setAiResult(null);
-                      setError(null);
-                    }}
-                    className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors ${
-                      high52Market === m
-                        ? "bg-accent text-white"
-                        : "bg-card-bg text-muted hover:text-foreground"
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-              <label className="flex items-center gap-1.5 text-[10px] text-muted cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={filter5d}
-                  onChange={(e) => setFilter5d(e.target.checked)}
-                  className="accent-accent h-3 w-3"
-                />
-                Only 5D &gt; 10%
-              </label>
-            </>
+            <div className="flex gap-px rounded bg-card-border p-px w-fit">
+              {(["KR", "US"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setHigh52Market(m);
+                    setSelected(null);
+                    setAiResult(null);
+                    setError(null);
+                  }}
+                  className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors ${
+                    high52Market === m
+                      ? "bg-accent text-white"
+                      : "bg-card-bg text-muted hover:text-foreground"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Last updated */}
+          {asOf && (
+            <span className="ml-auto text-[9px] text-muted/60 tabular-nums">
+              {lang === "kr" ? "마지막 업데이트" : "Updated"}: {new Date(asOf).toLocaleString(lang === "kr" ? "ko-KR" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+              {totalStocks > 0 && <span className="ml-1">({totalStocks} stocks)</span>}
+            </span>
           )}
         </div>
 
@@ -209,213 +371,250 @@ export default function IdeasPage() {
         {tab === "rotation" && <RRGChart />}
 
         {/* Two-column layout */}
-        {tab !== "rotation" && <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
-          {/* Left: Ideas list */}
-          <section className={`${CARD} lg:col-span-3`}>
-            <div className="mb-3 flex items-center gap-2">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                {tab === "fomo" ? "FOMO Ideas" : tab === "value" ? "Value-lite Ideas" : `52W High — ${high52Market}`}
-              </h2>
-            </div>
-
-            {dataLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                <span className="ml-2 text-xs text-muted">Loading...</span>
+        {tab !== "rotation" && (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+            {/* Left: Ideas list */}
+            <section className={`${CARD} lg:col-span-3`}>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  {tab === "fomo"
+                    ? (lang === "kr" ? "FOMO 스크리너 — 거래량 급증" : "FOMO Screener — Volume Surge")
+                    : tab === "value"
+                      ? (lang === "kr" ? "VALUE 스크리너 — 저PER·고배당" : "VALUE Screener — Low PER / High Div")
+                      : (lang === "kr" ? `52주 신고가 — ${high52Market}` : `52W High — ${high52Market}`)}
+                </h2>
               </div>
-            ) : ideas.length === 0 ? (
-              <p className="py-8 text-center text-[10px] text-muted">
-                {lang === "kr" ? "데이터를 불러오는 중입니다..." : "No stocks match the current filter"}
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-card-border">
-                      <th className={TH}>Ticker</th>
-                      <th className={TH}>Name</th>
-                      <th className={`${TH} text-right`}>Price</th>
-                      <th className={`${TH} text-right`}>Chg%</th>
-                      <th className={TH}>Tag</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ideas.map((item) => (
-                      <tr
-                        key={item.ticker}
-                        onClick={() => handleSelect(item)}
-                        className={`cursor-pointer border-b border-card-border/40 transition-colors ${
-                          selected?.ticker === item.ticker
-                            ? "bg-accent/10"
-                            : "hover:bg-card-border/20"
-                        }`}
-                      >
-                        <td className={`${TD} text-accent`}>{item.ticker}</td>
-                        <td className={TD}>{item.name}</td>
-                        <td className={`${TD} text-right tabular-nums`}>
-                          {item.price.toLocaleString()}
-                        </td>
-                        <td className={`${TD} text-right tabular-nums`}>
-                          <ChgPct v={item.chgPct} />
-                        </td>
-                        <td className={TD}>
-                          <span
-                            className={`inline-block rounded px-1.5 py-px text-[9px] font-medium ${
-                              TAG_COLORS[item.tag] || "bg-muted/20 text-muted"
-                            }`}
-                          >
-                            {item.tag}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
 
-          {/* Right: Detail panel */}
-          <section className={`${CARD} lg:col-span-2`}>
-            <div className="mb-3 flex items-center gap-2">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                Detail
-              </h2>
-            </div>
-
-            {!selected ? (
-              <p className="py-8 text-center text-[10px] text-muted">
-                Select a ticker from the list
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {/* Ticker header */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-sm font-bold text-accent">
-                      {selected.ticker}
-                    </span>
-                    <span className="ml-2 text-xs text-muted">
-                      {selected.name}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium tabular-nums">
-                      {selected.price.toLocaleString()}
-                    </p>
-                    <p className="text-[10px] tabular-nums">
-                      <ChgPct v={selected.chgPct} />
-                    </p>
-                  </div>
-                </div>
-
-                {/* Metrics row */}
-                <div className="grid grid-cols-3 gap-2">
-                  {(
-                    [
-                      ["1D", selected.metrics.chg1d],
-                      ["5D", selected.metrics.chg5d],
-                      ["20D", selected.metrics.chg20d],
-                    ] as const
-                  ).map(([label, val]) => (
-                    <div
-                      key={label}
-                      className="rounded border border-card-border/60 bg-background px-2.5 py-1.5"
-                    >
-                      <p className="text-[9px] uppercase tracking-wider text-muted">
-                        {label}
-                      </p>
-                      <p className="mt-0.5 text-xs font-medium tabular-nums">
-                        <ChgPct v={val} />
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Tag + badges */}
-                <div className="flex flex-wrap gap-2 text-[10px]">
-                  <span
-                    className={`rounded px-1.5 py-px font-medium ${
-                      TAG_COLORS[selected.tag] || "bg-muted/20 text-muted"
-                    }`}
-                  >
-                    {selected.tag}
+              {dataLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                  <span className="ml-2 text-xs text-muted">
+                    {lang === "kr" ? "데이터 로딩 중..." : "Loading screener data..."}
                   </span>
-                  {selected.metrics.near52wHigh && (
-                    <span className="rounded bg-gain/20 px-1.5 py-px font-medium text-gain">
-                      Near 52W High
-                    </span>
+                </div>
+              ) : dataError ? (
+                <div className="py-8 text-center">
+                  <p className="text-[10px] text-loss">{dataError}</p>
+                  <button
+                    onClick={fetchScreener}
+                    className="mt-2 rounded bg-accent/20 px-3 py-1 text-[10px] text-accent hover:bg-accent/30"
+                  >
+                    {lang === "kr" ? "다시 시도" : "Retry"}
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  {tab === "fomo" && (
+                    <>
+                      {fomoIdeas.length === 0 ? (
+                        <p className="py-8 text-center text-[10px] text-muted">{lang === "kr" ? "해당 종목 없음" : "No stocks match"}</p>
+                      ) : (
+                        <FomoTable items={fomoIdeas} selected={selected?.ticker ?? null} onSelect={handleSelect} lang={lang} />
+                      )}
+                    </>
                   )}
-                  {selected.metrics.volumeSpike && (
-                    <span className="rounded bg-yellow-500/20 px-1.5 py-px font-medium text-yellow-400">
-                      Vol Spike
-                    </span>
+                  {tab === "value" && (
+                    <>
+                      {valueIdeas.length === 0 ? (
+                        <p className="py-8 text-center text-[10px] text-muted">{lang === "kr" ? "해당 종목 없음" : "No stocks match"}</p>
+                      ) : (
+                        <ValueTable items={valueIdeas} selected={selected?.ticker ?? null} onSelect={handleSelect} lang={lang} />
+                      )}
+                    </>
+                  )}
+                  {tab === "high52" && (
+                    <>
+                      {rawHigh52.length === 0 ? (
+                        <p className="py-8 text-center text-[10px] text-muted">{lang === "kr" ? "해당 종목 없음" : "No stocks near 52W high"}</p>
+                      ) : (
+                        <>
+                          <High52Table items={displayHigh52} selected={selected?.ticker ?? null} onSelect={handleSelect} lang={lang} />
+                          <div className="mt-2 flex items-center justify-between text-[10px] text-muted">
+                            <span>
+                              {lang === "kr"
+                                ? `${displayHigh52.length} / ${rawHigh52.length}개 종목`
+                                : `${displayHigh52.length} / ${rawHigh52.length} stocks`}
+                            </span>
+                            {hasMore52 && (
+                              <button
+                                onClick={() => setShowCount(prev => prev + 20)}
+                                className="rounded border border-card-border px-3 py-1 text-muted hover:text-foreground hover:border-accent/50 transition-colors"
+                              >
+                                {lang === "kr" ? "더 보기 ▼" : "Show More ▼"}
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
+              )}
+            </section>
 
-                {/* Explain button */}
-                <button
-                  onClick={handleExplain}
-                  disabled={loading}
-                  className="w-full rounded bg-accent px-4 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-                >
-                  {loading ? "Analyzing..." : "Explain move"}
-                </button>
-
-                {/* Error */}
-                {error && (
-                  <div className="rounded border border-loss/30 bg-loss/10 px-3 py-2 text-[10px] text-loss">
-                    {error}
-                  </div>
-                )}
-
-                {/* AI Result */}
-                {aiResult && (
-                  <div className="space-y-2">
-                    <p className="text-[9px] font-semibold uppercase tracking-wider text-muted">
-                      AI Summary
-                    </p>
-                    <ul className="space-y-1">
-                      {aiResult.bullets.map((b, i) => (
-                        <li
-                          key={i}
-                          className="flex items-start gap-1.5 text-xs leading-relaxed"
-                        >
-                          <span className="mt-1 inline-block h-1 w-1 shrink-0 rounded-full bg-accent" />
-                          {b}
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="rounded border border-card-border/60 bg-background px-3 py-2">
-                      <p className="text-[9px] uppercase tracking-wider text-muted">
-                        Risk
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-loss">
-                        {aiResult.risk}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] text-muted">
-                      <span>Confidence:</span>
-                      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-card-border">
-                        <div
-                          className="h-full rounded-full bg-accent"
-                          style={{
-                            width: `${Math.round(aiResult.confidence * 100)}%`,
-                          }}
-                        />
-                      </div>
-                      <span className="tabular-nums">
-                        {Math.round(aiResult.confidence * 100)}%
-                      </span>
-                    </div>
-                  </div>
-                )}
+            {/* Right: Detail panel */}
+            <section className={`${CARD} lg:col-span-2`}>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  Detail
+                </h2>
               </div>
-            )}
-          </section>
-        </div>}
+
+              {!selected ? (
+                <p className="py-8 text-center text-[10px] text-muted">
+                  {lang === "kr" ? "목록에서 종목을 선택하세요" : "Select a ticker from the list"}
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {/* Ticker header */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-bold text-accent">{selected.ticker}</span>
+                      <span className="ml-2 text-xs text-muted">{selected.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium tabular-nums">{selected.price.toLocaleString()}</p>
+                      <p className="text-[10px] tabular-nums"><ChgPct v={selected.chgPct} /></p>
+                    </div>
+                  </div>
+
+                  {/* Metrics row */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {(
+                      [
+                        ["1D", selected.metrics.chg1d],
+                        ["5D", selected.metrics.chg5d],
+                        ["20D", selected.metrics.chg20d],
+                      ] as const
+                    ).map(([label, val]) => (
+                      <div key={label} className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
+                        <p className="text-[9px] uppercase tracking-wider text-muted">{label}</p>
+                        <p className="mt-0.5 text-xs font-medium tabular-nums"><ChgPct v={val} /></p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Tab-specific detail metrics */}
+                  {tab === "fomo" && "volumeRatio" in selected && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
+                        <p className="text-[9px] uppercase tracking-wider text-muted">{lang === "kr" ? "거래량 비율" : "Vol Ratio"}</p>
+                        <p className={`mt-0.5 text-xs font-medium tabular-nums ${(selected as FomoItem).volumeRatio >= 2 ? "text-yellow-400" : ""}`}>
+                          {(selected as FomoItem).volumeRatio.toFixed(1)}x
+                        </p>
+                      </div>
+                      <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
+                        <p className="text-[9px] uppercase tracking-wider text-muted">{lang === "kr" ? "거래량" : "Volume"}</p>
+                        <p className="mt-0.5 text-xs font-medium tabular-nums">{formatVol((selected as FomoItem).volume)}</p>
+                      </div>
+                    </div>
+                  )}
+                  {tab === "value" && "per" in selected && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
+                        <p className="text-[9px] uppercase tracking-wider text-muted">PER</p>
+                        <p className={`mt-0.5 text-xs font-medium tabular-nums ${(selected as ValueItem).per && (selected as ValueItem).per! < 10 ? "text-gain" : ""}`}>
+                          {(selected as ValueItem).per != null ? (selected as ValueItem).per!.toFixed(1) : "—"}
+                        </p>
+                      </div>
+                      <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
+                        <p className="text-[9px] uppercase tracking-wider text-muted">ROE</p>
+                        <p className="mt-0.5 text-xs font-medium tabular-nums">
+                          {(selected as ValueItem).roe != null ? `${(selected as ValueItem).roe!.toFixed(1)}%` : "—"}
+                        </p>
+                      </div>
+                      <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
+                        <p className="text-[9px] uppercase tracking-wider text-muted">PBR</p>
+                        <p className="mt-0.5 text-xs font-medium tabular-nums">
+                          {(selected as ValueItem).pbr != null ? (selected as ValueItem).pbr!.toFixed(2) : "—"}
+                        </p>
+                      </div>
+                      <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
+                        <p className="text-[9px] uppercase tracking-wider text-muted">{lang === "kr" ? "배당수익률" : "Div Yield"}</p>
+                        <p className={`mt-0.5 text-xs font-medium tabular-nums ${(selected as ValueItem).divYield && (selected as ValueItem).divYield! > 3 ? "text-gain" : ""}`}>
+                          {(selected as ValueItem).divYield != null ? `${(selected as ValueItem).divYield!.toFixed(1)}%` : "—"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {tab === "high52" && "fiftyTwoWeekHigh" in selected && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
+                        <p className="text-[9px] uppercase tracking-wider text-muted">{lang === "kr" ? "52주 고가" : "52W High"}</p>
+                        <p className="mt-0.5 text-xs font-medium tabular-nums">{(selected as High52Item).fiftyTwoWeekHigh.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded border border-card-border/60 bg-background px-2.5 py-1.5">
+                        <p className="text-[9px] uppercase tracking-wider text-muted">{lang === "kr" ? "고가 대비" : "Dist"}</p>
+                        <p className={`mt-0.5 text-xs font-medium tabular-nums ${(selected as High52Item).distTo52wHigh >= -0.5 ? "text-gain" : "text-yellow-400"}`}>
+                          {(selected as High52Item).distTo52wHigh >= 0 ? "+" : ""}{(selected as High52Item).distTo52wHigh.toFixed(1)}%
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tag + badges */}
+                  <div className="flex flex-wrap gap-2 text-[10px]">
+                    <span className={`rounded px-1.5 py-px font-medium ${TAG_COLORS[selected.tag] || "bg-muted/20 text-muted"}`}>
+                      {selected.tag}
+                    </span>
+                    {selected.metrics.near52wHigh && (
+                      <span className="rounded bg-gain/20 px-1.5 py-px font-medium text-gain">Near 52W High</span>
+                    )}
+                    {selected.metrics.volumeSpike && (
+                      <span className="rounded bg-yellow-500/20 px-1.5 py-px font-medium text-yellow-400">Vol Spike</span>
+                    )}
+                  </div>
+
+                  {/* Explain button */}
+                  <button
+                    onClick={handleExplain}
+                    disabled={loading}
+                    className="w-full rounded bg-accent px-4 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    {loading
+                      ? (lang === "kr" ? "분석 중..." : "Analyzing...")
+                      : (lang === "kr" ? "AI 분석" : "Explain move")}
+                  </button>
+
+                  {/* Error */}
+                  {error && (
+                    <div className="rounded border border-loss/30 bg-loss/10 px-3 py-2 text-[10px] text-loss">
+                      {error}
+                    </div>
+                  )}
+
+                  {/* AI Result */}
+                  {aiResult && (
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted">AI Summary</p>
+                      <ul className="space-y-1">
+                        {aiResult.bullets.map((b, i) => (
+                          <li key={i} className="flex items-start gap-1.5 text-xs leading-relaxed">
+                            <span className="mt-1 inline-block h-1 w-1 shrink-0 rounded-full bg-accent" />
+                            {b}
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="rounded border border-card-border/60 bg-background px-3 py-2">
+                        <p className="text-[9px] uppercase tracking-wider text-muted">Risk</p>
+                        <p className="mt-0.5 text-[10px] text-loss">{aiResult.risk}</p>
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-muted">
+                        <span>Confidence:</span>
+                        <div className="h-1.5 w-20 overflow-hidden rounded-full bg-card-border">
+                          <div className="h-full rounded-full bg-accent" style={{ width: `${Math.round(aiResult.confidence * 100)}%` }} />
+                        </div>
+                        <span className="tabular-nums">{Math.round(aiResult.confidence * 100)}%</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          </div>
+        )}
       </main>
     </div>
   );
