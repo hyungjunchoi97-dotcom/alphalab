@@ -26,7 +26,6 @@ let cache: CacheEntry | null = null;
 // ── Date helpers ────────────────────────────────────────────
 
 function nthWeekday(year: number, month: number, weekday: number, n: number): Date {
-  // Find nth occurrence of weekday (0=Sun..6=Sat) in month (0-indexed)
   const d = new Date(Date.UTC(year, month, 1));
   let count = 0;
   while (count < n) {
@@ -64,12 +63,12 @@ function generateEvents(): CalendarEvent[] {
   const now = new Date();
   const events: CalendarEvent[] = [];
 
-  // Generate for current month + next 6 months
-  for (let offset = -1; offset <= 6; offset++) {
+  // Generate for 12 months from today
+  for (let offset = -1; offset <= 12; offset++) {
     const d = new Date(now);
     d.setMonth(d.getMonth() + offset);
     const year = d.getFullYear();
-    const month = d.getMonth(); // 0-indexed
+    const month = d.getMonth();
 
     const monthStr = String(month + 1).padStart(2, "0");
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -77,7 +76,7 @@ function generateEvents(): CalendarEvent[] {
 
     // ── US EVENTS ──
 
-    // NFP: First Friday of month (released at 8:30 ET = 13:30 UTC)
+    // NFP: First Friday of month (8:30 ET = 13:30 UTC)
     const nfpDate = nthWeekday(year, month, 5, 1);
     events.push({
       id: `us-nfp-${year}${monthStr}`,
@@ -87,12 +86,8 @@ function generateEvents(): CalendarEvent[] {
       importance: 5,
     });
 
-    // US CPI: ~10th-13th, typically 2nd week Tuesday/Wednesday (8:30 ET = 12:30 UTC)
-    // Approximation: 2nd or 3rd Wednesday
-    const cpiDate = nthWeekday(year, month, 3, 2); // 2nd Wednesday
-    if (cpiDate.getUTCDate() < 10) {
-      cpiDate.setUTCDate(cpiDate.getUTCDate() + 7);
-    }
+    // US CPI: ~2nd Tuesday each month (8:30 ET = 12:30 UTC)
+    const cpiDate = nthWeekday(year, month, 2, 2); // 2nd Tuesday
     events.push({
       id: `us-cpi-${year}${monthStr}`,
       region: "US", category: "inflation",
@@ -101,9 +96,8 @@ function generateEvents(): CalendarEvent[] {
       importance: 5,
     });
 
-    // US PPI: day after CPI typically
-    const ppiDate = new Date(cpiDate);
-    ppiDate.setUTCDate(ppiDate.getUTCDate() + 1);
+    // US PPI: ~2nd Wednesday each month
+    const ppiDate = nthWeekday(year, month, 3, 2); // 2nd Wednesday
     events.push({
       id: `us-ppi-${year}${monthStr}`,
       region: "US", category: "inflation",
@@ -124,13 +118,13 @@ function generateEvents(): CalendarEvent[] {
 
     // ── KR EVENTS ──
 
-    // KR CPI: 5th business day each month (~01:00 UTC = 10:00 KST)
+    // KR CPI: 5th business day each month (10:00 KST = 01:00 UTC)
     const krCpiDate = nthBusinessDay(year, month, 5);
     events.push({
       id: `kr-cpi-${year}${monthStr}`,
       region: "KR", category: "inflation",
       title: "KR CPI (YoY)",
-      datetimeISO: formatISO(krCpiDate, "00:00:00"),
+      datetimeISO: formatISO(krCpiDate, "01:00:00"),
       importance: 4,
     });
 
@@ -146,7 +140,7 @@ function generateEvents(): CalendarEvent[] {
 
     // ── JP EVENTS ──
 
-    // JP CPI: 3rd Friday each month (~23:30 UTC prev day = 08:30 JST)
+    // JP CPI: 3rd Friday each month (08:30 JST = 23:30 UTC prev day)
     const jpCpiDate = thirdFriday(year, month);
     events.push({
       id: `jp-cpi-${year}${monthStr}`,
@@ -157,10 +151,9 @@ function generateEvents(): CalendarEvent[] {
     });
   }
 
-  // ── FOMC Dates (8 meetings per year, predetermined) ──
-  // 2026 FOMC dates (announced by Fed)
+  // ── FOMC Dates 2026 (user-specified exact dates) ──
   const fomcDates2026 = [
-    [1, 29], [3, 18], [5, 6], [6, 17], [7, 29], [9, 16], [10, 28], [12, 16],
+    [3, 19], [5, 7], [6, 18], [7, 30], [9, 17], [11, 5], [12, 17],
   ];
   for (const [m, d] of fomcDates2026) {
     const dt = new Date(Date.UTC(2026, m - 1, d));
@@ -173,7 +166,7 @@ function generateEvents(): CalendarEvent[] {
     });
   }
 
-  // 2027 FOMC dates (estimated)
+  // 2027 FOMC (estimated)
   const fomcDates2027 = [
     [1, 27], [3, 17], [5, 5], [6, 16], [7, 28], [9, 22], [11, 3], [12, 15],
   ];
@@ -188,9 +181,9 @@ function generateEvents(): CalendarEvent[] {
     });
   }
 
-  // ── BOK Rate Decisions (approx every 6 weeks, 8 per year) ──
+  // ── BOK Rate Decisions 2026 (user-specified exact dates) ──
   const bokDates2026 = [
-    [1, 16], [2, 27], [4, 9], [5, 29], [7, 10], [8, 28], [10, 16], [11, 27],
+    [2, 25], [4, 17], [5, 29], [7, 17], [8, 28], [10, 16], [11, 27],
   ];
   for (const [m, d] of bokDates2026) {
     const dt = new Date(Date.UTC(2026, m - 1, d));
@@ -203,9 +196,9 @@ function generateEvents(): CalendarEvent[] {
     });
   }
 
-  // ── BOJ Rate Decisions (8 per year) ──
+  // ── BOJ Rate Decisions 2026 (user-specified exact dates) ──
   const bojDates2026 = [
-    [1, 24], [3, 14], [4, 28], [6, 16], [7, 31], [9, 19], [10, 30], [12, 18],
+    [3, 19], [5, 1], [6, 17], [7, 31], [9, 19], [10, 30], [12, 19],
   ];
   for (const [m, d] of bojDates2026) {
     const dt = new Date(Date.UTC(2026, m - 1, d));

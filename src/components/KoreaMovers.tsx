@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLang } from "@/lib/LangContext";
 
 interface MoverItem {
@@ -79,8 +79,7 @@ export default function KoreaMovers() {
   const [source, setSource] = useState<string>("");
   const [totalGainers, setTotalGainers] = useState(0);
   const [totalLosers, setTotalLosers] = useState(0);
-  const [expanded, setExpanded] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const [showCount, setShowCount] = useState(5);
 
   const fetchMovers = useCallback(async () => {
     try {
@@ -119,10 +118,9 @@ export default function KoreaMovers() {
     );
   }
 
-  const displayCount = expanded ? 30 : 5;
-  const displayGainers = gainers.slice(0, displayCount);
-  const displayLosers = losers.slice(0, displayCount);
-  const canExpand = gainers.length > 5 || losers.length > 5;
+  const displayGainers = gainers.slice(0, showCount);
+  const displayLosers = losers.slice(0, showCount);
+  const hasMore = showCount < gainers.length || showCount < losers.length;
 
   return (
     <div>
@@ -139,35 +137,27 @@ export default function KoreaMovers() {
         </div>
       )}
 
-      <div
-        ref={contentRef}
-        className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
-        style={{ maxHeight: expanded ? `${contentRef.current?.scrollHeight || 2000}px` : "400px" }}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <MoverTable
-            title={lang === "kr" ? `상승 TOP ${displayCount}` : `Top ${displayCount} Gainers`}
-            data={displayGainers}
-            lang={lang}
-          />
-          <MoverTable
-            title={lang === "kr" ? `하락 TOP ${displayCount}` : `Top ${displayCount} Losers`}
-            data={displayLosers}
-            lang={lang}
-          />
-        </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <MoverTable
+          title={lang === "kr" ? `상승 TOP ${displayGainers.length}` : `Top ${displayGainers.length} Gainers`}
+          data={displayGainers}
+          lang={lang}
+        />
+        <MoverTable
+          title={lang === "kr" ? `하락 TOP ${displayLosers.length}` : `Top ${displayLosers.length} Losers`}
+          data={displayLosers}
+          lang={lang}
+        />
       </div>
 
-      {/* Expand/Collapse button */}
-      {canExpand && (
+      {/* Load more button */}
+      {hasMore && (
         <div className="mt-3 flex justify-center">
           <button
-            onClick={() => setExpanded(!expanded)}
+            onClick={() => setShowCount((prev) => prev + 10)}
             className="rounded-md border border-card-border bg-card-bg px-4 py-1.5 text-[11px] text-muted transition-colors hover:text-foreground hover:border-accent/50"
           >
-            {expanded
-              ? (lang === "kr" ? "접기 ▲" : "Show Less ▲")
-              : (lang === "kr" ? "더 보기 (30위까지) ▼" : "Show More (Top 30) ▼")}
+            {lang === "kr" ? "더 보기 ▼" : "Show More ▼"}
           </button>
         </div>
       )}

@@ -21,13 +21,11 @@ interface PromptItem {
 interface AnalysisResult {
   entry: string;
   stopLoss: string;
-  targets: { tp1: string; tp2: string; tp3: string };
+  target: string;
   thesis: string;
-  invalidation: string;
   confidence?: number;
   keyLevels?: { support: string; resistance: string };
   riskReward?: string;
-  scenarios: { bullish: string; bearish: string };
 }
 
 export default function AiTradingPage() {
@@ -273,12 +271,10 @@ export default function AiTradingPage() {
                   {/* Scanning overlay */}
                   {loading && (
                     <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center">
-                      {/* Scan line */}
                       <div className="chart-scan-line absolute left-0 right-0 h-[2px]" style={{
                         background: "linear-gradient(90deg, transparent 0%, #00ff88 20%, #00ffcc 50%, #00ff88 80%, transparent 100%)",
                         boxShadow: "0 0 12px 4px rgba(0,255,136,0.4), 0 0 30px 8px rgba(0,255,136,0.15)",
                       }} />
-                      {/* Label */}
                       <div className="chart-scan-text z-10 rounded-lg bg-black/60 px-4 py-2.5 backdrop-blur-sm border border-[#00ff88]/30">
                         <p className="text-xs font-medium text-[#00ff88] tracking-wide">
                           {lang === "kr" ? "AI 분석 중" : "Scanning"}<span className="blink-cursor">|</span>
@@ -356,71 +352,29 @@ export default function AiTradingPage() {
                 <ResultField label={t("entry")} value={result?.entry || "—"} />
                 <ResultField label={t("stop")} value={result?.stopLoss || "—"} valueClass="text-loss" />
               </div>
+
+              {/* Target (single) */}
+              <ResultField label={lang === "kr" ? "목표가" : "Target"} value={result?.target || "—"} valueClass="text-gain" />
+
               {result?.riskReward && (
                 <ResultField label="Risk / Reward" value={result.riskReward} valueClass="text-accent" />
               )}
 
-              {/* Targets */}
-              <div>
-                <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                  {t("targets")}
-                </h3>
-                <div className="grid grid-cols-3 gap-2">
-                  <ResultField label="TP1" value={result?.targets?.tp1 || "—"} valueClass="text-gain" />
-                  <ResultField label="TP2" value={result?.targets?.tp2 || "—"} valueClass="text-gain" />
-                  <ResultField label="TP3" value={result?.targets?.tp3 || "—"} valueClass="text-gain" />
+              {/* Key Levels */}
+              {result?.keyLevels && (
+                <div className="grid grid-cols-2 gap-2">
+                  <ResultField label="Support" value={result.keyLevels.support} valueClass="text-gain" />
+                  <ResultField label="Resistance" value={result.keyLevels.resistance} valueClass="text-loss" />
                 </div>
-              </div>
+              )}
 
               {/* Thesis */}
               <div>
                 <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
                   {t("thesis")}
                 </h3>
-                <div className="rounded border border-card-border/60 bg-background px-3 py-2 text-xs text-muted">
+                <div className="rounded border border-card-border/60 bg-background px-3 py-2 text-xs leading-relaxed text-muted">
                   {result?.thesis || t("analyzeHint")}
-                </div>
-              </div>
-
-              {/* Invalidation */}
-              <div>
-                <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                  {t("invalidation")}
-                </h3>
-                <div className="rounded border border-card-border/60 bg-background px-3 py-2 text-xs text-muted">
-                  {result?.invalidation || "—"}
-                </div>
-              </div>
-
-              {/* Key Levels */}
-              {result?.keyLevels && (
-                <div>
-                  <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                    Key Levels
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <ResultField label="Support" value={result.keyLevels.support} valueClass="text-gain" />
-                    <ResultField label="Resistance" value={result.keyLevels.resistance} valueClass="text-loss" />
-                  </div>
-                </div>
-              )}
-
-              {/* Scenarios */}
-              <div>
-                <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                  {t("scenarios")}
-                </h3>
-                <div className="space-y-1.5">
-                  <ScenarioRow
-                    label="Bullish"
-                    text={result?.scenarios?.bullish || "—"}
-                    dotClass="bg-gain"
-                  />
-                  <ScenarioRow
-                    label="Bearish"
-                    text={result?.scenarios?.bearish || "—"}
-                    dotClass="bg-loss"
-                  />
                 </div>
               </div>
 
@@ -508,26 +462,6 @@ function ResultField({
       <p className={`mt-0.5 text-sm font-medium tabular-nums ${valueClass}`}>
         {value}
       </p>
-    </div>
-  );
-}
-
-function ScenarioRow({
-  label,
-  text,
-  dotClass,
-}: {
-  label: string;
-  text: string;
-  dotClass: string;
-}) {
-  return (
-    <div className="flex items-start gap-2 rounded border border-card-border/60 bg-background px-3 py-2">
-      <span className={`mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${dotClass}`} />
-      <div>
-        <p className="text-[10px] font-medium">{label}</p>
-        <p className="text-[10px] text-muted">{text}</p>
-      </div>
     </div>
   );
 }

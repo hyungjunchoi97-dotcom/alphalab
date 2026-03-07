@@ -33,23 +33,17 @@ const CATEGORY_COLORS: Record<string, string> = {
   political: "bg-loss/20 text-loss",
 };
 
-function formatTime(iso: string): string {
+function formatDateTime(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString("en-US", {
+  const month = String(d.toLocaleString("en-US", { timeZone: "Asia/Seoul", month: "2-digit" }));
+  const day = String(d.toLocaleString("en-US", { timeZone: "Asia/Seoul", day: "2-digit" }));
+  const time = d.toLocaleTimeString("en-US", {
     timeZone: "Asia/Seoul",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   });
-}
-
-function formatShortDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", {
-    timeZone: "Asia/Seoul",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  return `${month}/${day} ${time}`;
 }
 
 function getSeoulToday(): Date {
@@ -92,12 +86,12 @@ function ImportanceDots({ level }: { level: number }) {
   );
 }
 
-function EventRow({ event, showDate }: { event: CalendarEvent; showDate: boolean }) {
+function EventRow({ event }: { event: CalendarEvent }) {
   const hasAFP = event.actual || event.forecast || event.previous;
   return (
     <div className="flex items-start gap-3 border-b border-card-border/30 py-1.5 last:border-0">
-      <span className="w-11 shrink-0 text-[10px] tabular-nums text-muted">
-        {showDate ? formatShortDate(event.datetimeISO) : formatTime(event.datetimeISO)}
+      <span className="w-[85px] shrink-0 text-[10px] tabular-nums text-muted">
+        {formatDateTime(event.datetimeISO)}
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs">{event.title}</p>
@@ -129,7 +123,7 @@ function EventRow({ event, showDate }: { event: CalendarEvent; showDate: boolean
   );
 }
 
-function GroupSection({ label, events, showDate }: { label: string; events: CalendarEvent[]; showDate: boolean }) {
+function GroupSection({ label, events }: { label: string; events: CalendarEvent[] }) {
   if (events.length === 0) return null;
   return (
     <div className="mb-3 last:mb-0">
@@ -138,7 +132,7 @@ function GroupSection({ label, events, showDate }: { label: string; events: Cale
       </h3>
       <div>
         {events.map((e) => (
-          <EventRow key={e.id} event={e} showDate={showDate} />
+          <EventRow key={e.id} event={e} />
         ))}
       </div>
     </div>
@@ -191,9 +185,7 @@ export default function MarketCalendar() {
       } else if (evSeoul >= weekStart && evSeoul <= weekEnd) {
         weekEvents.push(ev);
       } else if (evSeoul > weekEnd) {
-        if (upcomingEvents.length < 10) {
-          upcomingEvents.push(ev);
-        }
+        upcomingEvents.push(ev);
       }
     }
 
@@ -234,11 +226,11 @@ export default function MarketCalendar() {
           {t("noEvents")}
         </p>
       ) : (
-        <>
-          <GroupSection label={t("today")} events={today} showDate={false} />
-          <GroupSection label={t("thisWeek")} events={thisWeek} showDate={false} />
-          <GroupSection label={t("upcoming")} events={upcoming} showDate={true} />
-        </>
+        <div className="max-h-[500px] overflow-y-auto pr-1">
+          <GroupSection label={t("today")} events={today} />
+          <GroupSection label={t("thisWeek")} events={thisWeek} />
+          <GroupSection label={t("upcoming")} events={upcoming} />
+        </div>
       )}
     </div>
   );

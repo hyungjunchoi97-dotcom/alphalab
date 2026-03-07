@@ -163,7 +163,7 @@ function BarDetailPopup({ data, onClose, t }: { data: NetFlowDay; onClose: () =>
 // ── Main page ────────────────────────────────────────────────
 
 export default function FlowPage() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [chartMode, setChartMode] = useState<"daily" | "cumulative">("daily");
   const [netBuyTab, setNetBuyTab] = useState<"foreign" | "institution">("foreign");
   const [cumPeriod, setCumPeriod] = useState<5 | 20 | 60>(20);
@@ -455,7 +455,7 @@ export default function FlowPage() {
               ))}
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={500}>
             <LineChart data={cumInvestorData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
               <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
@@ -479,7 +479,7 @@ export default function FlowPage() {
               <EstBadge label={t("flowEstimated")} />
               <span className="text-[9px] text-muted/50">{t("flowCreditEstNote")}</span>
             </div>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={280}>
               <LineChart data={data.creditBalanceSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
@@ -494,6 +494,25 @@ export default function FlowPage() {
                 <Line dataKey="balance" name={t("flowCreditBalance")} stroke="#f59e0b" dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
+            {/* Signal interpretation */}
+            <div className="mt-3 space-y-2 border-t border-card-border pt-3">
+              <div className="rounded border border-yellow-500/20 bg-yellow-500/5 px-3 py-2">
+                <p className="text-[10px] font-medium text-yellow-400">{lang === "kr" ? "현재 신호" : "Current Signal"}</p>
+                <p className="mt-0.5 text-[10px] text-muted">
+                  {(() => {
+                    const series = data.creditBalanceSeries;
+                    if (series.length < 2) return "—";
+                    const latest = series[series.length - 1];
+                    const prev = series[series.length - 2];
+                    const trend = latest.balance > prev.balance;
+                    const nearDanger = latest.balance >= latest.dangerZone * 0.95;
+                    if (nearDanger) return lang === "kr" ? "신용잔고가 과열 구간에 근접. 조정 가능성 높음." : "Credit balance near danger zone. Correction risk elevated.";
+                    if (trend) return lang === "kr" ? "신용잔고 증가 중. 매수 레버리지 확대 구간." : "Credit balance rising. Leveraged buying expanding.";
+                    return lang === "kr" ? "신용잔고 감소 중. 디레버리징 진행." : "Credit balance declining. Deleveraging in progress.";
+                  })()}
+                </p>
+              </div>
+            </div>
           </section>
 
           {/* RIGHT: 대차잔고 */}
@@ -503,7 +522,7 @@ export default function FlowPage() {
               <EstBadge label={t("flowEstimated")} />
               <span className="text-[9px] text-muted/50">{t("flowShortEstNote")}</span>
             </div>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={280}>
               <LineChart data={data.shortLendingSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
@@ -534,6 +553,24 @@ export default function FlowPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            {/* Signal interpretation */}
+            <div className="mt-3 space-y-2 border-t border-card-border pt-3">
+              <div className="rounded border border-purple-500/20 bg-purple-500/5 px-3 py-2">
+                <p className="text-[10px] font-medium text-purple-400">{lang === "kr" ? "공매도 현황" : "Short Selling Status"}</p>
+                <p className="mt-0.5 text-[10px] text-muted">
+                  {(() => {
+                    const series = data.shortLendingSeries;
+                    if (series.length < 5) return "—";
+                    const recent5 = series.slice(-5);
+                    const avg = recent5.reduce((s, d) => s + d.balance, 0) / 5;
+                    const latest = series[series.length - 1].balance;
+                    if (latest > avg * 1.05) return lang === "kr" ? "대차잔고 증가 추세. 공매도 압력 확대 중." : "Short lending rising. Short-selling pressure increasing.";
+                    if (latest < avg * 0.95) return lang === "kr" ? "대차잔고 감소 추세. 공매도 청산 진행." : "Short lending declining. Short covering in progress.";
+                    return lang === "kr" ? "대차잔고 횡보 구간. 중립적 신호." : "Short lending flat. Neutral signal.";
+                  })()}
+                </p>
+              </div>
             </div>
           </section>
         </div>

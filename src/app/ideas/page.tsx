@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
-import { FOMO_IDEAS, VALUE_IDEAS, HIGH52_KR, HIGH52_US, type IdeaItem } from "@/lib/ideas.mock";
 import RRGChart from "@/components/RRGChart";
 
 const CARD =
@@ -11,6 +10,22 @@ const CARD =
 const TH =
   "pb-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted";
 const TD = "py-1.5";
+
+interface IdeaItem {
+  ticker: string;
+  name: string;
+  price: number;
+  chgPct: number;
+  tag: string;
+  metrics: {
+    chg1d: number;
+    chg5d: number;
+    chg20d: number;
+    near52wHigh: boolean;
+    volumeSpike: boolean;
+    tradingValue: number;
+  };
+}
 
 interface AiResult {
   bullets: string[];
@@ -36,7 +51,7 @@ function ChgPct({ v }: { v: number }) {
 }
 
 export default function IdeasPage() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [tab, setTab] = useState<"fomo" | "value" | "high52" | "rotation">("fomo");
   const [high52Market, setHigh52Market] = useState<"KR" | "US">("KR");
   const [filter5d, setFilter5d] = useState(false);
@@ -45,14 +60,42 @@ export default function IdeasPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Real data from API
+  const [fomoIdeas, setFomoIdeas] = useState<IdeaItem[]>([]);
+  const [valueIdeas, setValueIdeas] = useState<IdeaItem[]>([]);
+  const [high52Kr, setHigh52Kr] = useState<IdeaItem[]>([]);
+  const [high52Us, setHigh52Us] = useState<IdeaItem[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  const fetchScreener = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ideas/screener");
+      const json = await res.json();
+      if (json.ok) {
+        setFomoIdeas(json.fomo || []);
+        setValueIdeas(json.value || []);
+        setHigh52Kr(json.high52kr || []);
+        setHigh52Us(json.high52us || []);
+      }
+    } catch {
+      // silent
+    } finally {
+      setDataLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchScreener();
+  }, [fetchScreener]);
+
   const rawIdeas =
     tab === "fomo"
-      ? FOMO_IDEAS
+      ? fomoIdeas
       : tab === "value"
-        ? VALUE_IDEAS
+        ? valueIdeas
         : high52Market === "KR"
-          ? HIGH52_KR
-          : HIGH52_US;
+          ? high52Kr
+          : high52Us;
 
   const ideas =
     tab === "high52" && filter5d
@@ -81,7 +124,6 @@ export default function IdeasPage() {
           price: selected.price,
           chgPct: selected.chgPct,
           metrics: selected.metrics,
-          headlines: selected.headlines,
           mode: tab === "high52" ? "high52" : tab,
         }),
       });
@@ -123,7 +165,7 @@ export default function IdeasPage() {
                     : "bg-card-bg text-muted hover:text-foreground"
                 }`}
               >
-                {tv === "fomo" ? "FOMO" : tv === "value" ? "VALUE" : tv === "high52" ? "52W HIGH" : "섹터 로테이션"}
+                {tv === "fomo" ? "FOMO" : tv === "value" ? "VALUE" : tv === "high52" ? "52W HIGH" : lang === "kr" ? "섹터 로테이션" : "Sector Rotation"}
               </button>
             ))}
           </div>
@@ -176,50 +218,62 @@ export default function IdeasPage() {
                 {tab === "fomo" ? "FOMO Ideas" : tab === "value" ? "Value-lite Ideas" : `52W High — ${high52Market}`}
               </h2>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-card-border">
-                    <th className={TH}>Ticker</th>
-                    <th className={TH}>Name</th>
-                    <th className={`${TH} text-right`}>Price</th>
-                    <th className={`${TH} text-right`}>Chg%</th>
-                    <th className={TH}>Tag</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ideas.map((item) => (
-                    <tr
-                      key={item.ticker}
-                      onClick={() => handleSelect(item)}
-                      className={`cursor-pointer border-b border-card-border/40 transition-colors ${
-                        selected?.ticker === item.ticker
-                          ? "bg-accent/10"
-                          : "hover:bg-card-border/20"
-                      }`}
-                    >
-                      <td className={`${TD} text-accent`}>{item.ticker}</td>
-                      <td className={TD}>{item.name}</td>
-                      <td className={`${TD} text-right tabular-nums`}>
-                        {item.price.toLocaleString()}
-                      </td>
-                      <td className={`${TD} text-right tabular-nums`}>
-                        <ChgPct v={item.chgPct} />
-                      </td>
-                      <td className={TD}>
-                        <span
-                          className={`inline-block rounded px-1.5 py-px text-[9px] font-medium ${
-                            TAG_COLORS[item.tag] || "bg-muted/20 text-muted"
-                          }`}
-                        >
-                          {item.tag}
-                        </span>
-                      </td>
+
+            {dataLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                <span className="ml-2 text-xs text-muted">Loading...</span>
+              </div>
+            ) : ideas.length === 0 ? (
+              <p className="py-8 text-center text-[10px] text-muted">
+                {lang === "kr" ? "데이터를 불러오는 중입니다..." : "No stocks match the current filter"}
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-card-border">
+                      <th className={TH}>Ticker</th>
+                      <th className={TH}>Name</th>
+                      <th className={`${TH} text-right`}>Price</th>
+                      <th className={`${TH} text-right`}>Chg%</th>
+                      <th className={TH}>Tag</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {ideas.map((item) => (
+                      <tr
+                        key={item.ticker}
+                        onClick={() => handleSelect(item)}
+                        className={`cursor-pointer border-b border-card-border/40 transition-colors ${
+                          selected?.ticker === item.ticker
+                            ? "bg-accent/10"
+                            : "hover:bg-card-border/20"
+                        }`}
+                      >
+                        <td className={`${TD} text-accent`}>{item.ticker}</td>
+                        <td className={TD}>{item.name}</td>
+                        <td className={`${TD} text-right tabular-nums`}>
+                          {item.price.toLocaleString()}
+                        </td>
+                        <td className={`${TD} text-right tabular-nums`}>
+                          <ChgPct v={item.chgPct} />
+                        </td>
+                        <td className={TD}>
+                          <span
+                            className={`inline-block rounded px-1.5 py-px text-[9px] font-medium ${
+                              TAG_COLORS[item.tag] || "bg-muted/20 text-muted"
+                            }`}
+                          >
+                            {item.tag}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
 
           {/* Right: Detail panel */}
@@ -249,7 +303,7 @@ export default function IdeasPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium tabular-nums">
-                      ₩{selected.price.toLocaleString()}
+                      {selected.price.toLocaleString()}
                     </p>
                     <p className="text-[10px] tabular-nums">
                       <ChgPct v={selected.chgPct} />
@@ -300,25 +354,6 @@ export default function IdeasPage() {
                     </span>
                   )}
                 </div>
-
-                {/* Headlines */}
-                {selected.headlines && selected.headlines.length > 0 && (
-                  <div>
-                    <p className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-muted">
-                      Headlines
-                    </p>
-                    <ul className="space-y-0.5">
-                      {selected.headlines.map((h, i) => (
-                        <li
-                          key={i}
-                          className="text-[10px] leading-relaxed text-muted"
-                        >
-                          &bull; {h}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
 
                 {/* Explain button */}
                 <button

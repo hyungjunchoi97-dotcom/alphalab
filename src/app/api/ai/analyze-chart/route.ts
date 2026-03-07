@@ -7,41 +7,29 @@ const SYSTEM_PROMPT = `You are an expert technical analyst. Analyze the provided
 
 ## Analysis Requirements
 
-**Entry**: Provide an exact price level. Explain WHY this level (e.g. "breakout above resistance", "retest of support", "pullback to EMA").
+**Entry**: Exact price level with brief reasoning (e.g. "52,400 — breakout above descending wedge resistance").
 
-**Stop Loss**: Exact price level. Include the % distance from entry (e.g. "$142.50 (-3.2% from entry)").
+**Stop Loss**: Exact price level with % distance from entry (e.g. "49,800 (-5.0% from entry)").
 
-**Targets**: Three take-profit levels with risk/reward ratio for each:
-- TP1: Conservative target (e.g. "1:1.5 R:R")
-- TP2: Moderate target (e.g. "1:2.5 R:R")
-- TP3: Extended target (e.g. "1:4 R:R")
+**Target**: Single take-profit level with risk/reward ratio (e.g. "58,000 (1:2.3 R:R)").
 
-**Thesis**: 2-3 sentences MAX. Reference specific patterns (e.g. "bull flag", "inverse H&S", "ascending triangle") and indicators visible on the chart (e.g. "RSI divergence", "MACD crossover", "volume spike").
+**Thesis**: 2-4 sentences of clean, professional technical analysis. Reference specific patterns and indicators visible on the chart. Be concise and actionable.
 
-**Invalidation**: The exact price level that proves the setup wrong and why (e.g. "Below $140 — breaks the ascending trendline from March lows").
+**Confidence**: Score from 0-100 based on pattern clarity, volume confirmation, and trend alignment.
 
-**Key Levels**: Identify the nearest support and resistance levels visible on the chart.
+**Key Levels**: Nearest support and resistance levels visible on the chart.
 
-**Risk/Reward**: Overall risk/reward ratio for the primary target (TP2).
-
-**Confidence**: Score from 0-100 based on:
-- Pattern clarity (is the pattern well-formed?)
-- Volume confirmation (does volume support the move?)
-- Trend alignment (is the setup aligned with the higher timeframe trend?)
-
-**Scenarios**: Bullish and bearish outcomes with specific price targets and catalysts.
+**Risk/Reward**: Overall risk/reward ratio for the target.
 
 ## JSON Schema (match exactly)
 {
   "entry": "string — exact price with reasoning",
   "stopLoss": "string — exact price with % distance",
-  "targets": { "tp1": "string — price + R:R", "tp2": "string — price + R:R", "tp3": "string — price + R:R" },
-  "thesis": "string — 2-3 sentences, specific patterns/indicators",
-  "invalidation": "string — exact price + why it invalidates",
+  "target": "string — price + R:R ratio",
+  "thesis": "string — 2-4 sentences, specific patterns/indicators",
   "confidence": number (0-100),
   "keyLevels": { "support": "string", "resistance": "string" },
-  "riskReward": "string — e.g. 1:2.5",
-  "scenarios": { "bullish": "string", "bearish": "string" }
+  "riskReward": "string — e.g. 1:2.3"
 }
 
 If any field is unclear from the chart, provide your best-effort estimate and note uncertainty in the thesis.`;
@@ -99,10 +87,10 @@ export async function POST(req: NextRequest) {
     const client = new Anthropic({ apiKey });
     const message = await client.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1200,
+      max_tokens: 1000,
       temperature: 0.2,
       system: lang === "kr"
-        ? SYSTEM_PROMPT + "\n\nIMPORTANT: Respond entirely in Korean. All string values in the JSON (entry, stopLoss, targets, thesis, invalidation, scenarios, keyLevels, riskReward) must be written in Korean."
+        ? SYSTEM_PROMPT + "\n\nIMPORTANT: Respond entirely in Korean. All string values in the JSON must be written in Korean."
         : SYSTEM_PROMPT,
       messages: [
         {
