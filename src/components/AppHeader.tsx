@@ -20,10 +20,8 @@ const NAV_ITEMS: { href: string; key: MessageKey }[] = [
 
 export default function AppHeader({
   active,
-  children,
 }: {
   active: string;
-  children?: React.ReactNode;
 }) {
   const { t } = useLang();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -64,9 +62,6 @@ export default function AppHeader({
 
           {/* Right: badges + lang + auth + hamburger */}
           <div className="flex items-center gap-2 shrink-0">
-            {children && (
-              <div className="desktop-nav items-center gap-2">{children}</div>
-            )}
             <LangToggle />
             <HeaderAuth />
 
