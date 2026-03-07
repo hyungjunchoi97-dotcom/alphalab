@@ -5,7 +5,6 @@ import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 import {
   ComposedChart,
-  Line,
   Area,
   XAxis,
   YAxis,
@@ -223,23 +222,6 @@ function filterByRange(obs: Observation[], range: Range): Observation[] {
   const cutoff = new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
   const cutoffStr = cutoff.toISOString().slice(0, 10);
   return obs.filter((o) => o.date >= cutoffStr);
-}
-
-function calcCorrelation(a: number[], b: number[]): number {
-  const n = Math.min(a.length, b.length);
-  if (n < 3) return 0;
-  const meanA = a.slice(0, n).reduce((s, v) => s + v, 0) / n;
-  const meanB = b.slice(0, n).reduce((s, v) => s + v, 0) / n;
-  let num = 0, denA = 0, denB = 0;
-  for (let i = 0; i < n; i++) {
-    const da = a[i] - meanA;
-    const db = b[i] - meanB;
-    num += da * db;
-    denA += da * da;
-    denB += db * db;
-  }
-  const den = Math.sqrt(denA * denB);
-  return den === 0 ? 0 : num / den;
 }
 
 // ── Count-up hook ─────────────────────────────────────────────
@@ -1211,7 +1193,6 @@ export default function MacroPage() {
   const { lang } = useLang();
   const [series, setSeries] = useState<Record<string, SeriesData>>({});
   const [netLiquidity, setNetLiquidity] = useState<Observation[]>([]);
-  const [sp500Raw, setSp500Raw] = useState<Observation[]>([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<Range>("1Y");
   const [modalId, setModalId] = useState<string | null>(null);
@@ -1233,7 +1214,6 @@ export default function MacroPage() {
       if (json.ok) {
         setSeries(json.series || {});
         setNetLiquidity(json.netLiquidity || []);
-        setSp500Raw(json.sp500 || []);
       }
     } catch {
       // silent
@@ -1291,33 +1271,6 @@ export default function MacroPage() {
   }, [fetchData, fetchBok, fetchFearGreed, fetchFx, fetchCommodities]);
 
   const chartData = useMemo(() => filterByRange(netLiquidity, range), [netLiquidity, range]);
-  const sp500Filtered = useMemo(() => filterByRange(sp500Raw, range), [sp500Raw, range]);
-
-  // Merge net liquidity + S&P500 by nearest date (WALCL=Wed, SP500=Mon)
-  const mergedChartData = useMemo(() => {
-    if (chartData.length === 0) return [];
-    const sorted = [...sp500Filtered].sort((a, b) => a.date.localeCompare(b.date));
-    let spIdx = 0;
-    let lastSp: number | undefined;
-
-    return chartData.map((d) => {
-      // Advance pointer to last S&P500 value on or before this date
-      while (spIdx < sorted.length && sorted[spIdx].date <= d.date) {
-        lastSp = sorted[spIdx].value;
-        spIdx++;
-      }
-      return { date: d.date, liquidity: d.value, sp500: lastSp };
-    });
-  }, [chartData, sp500Filtered]);
-
-  const correlation = useMemo(() => {
-    const withBoth = mergedChartData.filter((d) => d.sp500 != null);
-    if (withBoth.length < 3) return 0;
-    return calcCorrelation(
-      withBoth.map((d) => d.liquidity),
-      withBoth.map((d) => d.sp500!)
-    );
-  }, [mergedChartData]);
 
   const ranges: Range[] = ["6M", "1Y", "2Y", "5Y"];
 
@@ -1458,17 +1411,12 @@ export default function MacroPage() {
           )}
         </div>
 
-        {/* ── Net Liquidity vs S&P500 Chart ──────────────────── */}
+        {/* ── Net Liquidity Chart ──────────────────────────── */}
         <div className="mb-4 rounded-xl p-4" style={{ background: "#111111", border: "1px solid #222222" }}>
           <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold" style={{ color: "#e8e8e8" }}>
-                {lang === "kr" ? "순유동성 vs S&P 500" : "Net Liquidity vs S&P 500"}
-              </h2>
-              <span className="rounded px-1.5 py-0.5 text-[10px] font-medium" style={{ background: "rgba(96,165,250,0.1)", color: "#60a5fa", border: "1px solid rgba(96,165,250,0.2)" }}>
-                r = {correlation.toFixed(2)}
-              </span>
-            </div>
+            <h2 className="text-sm font-semibold" style={{ color: "#e8e8e8" }}>
+              {lang === "kr" ? "연준 순유동성 추이" : "Fed Net Liquidity Trend"}
+            </h2>
             <div className="flex gap-1">
               {ranges.map((r) => (
                 <button
@@ -1493,62 +1441,40 @@ export default function MacroPage() {
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={400}>
-              <ComposedChart data={mergedChartData}>
+              <ComposedChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
                 <XAxis dataKey="date" stroke="#444" tick={{ fill: "#666", fontSize: 11 }} tickFormatter={(v: string) => v.slice(0, 7)} minTickGap={60} />
                 <YAxis
-                  yAxisId="left"
-                  orientation="left"
                   stroke="#22c55e"
                   tick={{ fill: "#22c55e", fontSize: 11 }}
                   tickFormatter={(v: number) => `${v.toFixed(1)}T`}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  stroke="#3b82f6"
-                  tick={{ fill: "#3b82f6", fontSize: 11 }}
-                  tickFormatter={(v: number) => v.toLocaleString()}
                 />
                 <RechartsTooltip
                   contentStyle={{ background: "#111", border: "1px solid #333", borderRadius: 6, fontSize: 11 }}
                   labelStyle={{ color: "#888", fontSize: 10 }}
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(value: any, name: any) => {
+                  formatter={(value: any) => {
                     const v = Number(value);
-                    if (isNaN(v)) return ["-", String(name)];
-                    if (String(name) === (lang === "kr" ? "순유동성" : "Net Liquidity")) return [`${v.toFixed(2)}T`, lang === "kr" ? "순유동성" : "Net Liquidity"];
-                    return [v.toLocaleString(), "S&P 500"];
+                    if (isNaN(v)) return "-";
+                    return [`${v.toFixed(2)}T`, lang === "kr" ? "순유동성" : "Net Liquidity"];
                   }}
                 />
-                <Legend />
                 <Area
-                  yAxisId="left"
                   type="monotone"
-                  dataKey="liquidity"
+                  dataKey="value"
                   name={lang === "kr" ? "순유동성" : "Net Liquidity"}
                   fill="#22c55e22"
                   stroke="#22c55e"
                   strokeWidth={2}
                   dot={false}
                 />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="sp500"
-                  name="S&P 500"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={false}
-                  connectNulls
-                />
               </ComposedChart>
             </ResponsiveContainer>
           )}
           <div className="mt-2 text-[10px]" style={{ color: "#555" }}>
             {lang === "kr"
-              ? "순유동성 = 연준 총자산 - TGA 잔고 - 역레포 | S&P 500: Yahoo Finance | 출처: FRED"
-              : "Net Liquidity = Fed Assets - TGA - Reverse Repo | S&P 500: Yahoo Finance | Source: FRED"}
+              ? "순유동성 = 연준 총자산 - TGA 잔고 - 역레포 | 출처: FRED"
+              : "Net Liquidity = Fed Assets - TGA - Reverse Repo | Source: FRED"}
           </div>
         </div>
 
