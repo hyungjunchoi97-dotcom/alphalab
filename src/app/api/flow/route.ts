@@ -97,7 +97,8 @@ async function fetchStockData(def: StockDef): Promise<StockData | null> {
     }
 
     const currentPrice = meta.regularMarketPrice || (bars.length > 0 ? bars[bars.length - 1].close : 0);
-    const prevClose = meta.previousClose || meta.chartPreviousClose || currentPrice;
+    // Use second-to-last bar for daily change (meta.previousClose is 3mo ago with range=3mo)
+    const prevClose = bars.length >= 2 ? bars[bars.length - 2].close : (meta.chartPreviousClose || currentPrice);
     const chgPct = prevClose > 0 ? Math.round(((currentPrice - prevClose) / prevClose) * 10000) / 100 : 0;
 
     return { def, bars, currentPrice, prevClose, chgPct };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -16,6 +16,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { useLang } from "@/lib/LangContext";
+import type { MessageKey } from "@/lib/i18n";
 import AppHeader from "@/components/AppHeader";
 
 const CARD = "rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_1px_2px_rgba(0,0,0,0.3)]";
@@ -71,36 +72,20 @@ function fmtPrice(v: number) {
   return String(v);
 }
 
-function SectionDot({ title, hint }: { title: string; hint?: string }) {
-  return (
-    <div className="mb-3 flex items-center gap-2">
-      <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-        {title}
-      </h2>
-      {hint && (
-        <span className="group relative cursor-help">
-          <span className="text-[10px] text-muted/60 hover:text-muted">&#9432;</span>
-          <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-[#1a2332] px-2 py-1 text-[10px] text-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-            {hint}
-          </span>
-        </span>
-      )}
-    </div>
-  );
-}
-
 function ChgPct({ v }: { v: number }) {
   return (
     <span className={v >= 0 ? "text-gain" : "text-loss"}>
-      {v >= 0 ? "+" : ""}
-      {v.toFixed(2)}%
+      {v >= 0 ? "+" : ""}{v.toFixed(2)}%
     </span>
   );
 }
 
-function EstBadge() {
-  return <span className="ml-1.5 rounded bg-yellow-500/10 px-1 py-px text-[9px] text-yellow-500/80">추정치</span>;
+function EstBadge({ label }: { label: string }) {
+  return <span className="ml-1.5 rounded bg-yellow-500/10 px-1 py-px text-[9px] text-yellow-500/80">{label}</span>;
+}
+
+function DateBadge({ label }: { label: string }) {
+  return <span className="text-[9px] text-muted/60">{label}</span>;
 }
 
 const TOOLTIP_STYLE = {
@@ -119,6 +104,62 @@ const TAB_BTN = (active: boolean) =>
     active ? "bg-accent text-white" : "bg-card-bg text-muted hover:text-foreground"
   }`;
 
+// ── Section header ───────────────────────────────────────────
+
+function SectionDot({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">{title}</h2>
+      {hint && (
+        <span className="group relative cursor-help">
+          <span className="text-[10px] text-muted/60 hover:text-muted">&#9432;</span>
+          <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-[#1a2332] px-2 py-1 text-[10px] text-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+            {hint}
+          </span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Click detail popup ───────────────────────────────────────
+
+function BarDetailPopup({ data, onClose, t }: { data: NetFlowDay; onClose: () => void; t: (k: MessageKey) => string }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="rounded-xl border border-card-border bg-card-bg p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">{t("flowDate")}: {data.date}</h3>
+          <button onClick={onClose} className="text-muted hover:text-foreground text-lg leading-none">&times;</button>
+        </div>
+        <table className="text-xs">
+          <tbody>
+            <tr>
+              <td className="pr-4 py-1 text-muted">{t("flowForeign")}</td>
+              <td className={`py-1 tabular-nums font-medium ${data.foreign >= 0 ? "text-gain" : "text-loss"}`}>
+                {data.foreign >= 0 ? "+" : ""}{fmtShortKRW(data.foreign)}
+              </td>
+            </tr>
+            <tr>
+              <td className="pr-4 py-1 text-muted">{t("flowInstitution")}</td>
+              <td className={`py-1 tabular-nums font-medium ${data.institution >= 0 ? "text-gain" : "text-loss"}`}>
+                {data.institution >= 0 ? "+" : ""}{fmtShortKRW(data.institution)}
+              </td>
+            </tr>
+            <tr>
+              <td className="pr-4 py-1 text-muted">{t("flowIndividual")}</td>
+              <td className={`py-1 tabular-nums font-medium ${data.individual >= 0 ? "text-gain" : "text-loss"}`}>
+                {data.individual >= 0 ? "+" : ""}{fmtShortKRW(data.individual)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────
 
 export default function FlowPage() {
@@ -126,8 +167,12 @@ export default function FlowPage() {
   const [chartMode, setChartMode] = useState<"daily" | "cumulative">("daily");
   const [netBuyTab, setNetBuyTab] = useState<"foreign" | "institution">("foreign");
   const [cumPeriod, setCumPeriod] = useState<5 | 20 | 60>(20);
+  const [dateRange, setDateRange] = useState<number>(30);
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [data, setData] = useState<FlowData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [clickedBar, setClickedBar] = useState<NetFlowDay | null>(null);
 
   useEffect(() => {
     fetch("/api/flow")
@@ -137,24 +182,33 @@ export default function FlowPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const cumulativeData = useMemo(() => {
+  // Apply date range filter to net flow series
+  const filteredNetFlow = useMemo(() => {
     if (!data) return [];
+    const series = data.netFlowSeries;
+    // Custom date range
+    if (customFrom && customTo) {
+      return series.filter(d => d.date >= customFrom && d.date <= customTo);
+    }
+    // Preset day count
+    return series.slice(-dateRange);
+  }, [data, dateRange, customFrom, customTo]);
+
+  const cumulativeData = useMemo(() => {
     let ci = 0, cf = 0, cinst = 0;
-    return data.netFlowSeries.map((d) => {
+    return filteredNetFlow.map((d) => {
       ci += d.individual;
       cf += d.foreign;
       cinst += d.institution;
       return { date: d.date, individual: ci, foreign: cf, institution: cinst };
     });
-  }, [data]);
+  }, [filteredNetFlow]);
 
-  // Cumulative investor flow sliced by period
   const cumInvestorData = useMemo(() => {
     if (!data?.cumulativeInvestorFlow) return [];
     const all = data.cumulativeInvestorFlow;
     const sliced = all.slice(-cumPeriod);
     if (sliced.length === 0) return [];
-    // Re-zero to start of period
     const base = { foreign: sliced[0].foreign, institution: sliced[0].institution, individual: sliced[0].individual };
     return sliced.map(d => ({
       date: d.date,
@@ -164,8 +218,27 @@ export default function FlowPage() {
     }));
   }, [data, cumPeriod]);
 
-  const chartData = chartMode === "daily" ? (data?.netFlowSeries || []) : cumulativeData;
+  const chartData = chartMode === "daily" ? filteredNetFlow : cumulativeData;
   const filteredNetBuy = (data?.topNetBuy || []).filter((r) => r.side === netBuyTab);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleBarClick = useCallback((payload: any) => {
+    if (payload?.activePayload?.[0]?.payload) {
+      setClickedBar(payload.activePayload[0].payload as NetFlowDay);
+    }
+  }, []);
+
+  const applyCustomRange = useCallback(() => {
+    if (customFrom && customTo) {
+      setDateRange(0); // signal custom mode
+    }
+  }, [customFrom, customTo]);
+
+  const selectPresetRange = useCallback((days: number) => {
+    setDateRange(days);
+    setCustomFrom("");
+    setCustomTo("");
+  }, []);
 
   if (loading) {
     return (
@@ -174,7 +247,7 @@ export default function FlowPage() {
         <main className="mx-auto max-w-[1400px] px-4 py-4">
           <div className="flex items-center justify-center py-20">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-            <span className="ml-3 text-sm text-muted">Loading flow data...</span>
+            <span className="ml-3 text-sm text-muted">{t("flowLoading")}</span>
           </div>
         </main>
       </div>
@@ -186,7 +259,7 @@ export default function FlowPage() {
       <div className="min-h-screen bg-background">
         <AppHeader active="flow" />
         <main className="mx-auto max-w-[1400px] px-4 py-4">
-          <div className="py-20 text-center text-muted">Failed to load flow data</div>
+          <div className="py-20 text-center text-muted">{t("flowFailed")}</div>
         </main>
       </div>
     );
@@ -196,47 +269,87 @@ export default function FlowPage() {
     <div className="min-h-screen bg-background">
       <AppHeader active="flow" />
 
+      {/* Click detail popup */}
+      {clickedBar && <BarDetailPopup data={clickedBar} onClose={() => setClickedBar(null)} t={t} />}
+
       <main className="mx-auto max-w-[1400px] px-4 py-4 space-y-3">
         {/* Source badge */}
         <div className="flex items-center gap-2 text-[10px] text-muted">
           <span className="rounded bg-card-border px-1.5 py-0.5">
             {data.source === "live" ? "LIVE" : data.source === "cache" ? "CACHED" : "STALE"}
           </span>
-          <span>기준일: {data.asOf}</span>
-          <span className="opacity-50">Yahoo Finance 기반 추정치</span>
+          <span>{t("flowBasisDate")}: {data.asOf}</span>
+          <span className="opacity-50">{t("flowYahooNote")}</span>
         </div>
 
         {/* Row 1: Chart + right stack */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
           {/* Investor Net Flow Chart — spans 3 cols */}
           <section className={`${CARD} lg:col-span-3`}>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
                 <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                  Investor Net Flow (30D)
+                  {t("flowInvestorNetFlow")}
                 </h2>
               </div>
               <div className="flex gap-px rounded bg-card-border p-px">
-                {(["daily", "cumulative"] as const).map((m) => (
-                  <button key={m} onClick={() => setChartMode(m)} className={TAB_BTN(chartMode === m)}>
-                    {m === "daily" ? "Daily" : "Cumulative"}
+                <button onClick={() => setChartMode("daily")} className={TAB_BTN(chartMode === "daily")}>{t("flowDaily")}</button>
+                <button onClick={() => setChartMode("cumulative")} className={TAB_BTN(chartMode === "cumulative")}>{t("flowCumulative")}</button>
+              </div>
+            </div>
+
+            {/* Date range selector */}
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <div className="flex gap-px rounded bg-card-border p-px">
+                {[5, 10, 30, 60, 90].map(d => (
+                  <button
+                    key={d}
+                    onClick={() => selectPresetRange(d)}
+                    className={TAB_BTN(dateRange === d && !customFrom)}
+                  >
+                    {d}{t("flowDays")}
                   </button>
                 ))}
+              </div>
+              <div className="flex items-center gap-1 text-[10px]">
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={e => setCustomFrom(e.target.value)}
+                  className="rounded border border-card-border bg-card-bg px-1.5 py-0.5 text-[10px] text-foreground"
+                />
+                <span className="text-muted">~</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={e => setCustomTo(e.target.value)}
+                  className="rounded border border-card-border bg-card-bg px-1.5 py-0.5 text-[10px] text-foreground"
+                />
+                <button
+                  onClick={applyCustomRange}
+                  className="rounded bg-accent px-2 py-0.5 text-[10px] text-white hover:bg-accent/80"
+                >
+                  OK
+                </button>
               </div>
             </div>
 
             <ResponsiveContainer width="100%" height={280}>
               {chartMode === "daily" ? (
-                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                <BarChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }} onClick={handleBarClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
                   <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => fmtShortKRW(v)} />
-                  <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
+                  <Tooltip
+                    {...TOOLTIP_STYLE}
+                    formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]}
+                    labelFormatter={(l) => String(l)}
+                  />
                   <Legend wrapperStyle={{ fontSize: 10, color: "#9ca3af" }} iconSize={8} />
-                  <Bar dataKey="individual" name="Individual" fill="#60a5fa" stackId="a" />
-                  <Bar dataKey="foreign" name="Foreign" fill="#22c55e" stackId="a" />
-                  <Bar dataKey="institution" name="Institution" fill="#f59e0b" stackId="a" />
+                  <Bar dataKey="individual" name={t("flowIndividual")} fill="#60a5fa" stackId="a" cursor="pointer" />
+                  <Bar dataKey="foreign" name={t("flowForeign")} fill="#22c55e" stackId="a" cursor="pointer" />
+                  <Bar dataKey="institution" name={t("flowInstitution")} fill="#f59e0b" stackId="a" cursor="pointer" />
                 </BarChart>
               ) : (
                 <LineChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
@@ -245,40 +358,39 @@ export default function FlowPage() {
                   <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => fmtShortKRW(v)} />
                   <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
                   <Legend wrapperStyle={{ fontSize: 10, color: "#9ca3af" }} iconSize={8} />
-                  <Line dataKey="individual" name="Individual" stroke="#60a5fa" dot={false} strokeWidth={1.5} />
-                  <Line dataKey="foreign" name="Foreign" stroke="#22c55e" dot={false} strokeWidth={1.5} />
-                  <Line dataKey="institution" name="Institution" stroke="#f59e0b" dot={false} strokeWidth={1.5} />
+                  <Line dataKey="individual" name={t("flowIndividual")} stroke="#60a5fa" dot={false} strokeWidth={1.5} />
+                  <Line dataKey="foreign" name={t("flowForeign")} stroke="#22c55e" dot={false} strokeWidth={1.5} />
+                  <Line dataKey="institution" name={t("flowInstitution")} stroke="#f59e0b" dot={false} strokeWidth={1.5} />
                 </LineChart>
               )}
             </ResponsiveContainer>
+            <p className="mt-1 text-[9px] text-muted/40 text-right">* {chartMode === "daily" ? t("flowDaily") : t("flowCumulative")} | {filteredNetFlow.length}{t("flowDays")}</p>
           </section>
 
           {/* Right stack: Top Net Buy + Top Trading Value */}
           <div className="space-y-3 lg:col-span-2">
             {/* Top Net Buy */}
             <section className={CARD}>
-              <div className="mb-3 flex items-center justify-between">
+              <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                  <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Top Net Buy</h2>
+                  <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">{t("flowTopNetBuy")}</h2>
                 </div>
                 <div className="flex gap-px rounded bg-card-border p-px">
-                  {(["foreign", "institution"] as const).map((s) => (
-                    <button key={s} onClick={() => setNetBuyTab(s)} className={TAB_BTN(netBuyTab === s)}>
-                      {s === "foreign" ? "Foreign" : "Institution"}
-                    </button>
-                  ))}
+                  <button onClick={() => setNetBuyTab("foreign")} className={TAB_BTN(netBuyTab === "foreign")}>{t("flowForeign")}</button>
+                  <button onClick={() => setNetBuyTab("institution")} className={TAB_BTN(netBuyTab === "institution")}>{t("flowInstitution")}</button>
                 </div>
               </div>
-              <div className="overflow-x-auto">
+              <DateBadge label={`${t("flowBasisDate")}: ${data.asOf} (${t("flowToday")})`} />
+              <div className="overflow-x-auto mt-1">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-card-border">
-                      <th className={TH}>Ticker</th>
-                      <th className={TH}>Name</th>
-                      <th className={`${TH} text-right`}>Net Buy</th>
-                      <th className={`${TH} text-right`}>Price</th>
-                      <th className={`${TH} text-right`}>Chg%</th>
+                      <th className={TH}>{t("flowTicker")}</th>
+                      <th className={TH}>{t("flowName")}</th>
+                      <th className={`${TH} text-right`}>{t("flowNetBuy")}</th>
+                      <th className={`${TH} text-right`}>{t("flowPrice")}</th>
+                      <th className={`${TH} text-right`}>{t("flowChg")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -298,16 +410,17 @@ export default function FlowPage() {
 
             {/* Top Trading Value */}
             <section className={CARD}>
-              <SectionDot title="Top Trading Value" />
-              <div className="overflow-x-auto">
+              <SectionDot title={t("flowTopTradingValue")} />
+              <DateBadge label={`${t("flowBasisDate")}: ${data.asOf}`} />
+              <div className="overflow-x-auto mt-1">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-card-border">
-                      <th className={TH}>Ticker</th>
-                      <th className={TH}>Name</th>
-                      <th className={`${TH} text-right`}>Value</th>
-                      <th className={`${TH} text-right`}>Price</th>
-                      <th className={`${TH} text-right`}>Chg%</th>
+                      <th className={TH}>{t("flowTicker")}</th>
+                      <th className={TH}>{t("flowName")}</th>
+                      <th className={`${TH} text-right`}>{t("flowValue")}</th>
+                      <th className={`${TH} text-right`}>{t("flowPrice")}</th>
+                      <th className={`${TH} text-right`}>{t("flowChg")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -327,17 +440,17 @@ export default function FlowPage() {
           </div>
         </div>
 
-        {/* ── NEW: Row 1.5 — 투자자별 누적 순매수 ──────────────── */}
+        {/* ── 투자자별 누적 순매수 ──────────────────────────────── */}
         <section className={CARD}>
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <SectionDot title="투자자별 누적 순매수" />
-              <EstBadge />
+              <SectionDot title={t("flowCumInvestor")} />
+              <EstBadge label={t("flowEstimated")} />
             </div>
             <div className="flex gap-px rounded bg-card-border p-px">
               {([5, 20, 60] as const).map((p) => (
                 <button key={p} onClick={() => setCumPeriod(p)} className={TAB_BTN(cumPeriod === p)}>
-                  {p}일
+                  {p}{t("flowDays")}
                 </button>
               ))}
             </div>
@@ -350,24 +463,21 @@ export default function FlowPage() {
               <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
               <Legend wrapperStyle={{ fontSize: 10, color: "#9ca3af" }} iconSize={8} />
               <ReferenceLine y={0} stroke="#374151" strokeDasharray="3 3" />
-              <Line dataKey="foreign" name="외국인" stroke="#22c55e" dot={false} strokeWidth={2} />
-              <Line dataKey="institution" name="기관" stroke="#60a5fa" dot={false} strokeWidth={2} />
-              <Line dataKey="individual" name="개인" stroke="#f59e0b" dot={false} strokeWidth={2} />
+              <Line dataKey="foreign" name={t("flowForeign")} stroke="#22c55e" dot={false} strokeWidth={2} />
+              <Line dataKey="institution" name={t("flowInstitution")} stroke="#60a5fa" dot={false} strokeWidth={2} />
+              <Line dataKey="individual" name={t("flowIndividual")} stroke="#f59e0b" dot={false} strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </section>
 
-        {/* ── NEW: Row 1.75 — 신용잔고 & 대차잔고 ──────────────── */}
+        {/* ── 신용잔고 & 대차잔고 ──────────────────────────────── */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {/* LEFT: 신용잔고 (Credit Balance) */}
+          {/* LEFT: 신용잔고 */}
           <section className={CARD}>
-            <SectionDot
-              title="신용잔고 추이"
-              hint="신용잔고 급증 = 매수 과열 신호, 조정 가능성"
-            />
+            <SectionDot title={t("flowCreditBalance")} hint={t("flowCreditHint")} />
             <div className="mb-1 flex items-center gap-1">
-              <EstBadge />
-              <span className="text-[9px] text-muted/50">가격·거래량 기반 추정</span>
+              <EstBadge label={t("flowEstimated")} />
+              <span className="text-[9px] text-muted/50">{t("flowCreditEstNote")}</span>
             </div>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={data.creditBalanceSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
@@ -375,21 +485,23 @@ export default function FlowPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
                 <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => `${(v / 10000).toFixed(1)}조`} domain={["auto", "auto"]} />
                 <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
-                <ReferenceLine y={data.creditBalanceSeries[0]?.dangerZone || 25000} stroke="#ef4444" strokeDasharray="4 4" label={{ value: "과열 구간", fill: "#ef4444", fontSize: 9, position: "right" }} />
-                <Line dataKey="balance" name="신용잔고" stroke="#f59e0b" dot={false} strokeWidth={2} />
+                <ReferenceLine
+                  y={data.creditBalanceSeries[0]?.dangerZone || 25000}
+                  stroke="#ef4444"
+                  strokeDasharray="4 4"
+                  label={{ value: t("flowOverheatZone"), fill: "#ef4444", fontSize: 9, position: "right" }}
+                />
+                <Line dataKey="balance" name={t("flowCreditBalance")} stroke="#f59e0b" dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </section>
 
-          {/* RIGHT: 대차잔고 (Short Lending Balance) */}
+          {/* RIGHT: 대차잔고 */}
           <section className={CARD}>
-            <SectionDot
-              title="대차잔고 추이"
-              hint="대차잔고 증가 = 공매도 증가 예고, 하락 압력"
-            />
+            <SectionDot title={t("flowShortLending")} hint={t("flowShortHint")} />
             <div className="mb-1 flex items-center gap-1">
-              <EstBadge />
-              <span className="text-[9px] text-muted/50">외국인 매도 패턴 기반 추정</span>
+              <EstBadge label={t("flowEstimated")} />
+              <span className="text-[9px] text-muted/50">{t("flowShortEstNote")}</span>
             </div>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={data.shortLendingSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
@@ -397,20 +509,18 @@ export default function FlowPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
                 <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => `${(v / 10000).toFixed(1)}조`} domain={["auto", "auto"]} />
                 <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
-                <Line dataKey="balance" name="대차잔고" stroke="#a78bfa" dot={false} strokeWidth={2} />
+                <Line dataKey="balance" name={t("flowShortLending")} stroke="#a78bfa" dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
-
-            {/* Top 5 종목별 대차잔고 mini table */}
             <div className="mt-3 border-t border-card-border pt-2">
-              <p className="mb-1.5 text-[10px] font-medium text-muted">종목별 대차잔고 TOP 5</p>
+              <p className="mb-1.5 text-[10px] font-medium text-muted">{t("flowShortTop5")}</p>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-card-border/50">
-                    <th className={TH}>종목</th>
-                    <th className={`${TH} text-right`}>추정 잔고</th>
-                    <th className={`${TH} text-right`}>매도일</th>
-                    <th className={`${TH} text-right`}>등락</th>
+                    <th className={TH}>{t("flowStock")}</th>
+                    <th className={`${TH} text-right`}>{t("flowEstBalance")}</th>
+                    <th className={`${TH} text-right`}>{t("flowSellDays")}</th>
+                    <th className={`${TH} text-right`}>{t("flowChg")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -418,7 +528,7 @@ export default function FlowPage() {
                     <tr key={s.ticker} className="border-b border-card-border/30">
                       <td className={`${TD} text-accent`}>{s.name}</td>
                       <td className={`${TD} text-right tabular-nums`}>{fmtShortKRW(s.shortBalance)}</td>
-                      <td className={`${TD} text-right tabular-nums text-muted`}>{s.sellDays}/10일</td>
+                      <td className={`${TD} text-right tabular-nums text-muted`}>{s.sellDays}/10{t("flowDays")}</td>
                       <td className={`${TD} text-right tabular-nums`}><ChgPct v={s.chgPct} /></td>
                     </tr>
                   ))}
@@ -428,14 +538,11 @@ export default function FlowPage() {
           </section>
         </div>
 
-        {/* ── NEW: Row 1.85 — 프로그램 매매 ──────────────────── */}
+        {/* ── 프로그램 매매 ────────────────────────────────────── */}
         <section className={CARD}>
           <div className="mb-1 flex items-center gap-2">
-            <SectionDot
-              title="프로그램 매매 (30D)"
-              hint="프로그램 매수 우위 = 기관 자금 유입 신호"
-            />
-            <EstBadge />
+            <SectionDot title={t("flowProgramTrading")} hint={t("flowProgramHint")} />
+            <EstBadge label={t("flowEstimated")} />
           </div>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={data.programTradingSeries} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
@@ -445,8 +552,8 @@ export default function FlowPage() {
               <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
               <Legend wrapperStyle={{ fontSize: 10, color: "#9ca3af" }} iconSize={8} />
               <ReferenceLine y={0} stroke="#374151" strokeDasharray="3 3" />
-              <Bar dataKey="arbitrage" name="차익거래" fill="#6366f1" stackId="prog" />
-              <Bar dataKey="nonArbitrage" name="비차익거래" fill="#06b6d4" stackId="prog" />
+              <Bar dataKey="arbitrage" name={t("flowArbitrage")} fill="#6366f1" stackId="prog" />
+              <Bar dataKey="nonArbitrage" name={t("flowNonArbitrage")} fill="#06b6d4" stackId="prog" />
             </BarChart>
           </ResponsiveContainer>
         </section>
@@ -455,16 +562,17 @@ export default function FlowPage() {
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {/* Foreign Avg Cost */}
           <section className={CARD}>
-            <SectionDot title="Foreign Avg Cost (est.)" />
-            <div className="overflow-x-auto">
+            <SectionDot title={t("flowAvgCost")} />
+            <DateBadge label={t("flowRecent60d")} />
+            <div className="overflow-x-auto mt-1">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-card-border">
-                    <th className={TH}>Ticker</th>
-                    <th className={TH}>Name</th>
-                    <th className={`${TH} text-right`}>Avg Cost</th>
-                    <th className={`${TH} text-right`}>Last</th>
-                    <th className={`${TH} text-right`}>Gap</th>
+                    <th className={TH}>{t("flowTicker")}</th>
+                    <th className={TH}>{t("flowName")}</th>
+                    <th className={`${TH} text-right`}>{t("flowAvgCostCol")}</th>
+                    <th className={`${TH} text-right`}>{t("flowLast")}</th>
+                    <th className={`${TH} text-right`}>{t("flowGap")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -484,16 +592,17 @@ export default function FlowPage() {
 
           {/* Divergence Watchlist */}
           <section className={CARD}>
-            <SectionDot title="Divergence Watchlist" />
-            <div className="overflow-x-auto">
+            <SectionDot title={t("flowDivergence")} />
+            <DateBadge label={`${t("flowBasisDate")}: ${data.asOf}`} />
+            <div className="overflow-x-auto mt-1">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-card-border">
-                    <th className={TH}>Ticker</th>
-                    <th className={TH}>Name</th>
-                    <th className={TH}>Signal</th>
-                    <th className={`${TH} text-right`}>Streak</th>
-                    <th className={`${TH} text-right`}>Trend</th>
+                    <th className={TH}>{t("flowTicker")}</th>
+                    <th className={TH}>{t("flowName")}</th>
+                    <th className={TH}>{t("flowSignal")}</th>
+                    <th className={`${TH} text-right`}>{t("flowStreak")}</th>
+                    <th className={`${TH} text-right`}>{t("flowTrend")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -526,20 +635,15 @@ export default function FlowPage() {
 
         {/* Row 3: Sector Flow + Cumulative Foreign Buy */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {/* Section A: 섹터별 외국인 순매수 */}
           <section className={CARD}>
-            <SectionDot title="섹터별 외국인 순매수" />
+            <SectionDot title={t("flowSectorNetBuy")} />
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart
-                data={data.sectorFlow}
-                layout="vertical"
-                margin={{ top: 4, right: 20, left: 10, bottom: 0 }}
-              >
+              <BarChart data={data.sectorFlow} layout="vertical" margin={{ top: 4, right: 20, left: 10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => fmtShortKRW(v)} />
                 <YAxis type="category" dataKey="sector" tick={{ fontSize: 10, fill: "#e5e7eb" }} width={85} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(value) => [typeof value === "number" ? fmtShortKRW(value) : value, "순매수"]} />
-                <Bar dataKey="netBuy" name="순매수" radius={[0, 4, 4, 0]}>
+                <Tooltip {...TOOLTIP_STYLE} formatter={(value) => [typeof value === "number" ? fmtShortKRW(value) : value, t("flowNetBuyLabel")]} />
+                <Bar dataKey="netBuy" name={t("flowNetBuyLabel")} radius={[0, 4, 4, 0]}>
                   {data.sectorFlow.map((entry, index) => (
                     <Cell key={index} fill={entry.netBuy >= 0 ? "#22c55e" : "#ef4444"} />
                   ))}
@@ -548,19 +652,18 @@ export default function FlowPage() {
             </ResponsiveContainer>
           </section>
 
-          {/* Section B: 외국인 누적 순매수 TOP10 */}
           <section className={CARD}>
-            <SectionDot title="외국인 누적 순매수 TOP10" />
+            <SectionDot title={t("flowCumForeignTop10")} />
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-card-border">
                     <th className={TH}>#</th>
-                    <th className={TH}>종목</th>
-                    <th className={`${TH} text-right`}>5일</th>
-                    <th className={`${TH} text-right`}>20일</th>
-                    <th className={`${TH} text-right`}>60일</th>
-                    <th className={`${TH} text-center`}>추세</th>
+                    <th className={TH}>{t("flowStock")}</th>
+                    <th className={`${TH} text-right`}>5{t("flowDays")}</th>
+                    <th className={`${TH} text-right`}>20{t("flowDays")}</th>
+                    <th className={`${TH} text-right`}>60{t("flowDays")}</th>
+                    <th className={`${TH} text-center`}>{t("flowTrend")}</th>
                   </tr>
                 </thead>
                 <tbody>
