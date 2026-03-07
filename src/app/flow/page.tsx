@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -12,20 +12,38 @@ import {
   Tooltip,
   Legend,
   CartesianGrid,
+  Cell,
 } from "recharts";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
-import {
-  NET_FLOW_SERIES,
-  TOP_NET_BUY,
-  TOP_TRADING_VALUE,
-  AVG_COST_ESTIMATE,
-  DIVERGENCE_CANDIDATES,
-} from "@/lib/flow.mock";
 
 const CARD = "rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_1px_2px_rgba(0,0,0,0.3)]";
 const TH = "pb-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted";
 const TD = "py-1.5";
+
+// ── Types ────────────────────────────────────────────────────
+
+interface NetFlowDay { date: string; individual: number; foreign: number; institution: number }
+interface NetBuyRow { side: "foreign" | "institution"; ticker: string; name: string; netBuy: number; price: number; chgPct: number }
+interface TradingValueRow { ticker: string; name: string; tradingValue: number; price: number; chgPct: number }
+interface AvgCostRow { ticker: string; name: string; foreignAvgCost: number; lastPrice: number; distancePct: number }
+interface DivergenceRow { ticker: string; name: string; reason: string; foreignStreakDays: number; priceTrend: "up" | "down" | "flat" }
+interface SectorFlowRow { sector: string; netBuy: number }
+interface CumulativeRow { rank: number; ticker: string; name: string; cum5d: number; cum20d: number; cum60d: number; trend: "up" | "down" | "flat" }
+
+interface FlowData {
+  netFlowSeries: NetFlowDay[];
+  topNetBuy: NetBuyRow[];
+  topTradingValue: TradingValueRow[];
+  avgCostEstimate: AvgCostRow[];
+  divergenceCandidates: DivergenceRow[];
+  sectorFlow: SectorFlowRow[];
+  cumulativeForeignBuy: CumulativeRow[];
+  asOf: string;
+  source: string;
+}
+
+// ── Helpers ──────────────────────────────────────────────────
 
 function fmtKRW(v: number) {
   const abs = Math.abs(v);
@@ -35,6 +53,11 @@ function fmtKRW(v: number) {
 
 function fmtShortKRW(v: number) {
   return `${v.toLocaleString()}억`;
+}
+
+function fmtPrice(v: number) {
+  if (v >= 1000) return v.toLocaleString();
+  return String(v);
 }
 
 function SectionDot({ title }: { title: string }) {
@@ -68,32 +91,76 @@ const TOOLTIP_STYLE = {
   itemStyle: { color: "#9ca3af" },
 };
 
-// ─── Main page ────────────────────────────────────────────────
+// ── Main page ────────────────────────────────────────────────
 
 export default function FlowPage() {
   const { t } = useLang();
   const [chartMode, setChartMode] = useState<"daily" | "cumulative">("daily");
   const [netBuyTab, setNetBuyTab] = useState<"foreign" | "institution">("foreign");
+  const [data, setData] = useState<FlowData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/flow")
+      .then(r => r.json())
+      .then(json => { if (json.ok) setData(json); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const cumulativeData = useMemo(() => {
+    if (!data) return [];
     let ci = 0, cf = 0, cinst = 0;
-    return NET_FLOW_SERIES.map((d) => {
+    return data.netFlowSeries.map((d) => {
       ci += d.individual;
       cf += d.foreign;
       cinst += d.institution;
       return { date: d.date, individual: ci, foreign: cf, institution: cinst };
     });
-  }, []);
+  }, [data]);
 
-  const chartData = chartMode === "daily" ? NET_FLOW_SERIES : cumulativeData;
+  const chartData = chartMode === "daily" ? (data?.netFlowSeries || []) : cumulativeData;
+  const filteredNetBuy = (data?.topNetBuy || []).filter((r) => r.side === netBuyTab);
 
-  const filteredNetBuy = TOP_NET_BUY.filter((r) => r.side === netBuyTab);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader active="flow" />
+        <main className="mx-auto max-w-[1400px] px-4 py-4">
+          <div className="flex items-center justify-center py-20">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+            <span className="ml-3 text-sm text-muted">Loading flow data...</span>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader active="flow" />
+        <main className="mx-auto max-w-[1400px] px-4 py-4">
+          <div className="py-20 text-center text-muted">Failed to load flow data</div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader active="flow" />
 
       <main className="mx-auto max-w-[1400px] px-4 py-4 space-y-3">
+        {/* Source badge */}
+        <div className="flex items-center gap-2 text-[10px] text-muted">
+          <span className="rounded bg-card-border px-1.5 py-0.5">
+            {data.source === "live" ? "LIVE" : data.source === "cache" ? "CACHED" : "STALE"}
+          </span>
+          <span>기준일: {data.asOf}</span>
+          <span className="opacity-50">Yahoo Finance 기반 추정치</span>
+        </div>
+
         {/* Row 1: Chart + right stack */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
           {/* Investor Net Flow Chart — spans 3 cols */}
@@ -126,24 +193,10 @@ export default function FlowPage() {
               {chartMode === "daily" ? (
                 <BarChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 9, fill: "#9ca3af" }}
-                    tickFormatter={(v: string) => v.slice(5)}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 9, fill: "#9ca3af" }}
-                    tickFormatter={(v: number) => fmtShortKRW(v)}
-                  />
-                  <Tooltip
-                    {...TOOLTIP_STYLE}
-                    formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]}
-                    labelFormatter={(l) => String(l)}
-                  />
-                  <Legend
-                    wrapperStyle={{ fontSize: 10, color: "#9ca3af" }}
-                    iconSize={8}
-                  />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
+                  <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => fmtShortKRW(v)} />
+                  <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
+                  <Legend wrapperStyle={{ fontSize: 10, color: "#9ca3af" }} iconSize={8} />
                   <Bar dataKey="individual" name="Individual" fill="#60a5fa" stackId="a" />
                   <Bar dataKey="foreign" name="Foreign" fill="#22c55e" stackId="a" />
                   <Bar dataKey="institution" name="Institution" fill="#f59e0b" stackId="a" />
@@ -151,24 +204,10 @@ export default function FlowPage() {
               ) : (
                 <LineChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 9, fill: "#9ca3af" }}
-                    tickFormatter={(v: string) => v.slice(5)}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 9, fill: "#9ca3af" }}
-                    tickFormatter={(v: number) => fmtShortKRW(v)}
-                  />
-                  <Tooltip
-                    {...TOOLTIP_STYLE}
-                    formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]}
-                    labelFormatter={(l) => String(l)}
-                  />
-                  <Legend
-                    wrapperStyle={{ fontSize: 10, color: "#9ca3af" }}
-                    iconSize={8}
-                  />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: string) => v.slice(5)} />
+                  <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v: number) => fmtShortKRW(v)} />
+                  <Tooltip {...TOOLTIP_STYLE} formatter={(value, name) => [typeof value === "number" ? fmtShortKRW(value) : value, name]} labelFormatter={(l) => String(l)} />
+                  <Legend wrapperStyle={{ fontSize: 10, color: "#9ca3af" }} iconSize={8} />
                   <Line dataKey="individual" name="Individual" stroke="#60a5fa" dot={false} strokeWidth={1.5} />
                   <Line dataKey="foreign" name="Foreign" stroke="#22c55e" dot={false} strokeWidth={1.5} />
                   <Line dataKey="institution" name="Institution" stroke="#f59e0b" dot={false} strokeWidth={1.5} />
@@ -205,28 +244,28 @@ export default function FlowPage() {
                 </div>
               </div>
               <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-card-border">
-                    <th className={TH}>Ticker</th>
-                    <th className={TH}>Name</th>
-                    <th className={`${TH} text-right`}>Net Buy</th>
-                    <th className={`${TH} text-right`}>Price</th>
-                    <th className={`${TH} text-right`}>Chg%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredNetBuy.map((r) => (
-                    <tr key={r.ticker} className="border-b border-card-border/40 hover:bg-card-border/20">
-                      <td className={`${TD} text-accent`}>{r.ticker}</td>
-                      <td className={TD}>{r.name}</td>
-                      <td className={`${TD} text-right tabular-nums`}>{fmtKRW(r.netBuy)}</td>
-                      <td className={`${TD} text-right tabular-nums`}>{r.price.toLocaleString()}</td>
-                      <td className={`${TD} text-right tabular-nums`}><ChgPct v={r.chgPct} /></td>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-card-border">
+                      <th className={TH}>Ticker</th>
+                      <th className={TH}>Name</th>
+                      <th className={`${TH} text-right`}>Net Buy</th>
+                      <th className={`${TH} text-right`}>Price</th>
+                      <th className={`${TH} text-right`}>Chg%</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredNetBuy.map((r) => (
+                      <tr key={r.ticker} className="border-b border-card-border/40 hover:bg-card-border/20">
+                        <td className={`${TD} text-accent`}>{r.ticker}</td>
+                        <td className={TD}>{r.name}</td>
+                        <td className={`${TD} text-right tabular-nums`}>{fmtKRW(r.netBuy)}</td>
+                        <td className={`${TD} text-right tabular-nums`}>{fmtPrice(r.price)}</td>
+                        <td className={`${TD} text-right tabular-nums`}><ChgPct v={r.chgPct} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
 
@@ -234,28 +273,28 @@ export default function FlowPage() {
             <section className={CARD}>
               <SectionDot title="Top Trading Value" />
               <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-card-border">
-                    <th className={TH}>Ticker</th>
-                    <th className={TH}>Name</th>
-                    <th className={`${TH} text-right`}>Value</th>
-                    <th className={`${TH} text-right`}>Price</th>
-                    <th className={`${TH} text-right`}>Chg%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {TOP_TRADING_VALUE.map((r) => (
-                    <tr key={r.ticker} className="border-b border-card-border/40 hover:bg-card-border/20">
-                      <td className={`${TD} text-accent`}>{r.ticker}</td>
-                      <td className={TD}>{r.name}</td>
-                      <td className={`${TD} text-right tabular-nums`}>{fmtKRW(r.tradingValue)}</td>
-                      <td className={`${TD} text-right tabular-nums`}>{r.price.toLocaleString()}</td>
-                      <td className={`${TD} text-right tabular-nums`}><ChgPct v={r.chgPct} /></td>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-card-border">
+                      <th className={TH}>Ticker</th>
+                      <th className={TH}>Name</th>
+                      <th className={`${TH} text-right`}>Value</th>
+                      <th className={`${TH} text-right`}>Price</th>
+                      <th className={`${TH} text-right`}>Chg%</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {data.topTradingValue.map((r) => (
+                      <tr key={r.ticker} className="border-b border-card-border/40 hover:bg-card-border/20">
+                        <td className={`${TD} text-accent`}>{r.ticker}</td>
+                        <td className={TD}>{r.name}</td>
+                        <td className={`${TD} text-right tabular-nums`}>{fmtKRW(r.tradingValue)}</td>
+                        <td className={`${TD} text-right tabular-nums`}>{fmtPrice(r.price)}</td>
+                        <td className={`${TD} text-right tabular-nums`}><ChgPct v={r.chgPct} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
           </div>
@@ -267,30 +306,28 @@ export default function FlowPage() {
           <section className={CARD}>
             <SectionDot title="Foreign Avg Cost (est.)" />
             <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-card-border">
-                  <th className={TH}>Ticker</th>
-                  <th className={TH}>Name</th>
-                  <th className={`${TH} text-right`}>Avg Cost</th>
-                  <th className={`${TH} text-right`}>Last</th>
-                  <th className={`${TH} text-right`}>Gap</th>
-                </tr>
-              </thead>
-              <tbody>
-                {AVG_COST_ESTIMATE.map((r) => (
-                  <tr key={r.ticker} className="border-b border-card-border/40 hover:bg-card-border/20">
-                    <td className={`${TD} text-accent`}>{r.ticker}</td>
-                    <td className={TD}>{r.name}</td>
-                    <td className={`${TD} text-right tabular-nums`}>{r.foreignAvgCost.toLocaleString()}</td>
-                    <td className={`${TD} text-right tabular-nums`}>{r.lastPrice.toLocaleString()}</td>
-                    <td className={`${TD} text-right tabular-nums`}>
-                      <ChgPct v={r.distancePct} />
-                    </td>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-card-border">
+                    <th className={TH}>Ticker</th>
+                    <th className={TH}>Name</th>
+                    <th className={`${TH} text-right`}>Avg Cost</th>
+                    <th className={`${TH} text-right`}>Last</th>
+                    <th className={`${TH} text-right`}>Gap</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.avgCostEstimate.map((r) => (
+                    <tr key={r.ticker} className="border-b border-card-border/40 hover:bg-card-border/20">
+                      <td className={`${TD} text-accent`}>{r.ticker}</td>
+                      <td className={TD}>{r.name}</td>
+                      <td className={`${TD} text-right tabular-nums`}>{fmtPrice(r.foreignAvgCost)}</td>
+                      <td className={`${TD} text-right tabular-nums`}>{fmtPrice(r.lastPrice)}</td>
+                      <td className={`${TD} text-right tabular-nums`}><ChgPct v={r.distancePct} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
 
@@ -298,42 +335,120 @@ export default function FlowPage() {
           <section className={CARD}>
             <SectionDot title="Divergence Watchlist" />
             <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-card-border">
-                  <th className={TH}>Ticker</th>
-                  <th className={TH}>Name</th>
-                  <th className={TH}>Signal</th>
-                  <th className={`${TH} text-right`}>Streak</th>
-                  <th className={`${TH} text-right`}>Trend</th>
-                </tr>
-              </thead>
-              <tbody>
-                {DIVERGENCE_CANDIDATES.map((r) => (
-                  <tr key={r.ticker} className="border-b border-card-border/40 hover:bg-card-border/20">
-                    <td className={`${TD} text-accent`}>{r.ticker}</td>
-                    <td className={TD}>{r.name}</td>
-                    <td className={`${TD} text-muted`}>{r.reason}</td>
-                    <td className={`${TD} text-right`}>
-                      <span className={`inline-block rounded px-1.5 py-px text-[10px] font-medium ${
-                        r.foreignStreakDays > 0
-                          ? "bg-gain/20 text-gain"
-                          : "bg-loss/20 text-loss"
-                      }`}>
-                        {r.foreignStreakDays > 0 ? "+" : ""}{r.foreignStreakDays}d
-                      </span>
-                    </td>
-                    <td className={`${TD} text-right`}>
-                      <span className={`text-[10px] font-medium ${
-                        r.priceTrend === "up" ? "text-gain" : r.priceTrend === "down" ? "text-loss" : "text-muted"
-                      }`}>
-                        {r.priceTrend === "up" ? "▲" : r.priceTrend === "down" ? "▼" : "—"} {r.priceTrend}
-                      </span>
-                    </td>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-card-border">
+                    <th className={TH}>Ticker</th>
+                    <th className={TH}>Name</th>
+                    <th className={TH}>Signal</th>
+                    <th className={`${TH} text-right`}>Streak</th>
+                    <th className={`${TH} text-right`}>Trend</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.divergenceCandidates.map((r) => (
+                    <tr key={r.ticker} className="border-b border-card-border/40 hover:bg-card-border/20">
+                      <td className={`${TD} text-accent`}>{r.ticker}</td>
+                      <td className={TD}>{r.name}</td>
+                      <td className={`${TD} text-muted`}>{r.reason}</td>
+                      <td className={`${TD} text-right`}>
+                        <span className={`inline-block rounded px-1.5 py-px text-[10px] font-medium ${
+                          r.foreignStreakDays > 0 ? "bg-gain/20 text-gain" : "bg-loss/20 text-loss"
+                        }`}>
+                          {r.foreignStreakDays > 0 ? "+" : ""}{r.foreignStreakDays}d
+                        </span>
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <span className={`text-[10px] font-medium ${
+                          r.priceTrend === "up" ? "text-gain" : r.priceTrend === "down" ? "text-loss" : "text-muted"
+                        }`}>
+                          {r.priceTrend === "up" ? "▲" : r.priceTrend === "down" ? "▼" : "—"} {r.priceTrend}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        {/* Row 3: Sector Flow + Cumulative Foreign Buy */}
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {/* Section A: 섹터별 외국인 순매수 */}
+          <section className={CARD}>
+            <SectionDot title="섹터별 외국인 순매수" />
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={data.sectorFlow}
+                layout="vertical"
+                margin={{ top: 4, right: 20, left: 10, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2a37" horizontal={false} />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 9, fill: "#9ca3af" }}
+                  tickFormatter={(v: number) => fmtShortKRW(v)}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="sector"
+                  tick={{ fontSize: 10, fill: "#e5e7eb" }}
+                  width={85}
+                />
+                <Tooltip
+                  {...TOOLTIP_STYLE}
+                  formatter={(value) => [typeof value === "number" ? fmtShortKRW(value) : value, "순매수"]}
+                />
+                <Bar dataKey="netBuy" name="순매수" radius={[0, 4, 4, 0]}>
+                  {data.sectorFlow.map((entry, index) => (
+                    <Cell key={index} fill={entry.netBuy >= 0 ? "#22c55e" : "#ef4444"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </section>
+
+          {/* Section B: 외국인 누적 순매수 TOP10 */}
+          <section className={CARD}>
+            <SectionDot title="외국인 누적 순매수 TOP10" />
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-card-border">
+                    <th className={TH}>#</th>
+                    <th className={TH}>종목</th>
+                    <th className={`${TH} text-right`}>5일</th>
+                    <th className={`${TH} text-right`}>20일</th>
+                    <th className={`${TH} text-right`}>60일</th>
+                    <th className={`${TH} text-center`}>추세</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.cumulativeForeignBuy.map((r) => (
+                    <tr key={r.ticker} className="border-b border-card-border/40 hover:bg-card-border/20">
+                      <td className={`${TD} text-muted`}>{r.rank}</td>
+                      <td className={TD}>{r.name}</td>
+                      <td className={`${TD} text-right tabular-nums ${r.cum5d >= 0 ? "text-gain" : "text-loss"}`}>
+                        {r.cum5d >= 0 ? "+" : ""}{fmtShortKRW(r.cum5d)}
+                      </td>
+                      <td className={`${TD} text-right tabular-nums ${r.cum20d >= 0 ? "text-gain" : "text-loss"}`}>
+                        {r.cum20d >= 0 ? "+" : ""}{fmtShortKRW(r.cum20d)}
+                      </td>
+                      <td className={`${TD} text-right tabular-nums ${r.cum60d >= 0 ? "text-gain" : "text-loss"}`}>
+                        {r.cum60d >= 0 ? "+" : ""}{fmtShortKRW(r.cum60d)}
+                      </td>
+                      <td className={`${TD} text-center`}>
+                        <span className={`text-sm ${
+                          r.trend === "up" ? "text-gain" : r.trend === "down" ? "text-loss" : "text-muted"
+                        }`}>
+                          {r.trend === "up" ? "▲" : r.trend === "down" ? "▼" : "—"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
         </div>
