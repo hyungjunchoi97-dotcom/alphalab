@@ -121,7 +121,8 @@ export async function POST(req: NextRequest) {
       message.content[0].type === "text" ? message.content[0].text : "";
 
     try {
-      const parsed = JSON.parse(raw);
+      const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+      const parsed = JSON.parse(cleaned);
 
       let data = {
         signal: parsed.signal ?? "HOLD",
