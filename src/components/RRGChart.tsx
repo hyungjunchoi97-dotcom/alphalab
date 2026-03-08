@@ -444,25 +444,14 @@ function RRGScatterPlot({
               />
               {/* Sector label inside bubble */}
               <text
-                x={bx} y={by - 2}
+                x={bx} y={by}
                 textAnchor="middle" dominantBaseline="central"
-                fill="#fff" fontSize={isHighlighted ? 9 : 7.5} fontWeight="600"
+                fill="#fff" fontSize={isHighlighted ? 8.5 : 7} fontWeight="600"
                 fontFamily="ui-sans-serif, system-ui, sans-serif"
                 pointerEvents="none"
                 opacity={isHighlighted ? 1 : 0.9}
               >
                 {lang === "kr" ? s.nameKr : s.name}
-              </text>
-              {/* % change below label */}
-              <text
-                x={bx} y={by + (isHighlighted ? 10 : 8)}
-                textAnchor="middle"
-                fill={s.chg5d >= 0 ? "#4ade80" : "#f87171"}
-                fontSize={isHighlighted ? 8 : 6.5} fontWeight="700"
-                fontFamily="ui-monospace, monospace"
-                pointerEvents="none"
-              >
-                {s.chg5d >= 0 ? "+" : ""}{s.chg5d.toFixed(1)}%
               </text>
             </g>
           );
