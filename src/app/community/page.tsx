@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/LangContext";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -9,9 +9,6 @@ import AppHeader from "@/components/AppHeader";
 import type { MessageKey } from "@/lib/i18n";
 
 // ── Constants ──────────────────────────────────────────────────
-
-const INPUT =
-  "w-full rounded-lg border border-card-border bg-background px-3 py-2 text-xs text-foreground focus:border-accent focus:outline-none";
 
 type PostCategory = "all" | "stock" | "crypto" | "overseas" | "macro" | "politics" | "question" | "free";
 type SortMode = "hot" | "new" | "top" | "rising";
@@ -29,8 +26,6 @@ const CAT_LABEL: Record<PostCategory, MessageKey> = {
   free: "catFree",
 };
 
-// For create modal - all writable categories
-const CREATE_CATEGORIES = ["stock", "crypto", "overseas", "macro", "politics", "discussion", "idea", "question", "news", "free"] as const;
 const CREATE_CAT_LABEL: Record<string, MessageKey> = {
   stock: "catStock",
   crypto: "catCryptoToken",
@@ -141,17 +136,6 @@ export default function CommunityPage() {
   // Liked posts
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
-  // Create modal
-  const [showCreate, setShowCreate] = useState(false);
-  const [formTitle, setFormTitle] = useState("");
-  const [formContent, setFormContent] = useState("");
-  const [formCategory, setFormCategory] = useState<string>("stock");
-  const [formSymbol, setFormSymbol] = useState("");
-  const [formImageUrl, setFormImageUrl] = useState<string | null>(null);
-  const [imageUploading, setImageUploading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const fetchPosts = useCallback(async () => {
     setLoading(true);
     try {
@@ -187,52 +171,6 @@ export default function CommunityPage() {
           });
         }
       } catch { /* */ }
-    });
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !session?.access_token) return;
-    setImageUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/community/upload", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: formData,
-      });
-      const json = await res.json();
-      if (json.ok) {
-        setFormImageUrl(json.url);
-      }
-    } catch { /* */ }
-    finally { setImageUploading(false); }
-  };
-
-  const handleCreateSubmit = () => {
-    requireAuth(async () => {
-      if (!formTitle.trim() || !session?.access_token) return;
-      setSubmitting(true);
-      try {
-        const res = await fetch("/api/community/posts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({
-            title: formTitle.trim(),
-            content: formContent.trim(),
-            category: formCategory,
-            symbol: formSymbol.trim() || null,
-            image_url: formImageUrl,
-          }),
-        });
-        const json = await res.json();
-        if (json.ok) {
-          setFormTitle(""); setFormContent(""); setFormSymbol(""); setFormCategory("stock");
-          setFormImageUrl(null); setShowCreate(false); fetchPosts();
-        }
-      } catch { /* */ }
-      finally { setSubmitting(false); }
     });
   };
 
@@ -272,7 +210,7 @@ export default function CommunityPage() {
 
             <div className="mt-4 border-t border-card-border pt-3">
               <button
-                onClick={() => requireAuth(() => setShowCreate(true))}
+                onClick={() => requireAuth(() => router.push("/community/write"))}
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -301,7 +239,7 @@ export default function CommunityPage() {
                 </button>
               ))}
               <button
-                onClick={() => requireAuth(() => setShowCreate(true))}
+                onClick={() => requireAuth(() => router.push("/community/write"))}
                 className="ml-auto rounded-lg bg-accent px-3 py-1 text-[11px] font-semibold text-white"
               >
                 {t("newPost")}
@@ -395,110 +333,6 @@ export default function CommunityPage() {
         </div>
       </main>
 
-      {/* Create post modal */}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowCreate(false)}>
-          <div
-            className="w-full max-w-lg rounded-xl border border-card-border bg-card-bg p-5 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">{t("newPost")}</h2>
-              <button onClick={() => setShowCreate(false)} className="text-muted hover:text-foreground">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <input
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-                placeholder={t("postTitle")}
-                className={INPUT}
-              />
-
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  value={formCategory}
-                  onChange={(e) => setFormCategory(e.target.value)}
-                  className={INPUT}
-                >
-                  {CREATE_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{t(CREATE_CAT_LABEL[c])}</option>
-                  ))}
-                </select>
-                <input
-                  value={formSymbol}
-                  onChange={(e) => setFormSymbol(e.target.value)}
-                  placeholder={t("commSymbol")}
-                  className={INPUT}
-                />
-              </div>
-
-              <textarea
-                value={formContent}
-                onChange={(e) => setFormContent(e.target.value)}
-                rows={6}
-                placeholder={t("postContent")}
-                className={`${INPUT} resize-y`}
-              />
-
-              {/* Image upload */}
-              <div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                {formImageUrl ? (
-                  <div className="relative">
-                    <img src={formImageUrl} alt="" className="max-h-[150px] rounded-lg border border-card-border object-cover" />
-                    <button
-                      onClick={() => setFormImageUrl(null)}
-                      className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={imageUploading}
-                    className="flex items-center gap-1.5 rounded-lg border border-dashed border-card-border px-3 py-2 text-[11px] text-muted transition-colors hover:border-accent/50 hover:text-foreground"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
-                    </svg>
-                    {imageUploading ? "Uploading..." : t("uploadImages")}
-                  </button>
-                )}
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setShowCreate(false)}
-                  className="rounded-lg border border-card-border px-4 py-2 text-xs text-muted transition-colors hover:text-foreground"
-                >
-                  {t("cancel")}
-                </button>
-                <button
-                  onClick={handleCreateSubmit}
-                  disabled={!formTitle.trim() || submitting}
-                  className="rounded-lg bg-accent px-5 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-                >
-                  {submitting ? "..." : t("post")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
