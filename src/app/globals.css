@@ -6,7 +6,7 @@
   --card-bg: #111820;
   --card-border: #1f2a37;
   --muted: #9ca3af;
-  --accent: #60a5fa;
+  --accent: #f59e0b;
   --gain: #22c55e;
   --loss: #ef4444;
   --ticker-duration: 80s;
@@ -30,6 +30,7 @@ body {
   color: var(--foreground);
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

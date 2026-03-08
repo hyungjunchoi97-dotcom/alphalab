@@ -238,7 +238,7 @@ export default function TelegramPage() {
           <div className="mb-3 flex items-center justify-between px-1">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <span className="inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="inline-block h-2 w-2 rounded-full bg-[#f59e0b] animate-pulse" />
                 <span style={{ color: "#888888", fontSize: "12px" }}>
                   {lang === "kr" ? "마지막 업데이트" : "Last updated"}: {formatTime(lastUpdate)}
                 </span>

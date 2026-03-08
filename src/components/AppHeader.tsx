@@ -33,7 +33,7 @@ export default function AppHeader({
           {/* Left: logo + desktop nav */}
           <div className="flex items-center gap-4 min-w-0">
             <a href="/" className="shrink-0">
-              <h1 className="text-sm font-bold tracking-tight"><span className="text-emerald-400">α</span> <span className="text-white">Alphalab</span></h1>
+              <h1 className="text-sm font-bold tracking-tight"><span className="text-[#f59e0b]">α</span> <span className="text-white">Alphalab</span></h1>
               <p className="text-[10px] text-muted">{t("subtitle")}</p>
             </a>
 
@@ -43,7 +43,7 @@ export default function AppHeader({
                 item.key === active ? (
                   <span
                     key={item.key}
-                    className="rounded bg-accent/15 px-2 py-0.5 text-[11px] font-medium text-accent"
+                    className="rounded px-2 py-0.5 text-[11px] font-medium text-accent border-b-2 border-accent"
                   >
                     {t(item.key)}
                   </span>
@@ -104,7 +104,7 @@ export default function AppHeader({
             item.key === active ? (
               <span
                 key={item.key}
-                className="block rounded bg-accent/15 px-3 py-2.5 text-xs font-medium text-accent"
+                className="block rounded px-3 py-2.5 text-xs font-medium text-accent border-l-2 border-accent"
               >
                 {t(item.key)}
               </span>

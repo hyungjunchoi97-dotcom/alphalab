@@ -34,10 +34,10 @@ function formatValue(label: string, value: number): string {
 }
 
 const TAG_COLORS: Record<string, string> = {
-  INDEX: "bg-blue-500/20 text-blue-400",
-  FX: "bg-purple-500/20 text-purple-400",
+  INDEX: "bg-[#f59e0b] text-black",
+  FX: "bg-[#3b82f6] text-white",
   COM: "bg-yellow-500/20 text-yellow-400",
-  CRYPTO: "bg-orange-500/20 text-orange-400",
+  CRYPTO: "bg-[#8b5cf6] text-white",
   BOND: "bg-cyan-500/20 text-cyan-400",
 };
 
