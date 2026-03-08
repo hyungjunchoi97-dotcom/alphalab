@@ -875,9 +875,24 @@ export default function RRGChart() {
     const hasData = market === "KR" ? krData.length > 0 : usData.length > 0;
     if (!hasData) return;
 
+    const currentSectors = market === "KR" ? krData : usData;
     setAiLoading(true);
     setAiAnalysis(null);
-    fetch(`/api/analyze-sectors?market=${market}`)
+    fetch("/api/analyze-sectors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        market,
+        sectors: currentSectors.map(s => ({
+          name: s.name,
+          nameKr: s.nameKr,
+          quadrant: s.quadrant,
+          rsRatio: s.current.rsRatio,
+          rsMomentum: s.current.rsMomentum,
+          chg5d: s.chg5d,
+        })),
+      }),
+    })
       .then(r => r.json())
       .then(json => {
         if (json.ok && json.analysis) setAiAnalysis(json.analysis);

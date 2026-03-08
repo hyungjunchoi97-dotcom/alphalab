@@ -6,28 +6,40 @@ export const runtime = "nodejs";
 // ── Cache ────────────────────────────────────────────────────
 
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
-let cache: { data: { analysis: string; market: string }; cachedAt: number; market: string } | null = null;
+const cacheMap = new Map<string, { analysis: string; cachedAt: number }>();
 
 // ── Types ────────────────────────────────────────────────────
 
-interface SectorData {
-  ticker: string;
+interface SectorInput {
   name: string;
   nameKr: string;
   quadrant: string;
-  current: { rsRatio: number; rsMomentum: number };
+  rsRatio: number;
+  rsMomentum: number;
   chg5d: number;
 }
 
 // ── Route handler ────────────────────────────────────────────
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const market = searchParams.get("market") || "KR";
+export async function POST(req: Request) {
+  let body: { market?: string; sectors?: SectorInput[] };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const market = body.market || "KR";
+  const sectors = body.sectors;
+
+  if (!sectors || !Array.isArray(sectors) || sectors.length === 0) {
+    return NextResponse.json({ ok: false, error: "No sector data provided" }, { status: 400 });
+  }
 
   // Check cache
-  if (cache && cache.market === market && Date.now() - cache.cachedAt < CACHE_TTL) {
-    return NextResponse.json({ ok: true, ...cache.data, source: "cache" });
+  const cached = cacheMap.get(market);
+  if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
+    return NextResponse.json({ ok: true, analysis: cached.analysis, market, source: "cache" });
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -39,28 +51,9 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Fetch RRG data from internal API
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
-
-    const rrgRes = await fetch(`${baseUrl}/api/ideas/rrg`, {
-      headers: { "Content-Type": "application/json" },
-    });
-    const rrgJson = await rrgRes.json();
-
-    if (!rrgJson.ok) {
-      return NextResponse.json({ ok: false, error: "Failed to fetch RRG data" }, { status: 500 });
-    }
-
-    const sectors: SectorData[] = market === "KR" ? rrgJson.kr : rrgJson.us;
-    if (!sectors || sectors.length === 0) {
-      return NextResponse.json({ ok: false, error: "No sector data available" }, { status: 500 });
-    }
-
     // Build sector data summary for Claude
     const sectorSummary = sectors.map((s) => {
-      return `${s.nameKr}(${s.name}): Quadrant=${s.quadrant}, RS-Ratio=${s.current.rsRatio.toFixed(2)}, RS-Momentum=${s.current.rsMomentum.toFixed(2)}, 5D Chg=${s.chg5d >= 0 ? "+" : ""}${s.chg5d.toFixed(2)}%`;
+      return `${s.nameKr}(${s.name}): Quadrant=${s.quadrant}, RS-Ratio=${s.rsRatio.toFixed(2)}, RS-Momentum=${s.rsMomentum.toFixed(2)}, 5D Chg=${s.chg5d >= 0 ? "+" : ""}${s.chg5d.toFixed(2)}%`;
     }).join("\n");
 
     const systemPrompt = `You are a senior equity strategist at Goldman Sachs. Write a concise sector rotation analysis in Korean based on the RRG (Relative Rotation Graph) data provided.
@@ -87,23 +80,37 @@ ${sectorSummary}
 Write the sector rotation analysis now.`;
 
     const client = new Anthropic({ apiKey });
-    const message = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 400,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    });
+
+    // 30 second timeout via AbortController
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    const message = await client.messages.create(
+      {
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 400,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      },
+      { signal: controller.signal }
+    );
+
+    clearTimeout(timeout);
 
     const analysis = message.content[0].type === "text" ? message.content[0].text : "";
 
-    const result = { analysis, market };
-    cache = { data: result, cachedAt: Date.now(), market };
+    // Update cache
+    cacheMap.set(market, { analysis, cachedAt: Date.now() });
 
-    return NextResponse.json({ ok: true, ...result, source: "live" });
+    return NextResponse.json({ ok: true, analysis, market, source: "live" });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    if (cache) {
-      return NextResponse.json({ ok: true, ...cache.data, source: "stale" });
+    console.error("[analyze-sectors] Error:", msg);
+
+    // Return stale cache if available
+    const stale = cacheMap.get(market);
+    if (stale) {
+      return NextResponse.json({ ok: true, analysis: stale.analysis, market, source: "stale" });
     }
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
