@@ -69,8 +69,8 @@ function volumeLabel(vol: string): string {
 }
 
 // Symbol counts for loading display
-const KR_SYMBOLS_COUNT = 140;
-const US_SYMBOLS_COUNT = 200;
+const KR_SYMBOLS_COUNT = 50;
+const US_SYMBOLS_COUNT = 130;
 
 export default function AiTradingPage() {
   const requireAuth = useRequireAuth();
@@ -97,7 +97,7 @@ export default function AiTradingPage() {
   const [screenerError, setScreenerError] = useState<string | null>(null);
   const [screenerUpdatedAt, setScreenerUpdatedAt] = useState<string | null>(null);
   const [screenerCached, setScreenerCached] = useState(false);
-  const [screenerStats, setScreenerStats] = useState<{ kr_scanned: number; us_scanned: number; passed: number } | null>(null);
+  const [screenerStats, setScreenerStats] = useState<{ kr_scanned: number; us_scanned: number; total_scanned: number; passed: number } | null>(null);
   const [screenerPrompt, setScreenerPrompt] = useState<string | null>(null);
 
   const fetchScreener = useCallback(async (market: string, refresh = false) => {
@@ -695,11 +695,28 @@ export default function AiTradingPage() {
 
             {/* Loading state */}
             {screenerLoading && (
-              <div className="flex items-center justify-center py-20">
-                <div className="text-center">
-                  <div className="inline-block w-5 h-5 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin mb-3" />
-                  <p className="text-xs font-mono text-[#555]">
+              <div className="flex items-center justify-center py-24">
+                <div className="text-center space-y-4">
+                  {/* Animated arrow */}
+                  <div className="flex justify-center">
+                    <svg className="w-6 h-6 text-amber-500 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-mono text-foreground">
+                    SEPA 스크리너 실행 중<span className="animate-pulse">...</span>
+                  </p>
+                  <p className="text-xs font-mono text-amber-400">
                     Scanning {screenerMarket === "ALL" ? (KR_SYMBOLS_COUNT + US_SYMBOLS_COUNT) : screenerMarket === "KR" ? KR_SYMBOLS_COUNT : US_SYMBOLS_COUNT} symbols...
+                  </p>
+                  <p className="text-xs font-mono text-white/40">
+                    {(screenerMarket === "ALL" ? KR_SYMBOLS_COUNT + US_SYMBOLS_COUNT : screenerMarket === "KR" ? KR_SYMBOLS_COUNT : US_SYMBOLS_COUNT)}개 종목 데이터 수집 및 필터링 중 — 최초 실행 시 30-60초 소요됩니다
+                  </p>
+                  <p className="text-xs font-mono text-white/20">
+                    Weinstein Stage 2 · O&apos;Neil Base · Minervini VCP 조건 순차 적용 중
+                  </p>
+                  <p className="text-[10px] font-mono text-white/20 pt-2">
+                    캐시 저장 후 재조회 시 즉시 로딩
                   </p>
                 </div>
               </div>
@@ -805,7 +822,7 @@ export default function AiTradingPage() {
                 <div className="flex items-center gap-3">
                   {screenerStats && (
                     <span className="text-[9px] font-mono text-[#333]">
-                      Scanned {(screenerStats.kr_scanned + screenerStats.us_scanned).toLocaleString()} symbols · {screenerStats.passed} passed
+                      Scanned {(screenerStats.total_scanned || screenerStats.kr_scanned + screenerStats.us_scanned).toLocaleString()} symbols · {screenerStats.passed} passed
                     </span>
                   )}
                   {screenerCached && (
