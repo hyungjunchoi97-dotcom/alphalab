@@ -568,7 +568,7 @@ export default function PredictionsPage() {
         </div>
       )}
 
-      {/* ── Detail Panel (slide-in from right) ── */}
+      {/* ── Detail Modal (centered overlay) ── */}
       {selectedPred && (() => {
         const pred = predictions.find((p) => p.id === selectedPred);
         if (!pred) return null;
@@ -580,11 +580,11 @@ export default function PredictionsPage() {
           <>
             {/* Backdrop */}
             <div
-              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+              className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm"
               onClick={() => setSelectedPred(null)}
             />
             {/* Panel */}
-            <div className="fixed top-0 right-0 z-50 h-full w-[420px] max-w-full bg-[#0a0a0a] border-l border-[#1a1a1a] flex flex-col animate-in slide-in-from-right duration-200">
+            <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg max-h-[80vh] bg-[#0a0a0a] border border-[#1a1a1a] rounded-sm flex flex-col">
               {/* Header */}
               <div className="flex items-start justify-between p-5 border-b border-[#1a1a1a]">
                 <div className="flex-1 mr-3">
