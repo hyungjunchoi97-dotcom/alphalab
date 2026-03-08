@@ -19,12 +19,12 @@ const KR_SECTORS: SectorDef[] = [
   { ticker: "091170", symbol: "091170.KS", name: "Banks", nameKr: "은행", color: "#3b82f6", market: "KR" },
   { ticker: "091180", symbol: "091180.KS", name: "Automotive", nameKr: "자동차", color: "#f59e0b", market: "KR" },
   { ticker: "140710", symbol: "140710.KS", name: "Transport", nameKr: "운송", color: "#8b5cf6", market: "KR" },
-  { ticker: "227550", symbol: "227550.KS", name: "Biotech", nameKr: "바이오", color: "#ec4899", market: "KR" },
-  { ticker: "091200", symbol: "091200.KS", name: "Steel", nameKr: "철강", color: "#6b7280", market: "KR" },
+  { ticker: "244580", symbol: "244580.KS", name: "Biotech", nameKr: "바이오", color: "#ec4899", market: "KR" },
+  { ticker: "117680", symbol: "117680.KS", name: "Steel", nameKr: "철강", color: "#6b7280", market: "KR" },
   { ticker: "266370", symbol: "266370.KS", name: "Chemicals", nameKr: "화학", color: "#14b8a6", market: "KR" },
   { ticker: "139250", symbol: "139250.KS", name: "IT", nameKr: "IT", color: "#06b6d4", market: "KR" },
-  { ticker: "102110", symbol: "102110.KS", name: "Consumer", nameKr: "소비재", color: "#f97316", market: "KR" },
-  { ticker: "139260", symbol: "139260.KS", name: "Construction", nameKr: "건설", color: "#a855f7", market: "KR" },
+  { ticker: "227560", symbol: "227560.KS", name: "Consumer", nameKr: "소비재", color: "#f97316", market: "KR" },
+  { ticker: "117700", symbol: "117700.KS", name: "Construction", nameKr: "건설", color: "#a855f7", market: "KR" },
 ];
 
 const US_SECTORS: SectorDef[] = [
