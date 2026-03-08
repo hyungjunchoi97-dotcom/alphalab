@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 import RRGChart from "@/components/RRGChart";
@@ -24,12 +24,28 @@ interface FomoItem {
   metrics: { chg1d: number; chg5d: number; chg20d: number; near52wHigh: boolean; volumeSpike: boolean; tradingValue: number };
 }
 
-
 interface AiResult {
   bullets: string[];
   risk: string;
   confidence: number;
 }
+
+type SignalFilter = "ALL" | "VOLUME SPIKE" | "BREAKOUT" | "MOMO";
+type MarketFilter = "KR" | "US";
+
+const SIGNAL_FILTERS: SignalFilter[] = ["ALL", "VOLUME SPIKE", "BREAKOUT", "MOMO"];
+
+const SIGNAL_TOOLTIPS: Record<string, string> = {
+  "VOLUME SPIKE": "평균 대비 3배 이상 거래량 급증. 기관/세력 개입 가능성",
+  "BREAKOUT": "최근 20일 고점 돌파. 신규 상승 추세 시작 신호",
+  "MOMO": "가격과 거래량 동반 상승. 추세 추종 매매 포착",
+};
+
+const SIGNAL_BORDER_COLOR: Record<string, string> = {
+  "VOLUME SPIKE": "border-l-yellow-500",
+  "BREAKOUT": "border-l-blue-500",
+  "MOMO": "border-l-green-500",
+};
 
 const TAG_COLORS: Record<string, string> = {
   "52W HIGH": "bg-gain/20 text-gain",
@@ -57,6 +73,26 @@ function formatVol(v: number): string {
   return v.toLocaleString();
 }
 
+// ── Tooltip icon ────────────────────────────────────────────
+
+function TooltipIcon({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      className="relative ml-1 inline-flex cursor-help"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border border-card-border text-[8px] text-muted">?</span>
+      {show && (
+        <span className="absolute bottom-full left-1/2 z-50 mb-1.5 w-48 -translate-x-1/2 rounded border border-card-border bg-card-bg px-2.5 py-1.5 text-[10px] leading-relaxed text-muted shadow-lg">
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // ── Per-tab tables ──────────────────────────────────────────
 
 function FomoTable({ items, selected, onSelect, lang }: { items: FomoItem[]; selected: string | null; onSelect: (item: FomoItem) => void; lang: "en" | "kr" }) {
@@ -73,28 +109,31 @@ function FomoTable({ items, selected, onSelect, lang }: { items: FomoItem[]; sel
         </tr>
       </thead>
       <tbody>
-        {items.map((item) => (
-          <tr
-            key={item.ticker}
-            onClick={() => onSelect(item)}
-            className={`cursor-pointer border-b border-card-border/40 transition-colors ${
-              selected === item.ticker ? "bg-accent/10" : "hover:bg-card-border/20"
-            }`}
-          >
-            <td className={`${TD} text-accent`}>{item.ticker}</td>
-            <td className={TD}>{item.name}</td>
-            <td className={`${TD} text-right tabular-nums`}>{item.price.toLocaleString()}</td>
-            <td className={`${TD} text-right tabular-nums`}><ChgPct v={item.chgPct} /></td>
-            <td className={`${TD} text-right tabular-nums font-medium ${item.volumeRatio >= 2 ? "text-yellow-400" : "text-muted"}`}>
-              {item.volumeRatio.toFixed(1)}x
-            </td>
-            <td className={TD}>
-              <span className={`inline-block rounded px-1.5 py-px text-[9px] font-medium ${TAG_COLORS[item.tag] || "bg-muted/20 text-muted"}`}>
-                {item.tag}
-              </span>
-            </td>
-          </tr>
-        ))}
+        {items.map((item) => {
+          const borderClass = SIGNAL_BORDER_COLOR[item.tag] || "border-l-transparent";
+          return (
+            <tr
+              key={item.ticker}
+              onClick={() => onSelect(item)}
+              className={`cursor-pointer border-b border-card-border/40 border-l-2 transition-colors ${borderClass} ${
+                selected === item.ticker ? "bg-accent/10" : "hover:bg-card-border/20"
+              }`}
+            >
+              <td className={`${TD} pl-2 text-accent`}>{item.ticker}</td>
+              <td className={TD}>{item.name}</td>
+              <td className={`${TD} text-right tabular-nums`}>{item.price.toLocaleString()}</td>
+              <td className={`${TD} text-right tabular-nums`}><ChgPct v={item.chgPct} /></td>
+              <td className={`${TD} text-right tabular-nums font-medium ${item.volumeRatio >= 2 ? "text-yellow-400" : "text-muted"}`}>
+                {item.volumeRatio.toFixed(1)}x
+              </td>
+              <td className={TD}>
+                <span className={`inline-block rounded px-1.5 py-px text-[9px] font-medium ${TAG_COLORS[item.tag] || "bg-muted/20 text-muted"}`}>
+                  {item.tag}
+                </span>
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -111,8 +150,13 @@ export default function IdeasPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCount, setShowCount] = useState(20);
 
+  // Market & signal filter
+  const [market, setMarket] = useState<MarketFilter>("KR");
+  const [signalFilter, setSignalFilter] = useState<SignalFilter>("ALL");
+
   // Data
-  const [fomoIdeas, setFomoIdeas] = useState<FomoItem[]>([]);
+  const [fomoKr, setFomoKr] = useState<FomoItem[]>([]);
+  const [fomoUs, setFomoUs] = useState<FomoItem[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [asOf, setAsOf] = useState<string | null>(null);
@@ -125,7 +169,8 @@ export default function IdeasPage() {
       const res = await fetch("/api/ideas/screener");
       const json = await res.json();
       if (json.ok) {
-        setFomoIdeas(json.fomo || []);
+        setFomoKr(json.fomoKr || json.fomo || []);
+        setFomoUs(json.fomoUs || []);
         if (json.asOf) setAsOf(json.asOf);
         setTotalStocks(json.totalStocks || 0);
       } else {
@@ -146,6 +191,49 @@ export default function IdeasPage() {
   useEffect(() => {
     setShowCount(20);
   }, [tab]);
+
+  // Filtered items
+  const fomoItems = market === "KR" ? fomoKr : fomoUs;
+
+  const filteredFomo = useMemo(() => {
+    let items = fomoItems;
+    if (signalFilter !== "ALL") {
+      items = items.filter((i) => i.tag === signalFilter);
+    }
+    return [...items].sort((a, b) => b.volumeRatio - a.volumeRatio);
+  }, [fomoItems, signalFilter]);
+
+  // Signal counts for badges
+  const signalCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const f of SIGNAL_FILTERS) {
+      if (f === "ALL") {
+        counts[f] = fomoItems.length;
+      } else {
+        counts[f] = fomoItems.filter((i) => i.tag === f).length;
+      }
+    }
+    return counts;
+  }, [fomoItems]);
+
+  // Dynamic section header
+  const sectionHeader = useMemo(() => {
+    const count = filteredFomo.length;
+    if (lang === "kr") {
+      switch (signalFilter) {
+        case "VOLUME SPIKE": return `거래량 폭증 — ${count}개 종목`;
+        case "BREAKOUT": return `돌파 매수 신호 — ${count}개 종목`;
+        case "MOMO": return `모멘텀 상승 — ${count}개 종목`;
+        default: return `FOMO 스크리너 — ${count}개 종목`;
+      }
+    }
+    switch (signalFilter) {
+      case "VOLUME SPIKE": return `Volume Spike — ${count} stocks`;
+      case "BREAKOUT": return `Breakout Signal — ${count} stocks`;
+      case "MOMO": return `Momentum Rising — ${count} stocks`;
+      default: return `FOMO Screener — ${count} stocks`;
+    }
+  }, [signalFilter, filteredFomo.length, lang]);
 
   const handleSelect = (item: FomoItem) => {
     setSelected(item);
@@ -231,10 +319,64 @@ export default function IdeasPage() {
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
             {/* Left: Ideas list */}
             <section className={`${CARD} lg:col-span-3`}>
+              {/* KR / US toggle */}
+              <div className="mb-3 flex flex-wrap items-center gap-3">
+                <div className="flex gap-px rounded bg-card-border p-px w-fit">
+                  {(["KR", "US"] as MarketFilter[]).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        setMarket(m);
+                        setSelected(null);
+                        setAiResult(null);
+                        setSignalFilter("ALL");
+                      }}
+                      className={`px-3 py-1 text-xs font-medium transition-colors ${
+                        market === m
+                          ? "bg-accent text-white"
+                          : "bg-card-bg text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Signal filter tabs */}
+              <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                {SIGNAL_FILTERS.map((sf) => (
+                  <button
+                    key={sf}
+                    onClick={() => {
+                      setSignalFilter(sf);
+                      setSelected(null);
+                      setAiResult(null);
+                    }}
+                    className={`flex items-center gap-1 rounded px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                      signalFilter === sf
+                        ? "bg-accent text-white"
+                        : "bg-card-border/50 text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {sf}
+                    <span className={`rounded px-1 py-px text-[8px] tabular-nums ${
+                      signalFilter === sf ? "bg-white/20" : "bg-card-border"
+                    }`}>
+                      {signalCounts[sf] || 0}
+                    </span>
+                    {sf !== "ALL" && SIGNAL_TOOLTIPS[sf] && (
+                      <TooltipIcon text={SIGNAL_TOOLTIPS[sf]} />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Section header */}
               <div className="mb-3 flex items-center gap-2">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
                 <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                  {lang === "kr" ? "FOMO 스크리너 — 거래량 급증" : "FOMO Screener — Volume Surge"}
+                  {sectionHeader}
                 </h2>
               </div>
 
@@ -257,10 +399,10 @@ export default function IdeasPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  {fomoIdeas.length === 0 ? (
+                  {filteredFomo.length === 0 ? (
                     <p className="py-8 text-center text-[10px] text-muted">{lang === "kr" ? "해당 종목 없음" : "No stocks match"}</p>
                   ) : (
-                    <FomoTable items={fomoIdeas} selected={selected?.ticker ?? null} onSelect={handleSelect} lang={lang} />
+                    <FomoTable items={filteredFomo} selected={selected?.ticker ?? null} onSelect={handleSelect} lang={lang} />
                   )}
                 </div>
               )}

@@ -93,7 +93,6 @@ const KR_STOCKS: StockDef[] = [
   { ticker: "293490", symbol: "293490.KQ", name: "Caway", market: "KR" },
   { ticker: "145020", symbol: "145020.KQ", name: "Hugel", market: "KR" },
   { ticker: "112040", symbol: "112040.KQ", name: "Wemade", market: "KR" },
-  { ticker: "263750", symbol: "263750.KQ", name: "Pearl Abyss", market: "KR" },
   { ticker: "357780", symbol: "357780.KQ", name: "Soulbrain", market: "KR" },
   { ticker: "058470", symbol: "058470.KQ", name: "Rino Industrial", market: "KR" },
   { ticker: "039030", symbol: "039030.KQ", name: "Iotree", market: "KR" },
@@ -358,10 +357,18 @@ interface High52Item {
 }
 
 function screenFomo(stocks: StockData[]): FomoItem[] {
-  return [...stocks]
+  // Deduplicate by ticker (keep first occurrence)
+  const seen = new Set<string>();
+  const deduped = stocks.filter(s => {
+    if (seen.has(s.ticker)) return false;
+    seen.add(s.ticker);
+    return true;
+  });
+
+  return [...deduped]
     .filter(s => s.volumeRatio > 1)
     .sort((a, b) => b.volumeRatio - a.volumeRatio)
-    .slice(0, 30)
+    .slice(0, 100)
     .map(s => {
       let tag = "MOMO";
       if (s.volumeRatio >= 2.5) tag = "VOLUME SPIKE";
@@ -496,6 +503,8 @@ export async function GET(req: NextRequest) {
     const responseData = {
       ok: true,
       fomo: screenFomo(stocks),
+      fomoKr: screenFomo(krStocks),
+      fomoUs: screenFomo(usStocks),
       value: screenValue(stocks, fundMap),
       high52kr: screenHigh52(krStocks),
       high52us: screenHigh52(usStocks),
