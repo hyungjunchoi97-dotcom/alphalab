@@ -172,23 +172,19 @@ function ThemeCard({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
-function AIInsightCard({ market, extraData }: { market: string; extraData?: string }) {
+function AIInsightCard({ market }: { market: string }) {
   const [insight, setInsight] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     setInsight(null);
-    fetch("/api/markets-insight", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ market, data: extraData || "" }),
-    })
+    fetch(`/api/markets-insight?market=${market}`)
       .then(r => r.json())
       .then(json => { if (json.ok && json.insight) setInsight(json.insight); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [market, extraData]);
+  }, [market]);
 
   return (
     <ThemeCard title="AI ANALYSIS">
@@ -255,7 +251,7 @@ function KoreaTab({ quotes, stocks, stocksLoading }: { quotes: Record<string, Qu
             </a>
           </ThemeCard>
 
-          <AIInsightCard market="KR" extraData={quotes["^KS11"] ? `KOSPI: ${quotes["^KS11"].price.toFixed(2)} (${quotes["^KS11"].chgPct >= 0 ? "+" : ""}${quotes["^KS11"].chgPct.toFixed(2)}%), USD/KRW: ${quotes["KRW=X"]?.price.toFixed(2) || "N/A"}, SK Hynix: ${quotes["000660.KS"]?.price.toLocaleString() || "N/A"}` : ""} />
+          <AIInsightCard market="KR" />
         </div>
       </div>
     </div>
@@ -365,7 +361,7 @@ function USTab({ quotes, fearGreed }: { quotes: Record<string, QuoteData>; fearG
             )}
           </ThemeCard>
 
-          <AIInsightCard market="US" extraData={quotes["^GSPC"] ? `S&P500: ${quotes["^GSPC"].price.toFixed(2)} (${quotes["^GSPC"].chgPct >= 0 ? "+" : ""}${quotes["^GSPC"].chgPct.toFixed(2)}%), VIX: ${quotes["^VIX"]?.price.toFixed(2) || "N/A"}, DXY: ${quotes["DX-Y.NYB"]?.price.toFixed(2) || "N/A"}, Fear&Greed: ${fearGreed?.score || "N/A"}` : ""} />
+          <AIInsightCard market="US" />
         </div>
       </div>
     </div>
@@ -447,7 +443,7 @@ function JapanTab({ quotes, jpStocks, jpStocksLoading }: { quotes: Record<string
             <StockTable stocks={jpStocks} loading={jpStocksLoading} />
           </ThemeCard>
 
-          <AIInsightCard market="JP" extraData={quotes["^N225"] ? `Nikkei: ${quotes["^N225"].price.toFixed(2)} (${quotes["^N225"].chgPct >= 0 ? "+" : ""}${quotes["^N225"].chgPct.toFixed(2)}%), USD/JPY: ${usdJpy.toFixed(2)}, BOJ Rate: ${bojRate}` : ""} />
+          <AIInsightCard market="JP" />
         </div>
       </div>
     </div>
@@ -539,7 +535,7 @@ function BrazilTab({ quotes, brStocks, brStocksLoading }: { quotes: Record<strin
             <StockTable stocks={brStocks} loading={brStocksLoading} />
           </ThemeCard>
 
-          <AIInsightCard market="BR" extraData={`Selic Rate: ${selicRate}%, USD/BRL: ${brlPrice > 0 ? brlPrice.toFixed(4) : "N/A"}, Bovespa: ${quotes["^BVSP"]?.price.toFixed(2) || "N/A"} (${quotes["^BVSP"]?.chgPct?.toFixed(2) || "N/A"}%)`} />
+          <AIInsightCard market="BR" />
         </div>
       </div>
     </div>
