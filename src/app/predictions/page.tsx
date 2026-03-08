@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -69,6 +69,13 @@ interface UserBet {
   points: number;
 }
 
+interface Comment {
+  id: string;
+  userName: string;
+  content: string;
+  createdAt: string;
+}
+
 interface LeaderboardEntry {
   rank: number;
   email: string;
@@ -92,6 +99,17 @@ function timeLeft(iso: string): { text: string; urgent: boolean } {
   return { text: `${mins}m`, urgent: true };
 }
 
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "방금 전";
+  if (mins < 60) return `${mins}분 전`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  const days = Math.floor(hours / 24);
+  return `${days}일 전`;
+}
+
 // ── Page ───────────────────────────────────────────────────────
 
 export default function PredictionsPage() {
@@ -108,6 +126,54 @@ export default function PredictionsPage() {
   const [betModal, setBetModal] = useState<{ predId: string; choice: "yes" | "no" } | null>(null);
   const [betPoints, setBetPoints] = useState(100);
   const [betSubmitting, setBetSubmitting] = useState(false);
+
+  // Detail panel state
+  const [selectedPred, setSelectedPred] = useState<string | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const commentPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchComments = useCallback(async (predId: string) => {
+    try {
+      const res = await fetch(`/api/predictions/${predId}/comments`);
+      const json = await res.json();
+      if (json.ok) setComments(json.comments);
+    } catch { /* */ }
+  }, []);
+
+  // Fetch comments when panel opens + poll every 30s
+  useEffect(() => {
+    if (!selectedPred) {
+      setComments([]);
+      if (commentPollRef.current) clearInterval(commentPollRef.current);
+      return;
+    }
+    fetchComments(selectedPred);
+    commentPollRef.current = setInterval(() => fetchComments(selectedPred), 30000);
+    return () => { if (commentPollRef.current) clearInterval(commentPollRef.current); };
+  }, [selectedPred, fetchComments]);
+
+  const submitComment = async () => {
+    if (!selectedPred || !session?.access_token || !commentText.trim() || commentSubmitting) return;
+    setCommentSubmitting(true);
+    try {
+      const res = await fetch(`/api/predictions/${selectedPred}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ content: commentText.trim() }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setComments((prev) => [json.comment, ...prev]);
+        setCommentText("");
+      }
+    } catch { /* */ }
+    finally { setCommentSubmitting(false); }
+  };
 
   // New form
   const [showNew, setShowNew] = useState(false);
@@ -344,6 +410,7 @@ export default function PredictionsPage() {
                   lang={lang}
                   t={t}
                   onBet={openBetModal}
+                  onSelect={(id) => setSelectedPred(id)}
                   isLoggedIn={!!session}
                   requireAuth={requireAuth}
                 />
@@ -500,6 +567,158 @@ export default function PredictionsPage() {
           </div>
         </div>
       )}
+
+      {/* ── Detail Panel (slide-in from right) ── */}
+      {selectedPred && (() => {
+        const pred = predictions.find((p) => p.id === selectedPred);
+        if (!pred) return null;
+        const s = pred.stats;
+        const userBet = userBets[pred.id];
+        const hasBet = !!userBet;
+
+        return (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+              onClick={() => setSelectedPred(null)}
+            />
+            {/* Panel */}
+            <div className="fixed top-0 right-0 z-50 h-full w-[420px] max-w-full bg-[#0a0a0a] border-l border-[#1a1a1a] flex flex-col animate-in slide-in-from-right duration-200">
+              {/* Header */}
+              <div className="flex items-start justify-between p-5 border-b border-[#1a1a1a]">
+                <div className="flex-1 mr-3">
+                  <span className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-semibold mb-2 ${(CAT_COLORS[pred.category] || CAT_COLORS.other).bg} ${(CAT_COLORS[pred.category] || CAT_COLORS.other).text}`}>
+                    {t(CAT_LABEL_KEY[pred.category])}
+                  </span>
+                  <h2 className="text-sm font-medium text-foreground leading-snug">{pred.title[lang]}</h2>
+                  {pred.description[lang] && (
+                    <p className="text-[11px] text-[#666] mt-1 leading-relaxed">{pred.description[lang]}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelectedPred(null)}
+                  className="text-[#555] hover:text-foreground transition-colors mt-0.5"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Odds + stats */}
+              {s && (
+                <div className="px-5 py-4 border-b border-[#1a1a1a]">
+                  <div className="flex items-center gap-4 mb-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xl font-bold font-mono text-green-400">{s.yesPct}%</span>
+                      <span className="text-[10px] text-[#555]">{t("predYes")}</span>
+                    </div>
+                    <div className="w-px h-6 bg-[#1a1a1a]" />
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xl font-bold font-mono text-red-400">{s.noPct}%</span>
+                      <span className="text-[10px] text-[#555]">{t("predNo")}</span>
+                    </div>
+                  </div>
+                  <div className="flex h-1.5 w-full overflow-hidden">
+                    <div className="h-full bg-green-500" style={{ width: `${s.yesPct}%` }} />
+                    <div className="h-full bg-red-500" style={{ width: `${s.noPct}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-mono text-[#555] mt-2">
+                    <span>{t("predParticipants")} {s.participants}</span>
+                    <span>{s.volume.toLocaleString()} pts</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Your position */}
+              {hasBet && (
+                <div className="px-5 py-3 border-b border-[#1a1a1a]">
+                  <p className="text-[9px] uppercase tracking-widest text-[#555] font-semibold mb-1.5">
+                    {lang === "kr" ? "내 포지션" : "My Position"}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold ${userBet.choice === "yes" ? "text-green-400" : "text-red-400"}`}>
+                      {userBet.choice === "yes" ? t("predYes") : t("predNo")}
+                    </span>
+                    <span className="text-[10px] font-mono text-amber-400">{userBet.points.toLocaleString()} pts</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Comments section */}
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="px-5 pt-4 pb-2">
+                  <p className="text-[9px] uppercase tracking-widest text-[#555] font-semibold">
+                    {lang === "kr" ? "댓글" : "Comments"} <span className="text-[#333]">({comments.length})</span>
+                  </p>
+                </div>
+
+                {/* Comments list */}
+                <div className="flex-1 overflow-y-auto px-5 space-y-3 pb-3">
+                  {comments.length === 0 ? (
+                    <p className="text-[11px] text-[#333] font-mono py-6 text-center">
+                      {lang === "kr" ? "아직 댓글이 없습니다" : "No comments yet"}
+                    </p>
+                  ) : (
+                    comments.map((c) => (
+                      <div key={c.id} className="group/comment">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-[11px] font-medium text-[#888] truncate max-w-[120px]">{c.userName}</span>
+                          <span className="text-[9px] font-mono text-[#333]">{relativeTime(c.createdAt)}</span>
+                        </div>
+                        <p className="text-xs text-[#ccc] leading-relaxed">{c.content}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Comment input */}
+                <div className="border-t border-[#1a1a1a] p-4">
+                  {hasBet ? (
+                    <div>
+                      <textarea
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value.slice(0, 200))}
+                        onKeyDown={(e) => {
+                          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                            e.preventDefault();
+                            submitComment();
+                          }
+                        }}
+                        placeholder={lang === "kr" ? "댓글을 작성하세요..." : "Write a comment..."}
+                        rows={2}
+                        className="w-full bg-[#111] border border-[#1a1a1a] rounded px-3 py-2 text-xs text-foreground placeholder:text-[#333] focus:border-[#333] focus:outline-none resize-none font-mono"
+                      />
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-[9px] font-mono text-[#333]">{commentText.length}/200</span>
+                        <button
+                          onClick={submitComment}
+                          disabled={!commentText.trim() || commentSubmitting}
+                          className="px-4 py-1.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold tracking-wider transition-colors hover:bg-amber-500/30 disabled:opacity-30"
+                        >
+                          {commentSubmitting ? "..." : lang === "kr" ? "댓글 작성" : "Comment"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 py-2">
+                      <svg className="w-4 h-4 text-[#333] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      <p className="text-[11px] text-[#555] font-mono">
+                        {lang === "kr"
+                          ? "예측에 참여한 사용자만 댓글을 작성할 수 있습니다"
+                          : "Only users who have bet can comment"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -512,6 +731,7 @@ function MarketCard({
   lang,
   t,
   onBet,
+  onSelect,
   isLoggedIn,
   requireAuth,
 }: {
@@ -520,6 +740,7 @@ function MarketCard({
   lang: "en" | "kr";
   t: (key: MessageKey) => string;
   onBet: (predId: string, choice: "yes" | "no") => void;
+  onSelect: (predId: string) => void;
   isLoggedIn: boolean;
   requireAuth: (fn: () => void) => void;
 }) {
@@ -530,7 +751,7 @@ function MarketCard({
   const catColor = CAT_COLORS[pred.category] || CAT_COLORS.other;
 
   return (
-    <div className="group relative flex flex-col bg-[#0a0a0a] border border-[#1a1a1a] rounded-none p-4 transition-colors hover:border-[#2a2a2a]">
+    <div className="group relative flex flex-col bg-[#0a0a0a] border border-[#1a1a1a] rounded-none p-4 transition-colors hover:border-[#2a2a2a] cursor-pointer" onClick={() => onSelect(pred.id)}>
       {/* Category badge + days remaining */}
       <div className="flex items-center justify-between">
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${catColor.bg} ${catColor.text}`}>
@@ -585,7 +806,7 @@ function MarketCard({
 
       {/* Bet buttons */}
       {canBet ? (
-        <div className="flex gap-0">
+        <div className="flex gap-0" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => {
               if (!isLoggedIn) { requireAuth(() => {}); return; }
