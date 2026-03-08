@@ -585,9 +585,103 @@ function SectorDetailPanel({
       {/* Interpretation */}
       <div className="rounded border border-[#151515] bg-[#080808] px-3 py-2">
         <p className="text-[10px] text-[#888] leading-relaxed">{getInterpretation(sector, lang)}</p>
-        <p className="mt-1 text-[9px] text-[#444] font-mono">
-          ETF: {sector.ticker}{sector.market === "KR" ? ".KS" : ""} | {trailWeeks}W trail
-        </p>
+      </div>
+
+      {/* ETF Debug Info */}
+      <div className="rounded border border-[#1a1a1a] bg-[#080808] px-4 py-3 space-y-2">
+        <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555]">
+          ETF DEBUG INFO
+        </h4>
+        <div className="space-y-1.5 text-[11px]">
+          <div className="flex items-center justify-between">
+            <span className="text-[#666]">Ticker</span>
+            <span className="font-mono font-medium text-[#ccc]">
+              {sector.ticker}{sector.market === "KR" ? ".KS" : ""}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[#666]">Market</span>
+            <span className="font-mono font-medium text-[#ccc]">{sector.market}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[#666]">{lang === "kr" ? "분석 기간" : "Trail Period"}</span>
+            <span className="font-mono font-medium text-[#ccc]">{trailWeeks}W ({sector.trail.length} data points)</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[#666]">{lang === "kr" ? "5일 수익률" : "5D Return"}</span>
+            <span className={`font-mono font-semibold ${sector.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
+              {sector.chg5d >= 0 ? "+" : ""}{sector.chg5d.toFixed(2)}%
+            </span>
+          </div>
+
+          {/* RS change over selected period */}
+          {(() => {
+            const trailPts = sector.trail.slice(-trailWeeks);
+            if (trailPts.length < 2) return null;
+            const first = trailPts[0];
+            const last = trailPts[trailPts.length - 1];
+            const ratioDelta = last.rsRatio - first.rsRatio;
+            const momDelta = last.rsMomentum - first.rsMomentum;
+            return (
+              <>
+                <div className="border-t border-[#151515] mt-1 pt-1.5">
+                  <p className="text-[9px] uppercase tracking-wider text-[#444] mb-1">
+                    {trailWeeks}W RS CHANGE
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#666]">RS-Ratio {lang === "kr" ? "변화" : "Delta"}</span>
+                  <span className={`font-mono font-semibold ${ratioDelta >= 0 ? "text-gain" : "text-loss"}`}>
+                    {ratioDelta >= 0 ? "+" : ""}{ratioDelta.toFixed(2)}
+                    <span className="text-[#555] ml-1 font-normal">({first.rsRatio.toFixed(1)} → {last.rsRatio.toFixed(1)})</span>
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#666]">RS-Mom {lang === "kr" ? "변화" : "Delta"}</span>
+                  <span className={`font-mono font-semibold ${momDelta >= 0 ? "text-gain" : "text-loss"}`}>
+                    {momDelta >= 0 ? "+" : ""}{momDelta.toFixed(2)}
+                    <span className="text-[#555] ml-1 font-normal">({first.rsMomentum.toFixed(1)} → {last.rsMomentum.toFixed(1)})</span>
+                  </span>
+                </div>
+              </>
+            );
+          })()}
+
+          {/* Trail data points */}
+          <div className="border-t border-[#151515] mt-1 pt-1.5">
+            <p className="text-[9px] uppercase tracking-wider text-[#444] mb-1">
+              TRAIL DATA ({lang === "kr" ? "최근" : "Recent"} {Math.min(trailWeeks, sector.trail.length)} {lang === "kr" ? "주" : "weeks"})
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[10px] font-mono">
+              <thead>
+                <tr className="border-b border-[#1a1a1a]">
+                  <th className="text-left py-1 text-[#555] font-medium">Wk</th>
+                  <th className="text-right py-1 text-[#555] font-medium">RS-Ratio</th>
+                  <th className="text-right py-1 text-[#555] font-medium">RS-Mom</th>
+                  <th className="text-right py-1 text-[#555] font-medium">{lang === "kr" ? "구간" : "Quad"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sector.trail.slice(-trailWeeks).map((pt, i) => {
+                  const qd = pt.rsRatio >= 100
+                    ? (pt.rsMomentum >= 100 ? "L" : "W")
+                    : (pt.rsMomentum >= 100 ? "I" : "G");
+                  const qdColor = qd === "L" ? "#22c55e" : qd === "I" ? "#eab308" : qd === "W" ? "#f97316" : "#ef4444";
+                  return (
+                    <tr key={i} className="border-b border-[#111]">
+                      <td className="py-0.5 text-[#666]">W{pt.week}</td>
+                      <td className="py-0.5 text-right text-[#aaa]">{pt.rsRatio.toFixed(2)}</td>
+                      <td className="py-0.5 text-right text-[#aaa]">{pt.rsMomentum.toFixed(2)}</td>
+                      <td className="py-0.5 text-right font-bold" style={{ color: qdColor }}>{qd}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* D) Representative stocks */}
