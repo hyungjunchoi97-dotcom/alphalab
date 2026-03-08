@@ -732,7 +732,7 @@ function SectorDetailPanel({
 export default function RRGChart() {
   const { lang } = useLang();
   const [market, setMarket] = useState<"KR" | "US">("KR");
-  const [trailWeeks, setTrailWeeks] = useState(8);
+  const trailWeeks = 8;
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
   const [krData, setKrData] = useState<SectorData[]>([]);
@@ -938,20 +938,6 @@ export default function RRGChart() {
               }`}
             >
               {m === "KR" ? (lang === "kr" ? "KR 섹터" : "KR Sectors") : (lang === "kr" ? "US 섹터" : "US Sectors")}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex gap-px rounded bg-card-border p-px">
-          {[4, 8, 12].map(w => (
-            <button
-              key={w}
-              onClick={() => setTrailWeeks(w)}
-              className={`px-2.5 py-0.5 text-[10px] font-medium transition-colors ${
-                trailWeeks === w ? "bg-accent text-white" : "bg-card-bg text-muted hover:text-foreground"
-              }`}
-            >
-              {w}{lang === "kr" ? "주" : "W"}
             </button>
           ))}
         </div>
