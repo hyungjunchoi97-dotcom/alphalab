@@ -1,8 +1,24 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import AppHeader from "@/components/AppHeader";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+
+// ── SEPA Screener types ────────────────────────────────────────
+interface ScreenerResult {
+  symbol: string;
+  name: string;
+  market: "KR" | "US";
+  price: number;
+  change_pct: number;
+  score: number;
+  stage: "STAGE_2";
+  base_depth_pct: number;
+  weeks_in_base: number;
+  volume_ratio: number;
+  dist_from_52w_high_pct: number;
+  ma_alignment: boolean;
+}
 
 interface AnalysisResult {
   signal: "BUY" | "HOLD" | "SELL";
@@ -52,9 +68,17 @@ function volumeLabel(vol: string): string {
   return vol.replace("_", " ");
 }
 
+// Symbol counts for loading display
+const KR_SYMBOLS_COUNT = 140;
+const US_SYMBOLS_COUNT = 200;
+
 export default function AiTradingPage() {
   const requireAuth = useRequireAuth();
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"chart" | "screener">("chart");
+
+  // Chart analysis state
   const [image, setImage] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const fileObjRef = useRef<File | null>(null);
@@ -65,6 +89,43 @@ export default function AiTradingPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+
+  // Screener state
+  const [screenerMarket, setScreenerMarket] = useState<"ALL" | "KR" | "US">("ALL");
+  const [screenerResults, setScreenerResults] = useState<ScreenerResult[]>([]);
+  const [screenerLoading, setScreenerLoading] = useState(false);
+  const [screenerError, setScreenerError] = useState<string | null>(null);
+  const [screenerUpdatedAt, setScreenerUpdatedAt] = useState<string | null>(null);
+  const [screenerCached, setScreenerCached] = useState(false);
+  const [screenerStats, setScreenerStats] = useState<{ kr_scanned: number; us_scanned: number; passed: number } | null>(null);
+  const [screenerPrompt, setScreenerPrompt] = useState<string | null>(null);
+
+  const fetchScreener = useCallback(async (market: string, refresh = false) => {
+    setScreenerLoading(true);
+    setScreenerError(null);
+    try {
+      const res = await fetch(`/api/ai/sepa-screener?market=${market}${refresh ? "&refresh=true" : ""}`);
+      const json = await res.json();
+      if (json.ok) {
+        setScreenerResults(json.results);
+        setScreenerUpdatedAt(json.updated_at);
+        setScreenerCached(json.cached ?? false);
+        setScreenerStats(json.stats ?? null);
+      } else {
+        setScreenerError(json.error || "Failed to fetch screener data");
+      }
+    } catch (err) {
+      setScreenerError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setScreenerLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "screener" && screenerResults.length === 0 && !screenerLoading) {
+      fetchScreener(screenerMarket);
+    }
+  }, [activeTab, screenerResults.length, screenerLoading, screenerMarket, fetchScreener]);
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -139,7 +200,7 @@ export default function AiTradingPage() {
 
       <main className="mx-auto max-w-[1400px] px-4 py-8">
         {/* Page Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
             AI Technical Analysis
           </h1>
@@ -148,6 +209,42 @@ export default function AiTradingPage() {
           </p>
         </div>
 
+        {/* ── TABS ── */}
+        <div className="flex gap-0 mb-8 border-b border-[#1a1a1a]">
+          {([
+            { key: "chart" as const, label: "CHART ANALYSIS" },
+            { key: "screener" as const, label: "SEPA SCREENER" },
+          ]).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-6 py-3 text-xs font-bold tracking-widest transition-colors border-b-2 -mb-px ${
+                activeTab === tab.key
+                  ? "text-amber-400 border-amber-500"
+                  : "text-[#555] border-transparent hover:text-[#888]"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "chart" && (
+        <>
+        {/* Screener prompt banner */}
+        {screenerPrompt && (
+          <div className="mb-4 flex items-center justify-between border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            <p className="text-xs font-mono text-amber-400">{screenerPrompt}</p>
+            <button
+              onClick={() => setScreenerPrompt(null)}
+              className="text-[#555] hover:text-foreground transition-colors ml-3"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
         {/* ── ANALYSIS METHODOLOGY ── */}
         <div className="mb-8 space-y-4">
           {/* Three-step pipeline */}
@@ -551,6 +648,178 @@ export default function AiTradingPage() {
             ) : null}
           </div>
         </div>
+        </>
+        )}
+
+        {activeTab === "screener" && (
+          <div>
+            {/* Screener header */}
+            <div className="mb-6">
+              <p className="text-xs font-mono text-[#888] mb-1">
+                SEPA SCREENER — Weinstein Stage 2 · O&apos;Neil Base · Minervini VCP 조건 충족 종목 자동 필터링
+              </p>
+              <p className="text-[10px] font-mono text-[#444]">
+                상위 20개 종목 표시 · 4시간 캐시 · 차트 업로드 후 AI 정밀 분석 권장
+              </p>
+            </div>
+
+            {/* Market filter + refresh */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex gap-0">
+                {(["ALL", "KR", "US"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => {
+                      setScreenerMarket(m);
+                      setScreenerResults([]);
+                      fetchScreener(m);
+                    }}
+                    className={`px-5 py-2 text-[10px] font-bold tracking-widest border transition-colors ${
+                      screenerMarket === m
+                        ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                        : "bg-transparent text-[#555] border-[#1a1a1a] hover:text-[#888]"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => fetchScreener(screenerMarket, true)}
+                disabled={screenerLoading}
+                className="px-4 py-2 text-[10px] font-mono text-[#555] border border-[#1a1a1a] hover:text-[#888] hover:border-[#333] transition-colors disabled:opacity-30"
+              >
+                {screenerLoading ? "SCANNING..." : "REFRESH"}
+              </button>
+            </div>
+
+            {/* Loading state */}
+            {screenerLoading && (
+              <div className="flex items-center justify-center py-20">
+                <div className="text-center">
+                  <div className="inline-block w-5 h-5 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin mb-3" />
+                  <p className="text-xs font-mono text-[#555]">
+                    Scanning {screenerMarket === "ALL" ? (KR_SYMBOLS_COUNT + US_SYMBOLS_COUNT) : screenerMarket === "KR" ? KR_SYMBOLS_COUNT : US_SYMBOLS_COUNT} symbols...
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Error state */}
+            {screenerError && !screenerLoading && (
+              <div className="flex items-center justify-center py-20">
+                <div className="border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-400 font-mono">
+                  {screenerError}
+                </div>
+              </div>
+            )}
+
+            {/* Results table */}
+            {!screenerLoading && !screenerError && screenerResults.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-[#1a1a1a]">
+                      {["SYMBOL", "NAME", "MKT", "PRICE", "CHG%", "SEPA SCORE", "BASE", "VOL CONTRACTION", "52W HIGH", ""].map((h) => (
+                        <th key={h} className="px-3 py-2.5 text-[9px] font-mono uppercase tracking-widest text-[#444] whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {screenerResults.map((r) => {
+                      const dimmed = r.score < 6;
+                      const highlight = r.score >= 8;
+                      return (
+                        <tr
+                          key={`${r.market}-${r.symbol}`}
+                          className={`border-b border-[#111] hover:bg-[#0a0a0a] transition-colors ${dimmed ? "opacity-40" : ""} ${highlight ? "border-l-2 border-l-amber-500/50" : ""}`}
+                        >
+                          <td className="px-3 py-2.5 text-xs font-mono font-bold text-foreground whitespace-nowrap">
+                            {r.symbol}
+                          </td>
+                          <td className="px-3 py-2.5 text-[11px] font-mono text-[#888] truncate max-w-[160px]">
+                            {r.name}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <span className={`text-[9px] font-bold tracking-wider px-1.5 py-0.5 ${r.market === "KR" ? "bg-blue-500/15 text-blue-400" : "bg-emerald-500/15 text-emerald-400"}`}>
+                              {r.market}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-xs font-mono text-foreground whitespace-nowrap">
+                            {r.market === "KR" ? r.price.toLocaleString() : r.price.toFixed(2)}
+                          </td>
+                          <td className={`px-3 py-2.5 text-xs font-mono whitespace-nowrap ${r.change_pct >= 0 ? "text-green-400" : "text-red-400"}`}>
+                            {r.change_pct >= 0 ? "+" : ""}{r.change_pct.toFixed(2)}%
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono font-bold text-amber-400 w-5">{r.score}</span>
+                              <div className="h-1.5 w-16 bg-[#1a1a1a] overflow-hidden">
+                                <div
+                                  className="h-full bg-amber-500 transition-all"
+                                  style={{ width: `${(r.score / 10) * 100}%` }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5 text-[10px] font-mono text-[#777] whitespace-nowrap">
+                            {r.base_depth_pct}% / {r.weeks_in_base}w
+                          </td>
+                          <td className="px-3 py-2.5 text-[10px] font-mono text-[#777] whitespace-nowrap">
+                            {r.volume_ratio.toFixed(2)}x
+                          </td>
+                          <td className="px-3 py-2.5 text-[10px] font-mono text-[#777] whitespace-nowrap">
+                            -{r.dist_from_52w_high_pct}%
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <button
+                              onClick={() => {
+                                setScreenerPrompt(`이 종목을 분석하려면 차트를 업로드하세요: ${r.symbol}`);
+                                setActiveTab("chart");
+                              }}
+                              className="px-3 py-1 text-[9px] font-bold tracking-wider text-amber-400 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition-colors whitespace-nowrap"
+                            >
+                              차트 분석
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!screenerLoading && !screenerError && screenerResults.length === 0 && (
+              <div className="flex items-center justify-center py-20">
+                <p className="text-xs font-mono text-[#333]">No results</p>
+              </div>
+            )}
+
+            {/* Footer: updated at + stats */}
+            {screenerUpdatedAt && !screenerLoading && (
+              <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#1a1a1a]">
+                <div className="flex items-center gap-3">
+                  {screenerStats && (
+                    <span className="text-[9px] font-mono text-[#333]">
+                      Scanned {(screenerStats.kr_scanned + screenerStats.us_scanned).toLocaleString()} symbols · {screenerStats.passed} passed
+                    </span>
+                  )}
+                  {screenerCached && (
+                    <span className="text-[9px] font-mono text-amber-500/50">CACHED</span>
+                  )}
+                </div>
+                <span className="text-[9px] font-mono text-[#333]">
+                  Updated {new Date(screenerUpdatedAt).toLocaleString()}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
     </div>
   );
