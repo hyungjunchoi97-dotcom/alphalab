@@ -60,11 +60,11 @@ const Q = {
 
 const QUADRANT_ORDER: Quadrant[] = ["leading", "improving", "weakening", "lagging"];
 
-const ACTION_HEADERS = {
-  leading: { en: "LEADING", kr: "LEADING" },
-  improving: { en: "IMPROVING", kr: "IMPROVING" },
-  weakening: { en: "WEAKENING", kr: "WEAKENING" },
-  lagging: { en: "LAGGING", kr: "LAGGING" },
+const QUADRANT_SUMMARY: Record<Quadrant, { kr: string; en: string }> = {
+  leading: { kr: "강세 유지 — 비중 확대 고려", en: "Strength sustained — consider overweight" },
+  improving: { kr: "강세 전환 중 — 진입 모니터링", en: "Turning bullish — monitor entry" },
+  weakening: { kr: "약세 전환 중 — 비중 축소 고려", en: "Turning bearish — consider trimming" },
+  lagging: { kr: "약세 유지 — 관망", en: "Weakness sustained — stay cautious" },
 };
 
 // ── Auto summary generator ──────────────────────────────────
@@ -166,6 +166,40 @@ function RRGScatterPlot({
   const cx100 = scaleX(100);
   const cy100 = scaleY(100);
 
+  // Collision detection: offset overlapping bubbles
+  const bubblePositions = useMemo(() => {
+    const BASE_R = 14; // 40% smaller (was 23)
+    const positions = sectors.map(s => ({
+      ticker: s.ticker,
+      x: scaleX(s.current.rsRatio),
+      y: scaleY(s.current.rsMomentum),
+      ox: 0, // offset x
+      oy: 0, // offset y
+    }));
+    // Simple collision resolution: push apart overlapping bubbles
+    for (let iter = 0; iter < 5; iter++) {
+      for (let i = 0; i < positions.length; i++) {
+        for (let j = i + 1; j < positions.length; j++) {
+          const a = positions[i], b = positions[j];
+          const dx = (a.x + a.ox) - (b.x + b.ox);
+          const dy = (a.y + a.oy) - (b.y + b.oy);
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const minDist = BASE_R * 2.5; // minimum distance between centers
+          if (dist < minDist && dist > 0) {
+            const push = (minDist - dist) / 2;
+            const nx = dx / dist, ny = dy / dist;
+            a.ox += nx * push;
+            a.oy += ny * push;
+            b.ox -= nx * push;
+            b.oy -= ny * push;
+          }
+        }
+      }
+    }
+    return new Map(positions.map(p => [p.ticker, { ox: p.ox, oy: p.oy }]));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectors, xMin, xMax, yMin, yMax]);
+
   return (
     <div className="relative">
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
@@ -193,18 +227,18 @@ function RRGScatterPlot({
         <line x1={cx100} y1={PAD.top} x2={cx100} y2={PAD.top + plotH} stroke="#2a3040" strokeWidth={1.5} />
         <line x1={PAD.left} y1={cy100} x2={PAD.left + plotW} y2={cy100} stroke="#2a3040" strokeWidth={1.5} />
 
-        {/* Quadrant labels - bilingual, 16px */}
-        <text x={cx100 + 8} y={PAD.top + 18} fill={Q.leading.color} fontSize={14} fontWeight="700" opacity={0.7} fontFamily="ui-sans-serif, system-ui, sans-serif">
-          Leading {lang === "kr" ? "/ 강세 유지" : ""}
+        {/* Quadrant labels */}
+        <text x={cx100 + 8} y={PAD.top + 18} fill={Q.leading.color} fontSize={12} fontWeight="700" opacity={0.5} fontFamily="ui-sans-serif, system-ui, sans-serif">
+          Leading
         </text>
-        <text x={PAD.left + 8} y={PAD.top + 18} fill={Q.improving.color} fontSize={14} fontWeight="700" opacity={0.7} fontFamily="ui-sans-serif, system-ui, sans-serif">
-          Improving {lang === "kr" ? "/ 강세 전환" : ""}
+        <text x={PAD.left + 8} y={PAD.top + 18} fill={Q.improving.color} fontSize={12} fontWeight="700" opacity={0.5} fontFamily="ui-sans-serif, system-ui, sans-serif">
+          Improving
         </text>
-        <text x={PAD.left + 8} y={PAD.top + plotH - 8} fill={Q.lagging.color} fontSize={14} fontWeight="700" opacity={0.7} fontFamily="ui-sans-serif, system-ui, sans-serif">
-          Lagging {lang === "kr" ? "/ 약세 유지" : ""}
+        <text x={PAD.left + 8} y={PAD.top + plotH - 8} fill={Q.lagging.color} fontSize={12} fontWeight="700" opacity={0.5} fontFamily="ui-sans-serif, system-ui, sans-serif">
+          Lagging
         </text>
-        <text x={cx100 + 8} y={PAD.top + plotH - 8} fill={Q.weakening.color} fontSize={14} fontWeight="700" opacity={0.7} fontFamily="ui-sans-serif, system-ui, sans-serif">
-          Weakening {lang === "kr" ? "/ 약세 전환" : ""}
+        <text x={cx100 + 8} y={PAD.top + plotH - 8} fill={Q.weakening.color} fontSize={12} fontWeight="700" opacity={0.5} fontFamily="ui-sans-serif, system-ui, sans-serif">
+          Weakening
         </text>
 
         {/* Axis labels */}
@@ -218,7 +252,7 @@ function RRGScatterPlot({
         {/* Arrow markers */}
         <defs>
           {sectors.map(s => (
-            <marker key={`arrow-${s.ticker}`} id={`arrow-${s.ticker}`} viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker key={`arrow-${s.ticker}`} id={`arrow-${s.ticker}`} viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" fill={s.color} />
             </marker>
           ))}
@@ -231,7 +265,10 @@ function RRGScatterPlot({
           const isHighlighted = highlighted === s.ticker;
           const dimmed = highlighted !== null && !isHighlighted;
           const opacity = dimmed ? 0.12 : 1;
-          const r = isHighlighted ? 29 : 23;
+          const r = isHighlighted ? 18 : 14; // 40% smaller
+          const offset = bubblePositions.get(s.ticker) || { ox: 0, oy: 0 };
+          const bx = scaleX(s.current.rsRatio) + offset.ox;
+          const by = scaleY(s.current.rsMomentum) + offset.oy;
 
           return (
             <g key={s.ticker} opacity={opacity}>
@@ -241,8 +278,8 @@ function RRGScatterPlot({
                   points={pts.map(p => `${scaleX(p.rsRatio)},${scaleY(p.rsMomentum)}`).join(" ")}
                   fill="none"
                   stroke={s.color}
-                  strokeWidth={2}
-                  strokeOpacity={0.6}
+                  strokeWidth={1.5}
+                  strokeOpacity={0.5}
                   markerEnd={`url(#arrow-${s.ticker})`}
                 />
               )}
@@ -252,20 +289,20 @@ function RRGScatterPlot({
                   key={i}
                   cx={scaleX(p.rsRatio)}
                   cy={scaleY(p.rsMomentum)}
-                  r={3 + (i / pts.length) * 2}
+                  r={2 + (i / pts.length) * 1.5}
                   fill={s.color}
                   opacity={0.25 + (i / pts.length) * 0.45}
                 />
               ))}
               {/* Current bubble */}
               <circle
-                cx={scaleX(s.current.rsRatio)}
-                cy={scaleY(s.current.rsMomentum)}
+                cx={bx}
+                cy={by}
                 r={r}
                 fill={s.color}
-                fillOpacity={0.2}
+                fillOpacity={0.15}
                 stroke={s.color}
-                strokeWidth={isHighlighted ? 2.5 : 1.5}
+                strokeWidth={isHighlighted ? 2 : 1}
                 className="cursor-pointer transition-all"
                 onMouseEnter={(e) => {
                   onHover(s.ticker);
@@ -279,26 +316,28 @@ function RRGScatterPlot({
                 onMouseLeave={() => { onHover(null); setTooltip(null); }}
                 onClick={() => onClick(s.ticker)}
               />
-              {/* Sector name ABOVE bubble */}
-              <text
-                x={scaleX(s.current.rsRatio)}
-                y={scaleY(s.current.rsMomentum) - r - 5}
-                textAnchor="middle"
-                fill="#d0d0d0"
-                fontSize={isHighlighted ? 11 : 9}
-                fontWeight="600"
-                fontFamily="ui-sans-serif, system-ui, sans-serif"
-                pointerEvents="none"
-              >
-                {lang === "kr" ? s.nameKr : s.name}
-              </text>
+              {/* Sector name — only on hover */}
+              {isHighlighted && (
+                <text
+                  x={bx}
+                  y={by - r - 4}
+                  textAnchor="middle"
+                  fill="#e0e0e0"
+                  fontSize={10}
+                  fontWeight="600"
+                  fontFamily="ui-sans-serif, system-ui, sans-serif"
+                  pointerEvents="none"
+                >
+                  {lang === "kr" ? s.nameKr : s.name}
+                </text>
+              )}
               {/* % change inside bubble */}
               <text
-                x={scaleX(s.current.rsRatio)}
-                y={scaleY(s.current.rsMomentum) + 4}
+                x={bx}
+                y={by + 3}
                 textAnchor="middle"
                 fill={s.chg5d >= 0 ? "#4ade80" : "#f87171"}
-                fontSize={isHighlighted ? 11 : 9}
+                fontSize={isHighlighted ? 9 : 7}
                 fontWeight="700"
                 fontFamily="ui-monospace, monospace"
                 pointerEvents="none"
@@ -315,9 +354,9 @@ function RRGScatterPlot({
         <div
           className="pointer-events-none absolute z-50 rounded border border-[#2a2a2a] bg-[#0d0d0d] px-4 py-3 shadow-2xl"
           style={{
-            left: Math.min(tooltip.x + 14, 480),
+            left: Math.min(tooltip.x + 14, 420),
             top: Math.max(tooltip.y - 20, 0),
-            minWidth: 240,
+            minWidth: 260,
           }}
         >
           <div className="flex items-center gap-2 mb-2">
@@ -337,20 +376,12 @@ function RRGScatterPlot({
               <span className="text-[#666]">RS-Ratio</span>
               <span className="font-mono font-medium text-foreground">
                 {tooltip.sector.current.rsRatio.toFixed(2)}
-                <span className="ml-1.5 text-[9px] text-[#555]">
-                  ({tooltip.sector.current.rsRatio >= 100 ? "+" : ""}{(tooltip.sector.current.rsRatio - 100).toFixed(1)} vs mkt)
-                </span>
               </span>
             </div>
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-[#666]">RS-Momentum</span>
               <span className="font-mono font-medium text-foreground">
                 {tooltip.sector.current.rsMomentum.toFixed(2)}
-                <span className="ml-1.5 text-[9px] text-[#555]">
-                  ({tooltip.sector.current.rsMomentum >= 100
-                    ? (lang === "kr" ? "상승" : "rising")
-                    : (lang === "kr" ? "하락" : "falling")})
-                </span>
               </span>
             </div>
             <div className="flex items-center justify-between text-[11px]">
@@ -631,9 +662,9 @@ export default function RRGChart() {
         )}
       </div>
 
-      {/* Main chart + sidebar */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-        {/* Chart */}
+      {/* Main layout: 60% chart / 40% quadrant table */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+        {/* LEFT: RRG Chart (60%) */}
         <div className={`${CARD} lg:col-span-3`}>
           <RRGScatterPlot
             sectors={playing ? animatedSectors : sectors}
@@ -645,45 +676,89 @@ export default function RRGChart() {
           />
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-2">
-          {QUADRANT_ORDER.map(q => (
-            <div key={q} className={`rounded border ${Q[q].border} ${Q[q].bgCard} p-3`}>
-              <div className="mb-2 flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: Q[q].color }} />
-                <span className="text-[9px] font-bold uppercase tracking-[0.15em] font-mono" style={{ color: Q[q].color }}>
-                  {ACTION_HEADERS[q].en}
-                </span>
-              </div>
-              {grouped[q].length === 0 ? (
-                <p className="text-[9px] text-[#333] ml-4 font-mono">--</p>
-              ) : (
-                <div className="space-y-0.5 ml-0.5">
-                  {grouped[q].map(s => (
-                    <div
-                      key={s.ticker}
-                      className={`flex items-center justify-between rounded px-2 py-1 text-[11px] cursor-pointer transition-colors ${
-                        highlighted === s.ticker ? "bg-[#1a1a1a]" : "hover:bg-[#111]"
-                      }`}
-                      onMouseEnter={() => setHighlighted(s.ticker)}
-                      onMouseLeave={() => setHighlighted(null)}
-                      onClick={() => handleBubbleClick(s.ticker)}
-                    >
-                      <span className="font-medium text-[#ccc]">{lang === "kr" ? s.nameKr : s.name}</span>
-                      <div className="flex items-center gap-2">
-                        <span className={`font-mono tabular-nums font-semibold text-[10px] ${s.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
-                          {s.chg5d >= 0 ? "+" : ""}{s.chg5d.toFixed(1)}%
-                        </span>
-                        <span className="text-[8px] font-mono text-[#444] uppercase">
-                          {Q[q].actionEn}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+        {/* RIGHT: Quadrant Cards (40%) — PRIMARY */}
+        <div className="lg:col-span-2 space-y-3">
+          {QUADRANT_ORDER.map(q => {
+            const qMeta = Q[q];
+            const items = grouped[q];
+            const headerBg = q === "leading" ? "bg-green-900/60" : q === "improving" ? "bg-blue-900/60" : q === "weakening" ? "bg-yellow-900/60" : "bg-red-900/60";
+            const headerBorder = q === "leading" ? "border-green-500/50" : q === "improving" ? "border-blue-500/50" : q === "weakening" ? "border-yellow-500/50" : "border-red-500/50";
+
+            return (
+              <div key={q} className={`rounded-lg border overflow-hidden ${qMeta.border}`} style={{ background: "#0d0d0d" }}>
+                {/* Colored header */}
+                <div className={`${headerBg} border-b ${headerBorder} px-4 py-2.5 flex items-center justify-between`}>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: qMeta.color }} />
+                    <span className="text-xs font-bold uppercase tracking-wider" style={{ color: qMeta.color }}>
+                      {qMeta.en}
+                    </span>
+                    <span className="text-[10px] text-[#888]">
+                      / {qMeta.kr}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-[#555]">
+                    {items.length} {lang === "kr" ? "섹터" : "sectors"}
+                  </span>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {/* Sector rows */}
+                <div className="px-1">
+                  {items.length === 0 ? (
+                    <p className="text-xs text-[#333] py-3 px-3 font-mono">—</p>
+                  ) : (
+                    items.map(s => {
+                      // Determine upgrade/downgrade: compare momentum direction
+                      const prevPt = s.trail.length >= 2 ? s.trail[s.trail.length - 2] : null;
+                      let badge: "UPGRADE" | "DOWNGRADE" | null = null;
+                      if (prevPt) {
+                        const momDelta = s.current.rsMomentum - prevPt.rsMomentum;
+                        if (momDelta > 0.3) badge = "UPGRADE";
+                        else if (momDelta < -0.3) badge = "DOWNGRADE";
+                      }
+
+                      return (
+                        <div
+                          key={s.ticker}
+                          className={`flex items-center justify-between rounded px-3 py-2 cursor-pointer transition-colors ${
+                            highlighted === s.ticker ? "bg-[#1a1a1a]" : "hover:bg-[#111]"
+                          }`}
+                          onMouseEnter={() => setHighlighted(s.ticker)}
+                          onMouseLeave={() => setHighlighted(null)}
+                          onClick={() => handleBubbleClick(s.ticker)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-[13px] font-medium text-[#ddd]">
+                              {lang === "kr" ? s.nameKr : s.name}
+                            </span>
+                            {badge && (
+                              <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold tracking-wider ${
+                                badge === "UPGRADE"
+                                  ? "bg-green-500/20 text-green-400"
+                                  : "bg-red-500/20 text-red-400"
+                              }`}>
+                                {badge}
+                              </span>
+                            )}
+                          </div>
+                          <span className={`font-mono tabular-nums text-[12px] font-semibold ${s.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
+                            {s.chg5d >= 0 ? "+" : ""}{s.chg5d.toFixed(1)}%
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Summary line */}
+                <div className="border-t border-[#1a1a1a] px-4 py-2">
+                  <p className="text-[10px] text-[#555] italic">
+                    {lang === "kr" ? QUADRANT_SUMMARY[q].kr : QUADRANT_SUMMARY[q].en}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
