@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import TopTickerBar from "@/components/TopTickerBar";
 import AppHeader from "@/components/AppHeader";
 import { useLang } from "@/lib/LangContext";
 
@@ -633,7 +632,6 @@ export default function MarketsPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      <TopTickerBar />
       <AppHeader active="markets" />
 
       <main className="mx-auto max-w-[1400px] px-4 py-6 space-y-5">
