@@ -148,6 +148,79 @@ export default function AiTradingPage() {
           </p>
         </div>
 
+        {/* ── ANALYSIS METHODOLOGY ── */}
+        <div className="mb-8 space-y-4">
+          {/* Three-step pipeline */}
+          <div className="flex flex-col md:flex-row items-stretch gap-0">
+            {/* STEP 01 */}
+            <div className="flex-1 border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+              <p className="text-[9px] font-mono uppercase tracking-widest text-[#555] mb-1">STEP 01 / STAGE FILTER</p>
+              <p className="text-xs font-bold text-foreground tracking-wide mb-1.5">WEINSTEIN STAGE ANALYSIS</p>
+              <p className="text-[10px] font-mono text-[#777] leading-relaxed mb-2">30주 이동평균선 기준 현재 사이클 위치 판별</p>
+              <p className="text-[10px] font-mono text-amber-500">Stage 2 미충족 시 → 즉시 HOLD 판정</p>
+            </div>
+            {/* Arrow */}
+            <div className="flex items-center justify-center py-1 md:py-0 md:px-0">
+              <span className="text-amber-500 font-mono text-sm md:rotate-0 rotate-90 select-none">→</span>
+            </div>
+            {/* STEP 02 */}
+            <div className="flex-1 border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+              <p className="text-[9px] font-mono uppercase tracking-widest text-[#555] mb-1">STEP 02 / PATTERN VALIDATION</p>
+              <p className="text-xs font-bold text-foreground tracking-wide mb-1.5">O&apos;NEIL CAN SLIM</p>
+              <p className="text-[10px] font-mono text-[#777] leading-relaxed mb-2">베이스 패턴 유효성 · 피벗 포인트 · 돌파 거래량 검증</p>
+              <p className="text-[10px] font-mono text-amber-500">거래량 미동반 돌파 → 무효 시그널</p>
+            </div>
+            {/* Arrow */}
+            <div className="flex items-center justify-center py-1 md:py-0 md:px-0">
+              <span className="text-amber-500 font-mono text-sm md:rotate-0 rotate-90 select-none">→</span>
+            </div>
+            {/* STEP 03 */}
+            <div className="flex-1 border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+              <p className="text-[9px] font-mono uppercase tracking-widest text-[#555] mb-1">STEP 03 / ENTRY PRECISION</p>
+              <p className="text-xs font-bold text-foreground tracking-wide mb-1.5">MINERVINI SEPA / VCP</p>
+              <p className="text-[10px] font-mono text-[#777] leading-relaxed mb-2">변동성 수축 구간 확인 · R/R 2.5:1 이상 · 손절 7-8% 이내</p>
+              <p className="text-[10px] font-mono text-amber-500">R/R 1.5:1 미만 → 자동 HOLD</p>
+            </div>
+          </div>
+
+          {/* Gate summary */}
+          <div className="border-t border-amber-500/30 pt-3 text-center">
+            <p className="text-xs font-mono text-white/30">세 조건이 모두 충족될 때만 BUY 시그널 발령</p>
+          </div>
+
+          {/* Analysis output grid */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <p className="text-[10px] font-mono uppercase tracking-widest text-[#555]">ANALYSIS OUTPUT</p>
+            </div>
+            <div className="grid grid-cols-4 md:grid-cols-8 gap-px bg-[#1a1a1a]">
+              {[
+                { label: "SIGNAL", value: "BUY / HOLD / SELL" },
+                { label: "STAGE", value: "1 / 2 / 3 / 4" },
+                { label: "PATTERN", value: "VCP · Flat Base" },
+                { label: "VOLUME", value: "Constructive" },
+                { label: "PIVOT", value: "52,400" },
+                { label: "ENTRY→TGT→STP", value: "52.4→61.3→48.7" },
+                { label: "R/R RATIO", value: "2.5 : 1" },
+                { label: "SEPA SCORE", value: "8 / 10" },
+              ].map((f) => (
+                <div key={f.label} className="bg-[#0a0a0a] px-3 py-2.5">
+                  <p className="text-[9px] font-mono uppercase text-white/40 mb-0.5">{f.label}</p>
+                  <p className="text-[11px] font-mono text-white truncate">{f.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Methodology disclaimer */}
+          <div className="border-t border-[#1a1a1a] pt-3">
+            <p className="text-[10px] font-mono text-white/20">
+              Minervini SEPA · O&apos;Neil CAN SLIM · Weinstein Stage Analysis 방법론 기반 기술적 참고자료 — 투자 판단의 최종 책임은 투자자 본인에게 있습니다
+            </p>
+          </div>
+        </div>
+
         {/* Two-column layout */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* LEFT: Upload zone */}
