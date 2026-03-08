@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/LangContext";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -39,6 +39,8 @@ const CREATE_CAT_LABEL: Record<string, MessageKey> = {
   free: "catFree",
 };
 
+const CREATE_CATEGORIES = ["stock", "crypto", "overseas", "macro", "politics", "discussion", "idea", "question", "news", "free"] as const;
+
 const CAT_BADGE_COLOR: Record<string, string> = {
   stock: "bg-blue-500/20 text-blue-400",
   crypto: "bg-orange-500/20 text-orange-400",
@@ -62,6 +64,8 @@ const CAT_SIDEBAR_ICON: Record<string, string> = {
   question: "M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
   free: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
 };
+
+const DRAFT_KEY = "community_write_draft";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -120,6 +124,294 @@ function getCatLabel(cat: string): MessageKey {
   return (CREATE_CAT_LABEL[cat] || CAT_LABEL[cat as PostCategory] || "catOther") as MessageKey;
 }
 
+// ── Editor Overlay ─────────────────────────────────────────────
+
+function EditorOverlay({
+  onClose,
+  onPublished,
+}: {
+  onClose: () => void;
+  onPublished: () => void;
+}) {
+  const { session } = useAuth();
+  const requireAuth = useRequireAuth();
+
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("stock");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saveTime, setSaveTime] = useState<string | null>(null);
+
+  const editorRef = useRef<HTMLDivElement>(null);
+  const hasContentRef = useRef(false);
+
+  // Track if editor has content for exit confirmation
+  useEffect(() => {
+    const check = () => {
+      hasContentRef.current = !!(title.trim() || editorRef.current?.innerText?.trim());
+    };
+    check();
+  }, [title]);
+
+  // Restore draft on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft.title) setTitle(draft.title);
+        if (draft.category) setCategory(draft.category);
+        if (draft.content && editorRef.current) {
+          editorRef.current.innerHTML = draft.content;
+        }
+      }
+    } catch { /* */ }
+  }, []);
+
+  // Clear error
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(null), 4000);
+    return () => clearTimeout(t);
+  }, [error]);
+
+  // ESC key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleExit();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
+  const handleExit = () => {
+    const content = editorRef.current?.innerText?.trim() || "";
+    if (title.trim() || content) {
+      if (!window.confirm("작성 중인 글이 있습니다. 나가시겠습니까?")) return;
+    }
+    onClose();
+  };
+
+  const handleSaveDraft = () => {
+    const content = editorRef.current?.innerHTML || "";
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ title, content, category })
+    );
+    setSaveTime(
+      new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+    );
+  };
+
+  const handlePublish = () => {
+    requireAuth(async () => {
+      if (!title.trim() || !session?.access_token) return;
+      setSubmitting(true);
+      setError(null);
+
+      const htmlContent = editorRef.current?.innerHTML || "";
+      const textContent = editorRef.current?.innerText || "";
+
+      try {
+        const res = await fetch("/api/community/posts", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            title: title.trim(),
+            content: textContent.trim(),
+            category,
+            symbol: null,
+            image_url: null,
+          }),
+        });
+        const json = await res.json();
+        if (json.ok) {
+          localStorage.removeItem(DRAFT_KEY);
+          onPublished();
+        } else {
+          setError(json.error || "게시 실패");
+        }
+      } catch {
+        setError("네트워크 오류");
+      } finally {
+        setSubmitting(false);
+      }
+    });
+  };
+
+  const execCmd = (cmd: string, value?: string) => {
+    document.execCommand(cmd, false, value);
+    editorRef.current?.focus();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div
+        className="flex flex-col rounded border border-[#1a1a1a] bg-[#050505] shadow-2xl overflow-hidden"
+        style={{ width: "90vw", height: "85vh", maxWidth: "1000px" }}
+      >
+        {/* Error toast */}
+        {error && (
+          <div className="absolute top-4 right-4 z-10 rounded border border-[#f87171]/30 bg-[#1a0808] px-4 py-2 shadow-lg">
+            <p className="text-[11px] font-mono text-[#f87171]">{error}</p>
+          </div>
+        )}
+
+        {/* Top action bar */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-[#1a1a1a] shrink-0">
+          <div className="flex items-center gap-3">
+            {saveTime && (
+              <span className="text-[10px] font-mono text-[#444]">
+                임시저장됨 {saveTime}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExit}
+              className="px-3 py-1.5 text-[11px] font-mono text-[#555] hover:text-white transition-colors"
+            >
+              나가기
+            </button>
+            <button
+              onClick={handleSaveDraft}
+              className="px-3 py-1.5 text-[11px] font-mono text-[#555] border border-[#1a1a1a] rounded hover:text-white hover:border-[#333] transition-colors"
+            >
+              임시저장
+            </button>
+            <button
+              onClick={handlePublish}
+              disabled={!title.trim() || submitting}
+              className="px-5 py-1.5 text-[11px] font-mono font-bold bg-[#f59e0b] text-black rounded hover:opacity-90 transition-opacity disabled:opacity-30"
+            >
+              {submitting ? "..." : "게시"}
+            </button>
+          </div>
+        </div>
+
+        {/* Title input */}
+        <div className="px-5 pt-4 pb-2 shrink-0">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="제목을 입력하세요"
+            className="w-full bg-transparent text-2xl font-bold text-white placeholder-[#333] outline-none"
+            autoFocus
+          />
+        </div>
+
+        {/* Category select */}
+        <div className="px-5 pb-3 shrink-0">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="bg-[#0a0a0a] border border-[#1a1a1a] rounded px-2.5 py-1.5 text-[11px] font-mono text-[#888] outline-none focus:border-[#333] appearance-none cursor-pointer"
+          >
+            {CREATE_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {CATEGORIES.includes(c as PostCategory)
+                  ? c.charAt(0).toUpperCase() + c.slice(1)
+                  : c.charAt(0).toUpperCase() + c.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Toolbar */}
+        <div className="flex items-center gap-px px-5 py-1.5 border-y border-[#1a1a1a] shrink-0">
+          {/* Font size */}
+          <select
+            onChange={(e) => {
+              execCmd("fontSize", e.target.value);
+              e.target.value = "3";
+            }}
+            defaultValue="3"
+            className="bg-[#0a0a0a] border border-[#1a1a1a] rounded px-1.5 py-1 text-[10px] font-mono text-[#666] outline-none cursor-pointer mr-1"
+          >
+            <option value="1">Small</option>
+            <option value="3">Normal</option>
+            <option value="5">Large</option>
+            <option value="7">Title</option>
+          </select>
+
+          <TBBtn label="B" bold onClick={() => execCmd("bold")} />
+          <TBBtn label="I" italic onClick={() => execCmd("italic")} />
+
+          <div className="w-px h-5 bg-[#1a1a1a] mx-1.5" />
+
+          {/* Font family */}
+          <select
+            onChange={(e) => {
+              execCmd("fontName", e.target.value);
+              e.target.value = "";
+            }}
+            defaultValue=""
+            className="bg-[#0a0a0a] border border-[#1a1a1a] rounded px-1.5 py-1 text-[10px] font-mono text-[#666] outline-none cursor-pointer"
+          >
+            <option value="" disabled>Font</option>
+            <option value="system-ui, -apple-system, sans-serif">Sans</option>
+            <option value="Georgia, serif">Serif</option>
+            <option value="ui-monospace, monospace">Mono</option>
+          </select>
+        </div>
+
+        {/* contentEditable editor */}
+        <div className="flex-1 overflow-auto bg-[#080808]">
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            className="min-h-full p-5 text-[14px] text-[#ccc] leading-relaxed outline-none"
+            style={{ caretColor: "#f59e0b" }}
+            data-placeholder="내용을 입력하세요..."
+            onInput={() => {
+              hasContentRef.current = !!(title.trim() || editorRef.current?.innerText?.trim());
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Placeholder style */}
+      <style jsx global>{`
+        [data-placeholder]:empty::before {
+          content: attr(data-placeholder);
+          color: #333;
+          pointer-events: none;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function TBBtn({
+  label,
+  onClick,
+  bold,
+  italic,
+}: {
+  label: string;
+  onClick: () => void;
+  bold?: boolean;
+  italic?: boolean;
+}) {
+  return (
+    <button
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
+      className={`px-2 py-1 text-[11px] font-mono rounded text-[#555] bg-[#0a0a0a] hover:text-[#f59e0b] hover:bg-[#111] transition-colors ${
+        bold ? "font-bold" : ""
+      } ${italic ? "italic" : ""}`}
+    >
+      {label}
+    </button>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────
 
 export default function CommunityPage() {
@@ -132,6 +424,7 @@ export default function CommunityPage() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<PostCategory>("all");
   const [sortMode, setSortMode] = useState<SortMode>("hot");
+  const [showEditor, setShowEditor] = useState(false);
 
   // Liked posts
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
@@ -174,6 +467,10 @@ export default function CommunityPage() {
     });
   };
 
+  const openEditor = () => {
+    requireAuth(() => setShowEditor(true));
+  };
+
   const sorted = sortPosts(posts, sortMode);
 
   // Top posts for sidebar widget
@@ -210,7 +507,7 @@ export default function CommunityPage() {
 
             <div className="mt-4 border-t border-card-border pt-3">
               <button
-                onClick={() => requireAuth(() => router.push("/community/write"))}
+                onClick={openEditor}
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -239,7 +536,7 @@ export default function CommunityPage() {
                 </button>
               ))}
               <button
-                onClick={() => requireAuth(() => router.push("/community/write"))}
+                onClick={openEditor}
                 className="ml-auto rounded-lg bg-accent px-3 py-1 text-[11px] font-semibold text-white"
               >
                 {t("newPost")}
@@ -333,6 +630,16 @@ export default function CommunityPage() {
         </div>
       </main>
 
+      {/* Editor overlay */}
+      {showEditor && (
+        <EditorOverlay
+          onClose={() => setShowEditor(false)}
+          onPublished={() => {
+            setShowEditor(false);
+            fetchPosts();
+          }}
+        />
+      )}
     </div>
   );
 }
