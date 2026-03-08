@@ -30,21 +30,23 @@ interface AiResult {
   confidence: number;
 }
 
-type SignalFilter = "ALL" | "VOLUME SPIKE" | "BREAKOUT" | "MOMO";
+type SignalFilter = "ALL" | "VOLUME SPIKE" | "BREAKOUT" | "MOMO" | "52W HIGH";
 type MarketFilter = "KR" | "US";
 
-const SIGNAL_FILTERS: SignalFilter[] = ["ALL", "VOLUME SPIKE", "BREAKOUT", "MOMO"];
+const SIGNAL_FILTERS: SignalFilter[] = ["ALL", "VOLUME SPIKE", "BREAKOUT", "MOMO", "52W HIGH"];
 
 const SIGNAL_TOOLTIPS: Record<string, string> = {
   "VOLUME SPIKE": "평균 대비 3배 이상 거래량 급증. 기관/세력 개입 가능성",
   "BREAKOUT": "최근 20일 고점 돌파. 신규 상승 추세 시작 신호",
   "MOMO": "가격과 거래량 동반 상승. 추세 추종 매매 포착",
+  "52W HIGH": "52주 신고가 돌파. 강한 상승 추세 지속 신호",
 };
 
 const SIGNAL_BORDER_COLOR: Record<string, string> = {
   "VOLUME SPIKE": "border-l-yellow-500",
   "BREAKOUT": "border-l-blue-500",
   "MOMO": "border-l-green-500",
+  "52W HIGH": "border-l-purple-500",
 };
 
 const TAG_COLORS: Record<string, string> = {
@@ -224,6 +226,7 @@ export default function IdeasPage() {
         case "VOLUME SPIKE": return `거래량 폭증 — ${count}개 종목`;
         case "BREAKOUT": return `돌파 매수 신호 — ${count}개 종목`;
         case "MOMO": return `모멘텀 상승 — ${count}개 종목`;
+        case "52W HIGH": return `52주 신고가 — ${count}개 종목`;
         default: return `FOMO 스크리너 — ${count}개 종목`;
       }
     }
@@ -231,6 +234,7 @@ export default function IdeasPage() {
       case "VOLUME SPIKE": return `Volume Spike — ${count} stocks`;
       case "BREAKOUT": return `Breakout Signal — ${count} stocks`;
       case "MOMO": return `Momentum Rising — ${count} stocks`;
+      case "52W HIGH": return `52W High — ${count} stocks`;
       default: return `FOMO Screener — ${count} stocks`;
     }
   }, [signalFilter, filteredFomo.length, lang]);
