@@ -102,8 +102,8 @@ interface DailyBar {
 
 async function fetchChart(symbol: string): Promise<DailyBar[]> {
   const now = Math.floor(Date.now() / 1000);
-  const sixMonthsAgo = now - 180 * 86400;
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${sixMonthsAgo}&period2=${now}&interval=1d`;
+  const oneYearAgo = now - 365 * 86400;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${oneYearAgo}&period2=${now}&interval=1d`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2000);
