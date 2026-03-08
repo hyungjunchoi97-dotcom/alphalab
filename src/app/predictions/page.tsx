@@ -530,80 +530,68 @@ function MarketCard({
   const catColor = CAT_COLORS[pred.category] || CAT_COLORS.other;
 
   return (
-    <div className="group relative flex flex-col rounded-xl border border-card-border bg-card-bg p-4 transition-all hover:border-foreground/15 hover:shadow-md">
-      {/* Category badge + deadline */}
-      <div className="mb-3 flex items-center justify-between">
+    <div className="group relative flex flex-col bg-[#0a0a0a] border border-[#1a1a1a] rounded-none p-4 transition-colors hover:border-[#2a2a2a]">
+      {/* Category badge + days remaining */}
+      <div className="flex items-center justify-between">
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${catColor.bg} ${catColor.text}`}>
           {t(CAT_LABEL_KEY[pred.category])}
         </span>
         {tl.text ? (
-          <span className={`text-[10px] font-medium tabular-nums ${tl.urgent ? "text-loss" : "text-muted"}`}>
+          <span className={`text-[10px] font-mono ${tl.urgent ? "text-red-400" : "text-[#555]"}`}>
             {tl.text} {t("predLeft")}
           </span>
         ) : (
-          <span className="text-[10px] text-muted">{t("predEnded")}</span>
+          <span className="text-[10px] font-mono text-[#555]">{t("predEnded")}</span>
         )}
       </div>
 
       {/* Title */}
-      <h3 className="mb-3 text-[13px] font-semibold leading-snug flex-1">{pred.title[lang]}</h3>
+      <h3 className="text-sm font-medium text-foreground mt-2 mb-3 line-clamp-2 flex-1">{pred.title[lang]}</h3>
 
-      {/* Big probability display */}
+      {/* Probability display */}
       {s && (
         <div className="mb-3">
-          {/* Probability bar */}
-          <div className="flex h-2 w-full overflow-hidden rounded-full bg-card-border">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-lg font-bold font-mono text-green-400">{s.yesPct}%</span>
+              <span className="text-[10px] text-[#555]">{t("predYes")}</span>
+            </div>
+            <div className="w-px h-5 bg-[#1a1a1a]" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-lg font-bold font-mono text-red-400">{s.noPct}%</span>
+              <span className="text-[10px] text-[#555]">{t("predNo")}</span>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="flex h-1.5 w-full overflow-hidden mt-2">
             <div
-              className="h-full rounded-l-full bg-gain transition-all duration-500"
+              className="h-full bg-green-500 transition-all duration-500"
               style={{ width: `${s.yesPct}%` }}
             />
             <div
-              className="h-full rounded-r-full bg-loss transition-all duration-500"
+              className="h-full bg-red-500 transition-all duration-500"
               style={{ width: `${s.noPct}%` }}
             />
-          </div>
-
-          {/* YES / NO labels with percentage */}
-          <div className="mt-2 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-gain" />
-              <span className="text-[11px] text-muted">{t("predYes")}</span>
-              <span className="text-sm font-bold tabular-nums text-gain">{s.yesPct}%</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-bold tabular-nums text-loss">{s.noPct}%</span>
-              <span className="text-[11px] text-muted">{t("predNo")}</span>
-              <div className="h-2.5 w-2.5 rounded-full bg-loss" />
-            </div>
           </div>
         </div>
       )}
 
-      {/* Stats row: participants + volume */}
-      <div className="mb-3 flex items-center gap-3 text-[10px] text-muted">
-        <span className="flex items-center gap-1">
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          {s?.participants ?? 0} {t("predParticipants")}
-        </span>
-        <span className="flex items-center gap-1">
-          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-          </svg>
-          {(s?.volume ?? 0).toLocaleString()} pts
-        </span>
+      {/* Stats row */}
+      <div className="flex items-center justify-between text-[10px] font-mono text-[#555] mb-3">
+        <span>{t("predParticipants")} {s?.participants ?? 0}</span>
+        <span>{(s?.volume ?? 0).toLocaleString()} pts</span>
       </div>
 
       {/* Bet buttons */}
       {canBet ? (
-        <div className="flex gap-2">
+        <div className="flex gap-0">
           <button
             onClick={() => {
               if (!isLoggedIn) { requireAuth(() => {}); return; }
               onBet(pred.id, "yes");
             }}
-            className="flex-1 rounded-lg border border-gain/30 bg-gain/5 py-2 text-xs font-bold text-gain transition-all hover:bg-gain/15 hover:border-gain/50"
+            className="flex-1 h-9 bg-green-500/10 text-green-400 border border-green-500/20 text-xs font-bold tracking-wider transition-colors hover:bg-green-500/20"
           >
             {t("predYes")} {s?.yesPct}%
           </button>
@@ -612,34 +600,34 @@ function MarketCard({
               if (!isLoggedIn) { requireAuth(() => {}); return; }
               onBet(pred.id, "no");
             }}
-            className="flex-1 rounded-lg border border-loss/30 bg-loss/5 py-2 text-xs font-bold text-loss transition-all hover:bg-loss/15 hover:border-loss/50"
+            className="flex-1 h-9 bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-bold tracking-wider transition-colors hover:bg-red-500/20"
           >
             {t("predNo")} {s?.noPct}%
           </button>
         </div>
       ) : userBet ? (
-        <div className="flex items-center justify-between rounded-lg border border-card-border bg-background px-3 py-2">
+        <div className="flex items-center justify-between border border-[#1a1a1a] bg-[#111] px-3 py-2">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-muted">{t("betMyBet")}:</span>
-            <span className={`text-xs font-bold ${userBet.choice === "yes" ? "text-gain" : "text-loss"}`}>
+            <span className="text-[10px] text-[#555]">{t("betMyBet")}:</span>
+            <span className={`text-xs font-bold ${userBet.choice === "yes" ? "text-green-400" : "text-red-400"}`}>
               {userBet.choice === "yes" ? t("predYes") : t("predNo")}
             </span>
           </div>
-          <span className="text-[10px] font-medium tabular-nums text-accent">
+          <span className="text-[10px] font-bold font-mono text-amber-400">
             {userBet.points.toLocaleString()} pts
           </span>
         </div>
       ) : (
-        <div className="rounded-lg border border-card-border bg-background py-2 text-center text-[10px] text-muted">
+        <div className="border border-[#1a1a1a] bg-[#111] py-2 text-center text-[10px] font-mono text-[#555]">
           {expired ? t("predVotingClosed") : t("predVotingUnavailable")}
         </div>
       )}
 
       {/* Resolved result overlay */}
       {pred.status === "resolved" && pred.resolvedOptionId && (
-        <div className="mt-2 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-center">
-          <p className="text-[9px] uppercase tracking-wider text-muted">{t("predResult")}</p>
-          <p className={`text-lg font-bold ${pred.resolvedOptionId === "yes" ? "text-gain" : "text-loss"}`}>
+        <div className="mt-2 border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center">
+          <p className="text-[9px] uppercase tracking-wider text-[#555]">{t("predResult")}</p>
+          <p className={`text-lg font-bold ${pred.resolvedOptionId === "yes" ? "text-green-400" : "text-red-400"}`}>
             {pred.resolvedOptionId === "yes" ? t("predYes") : t("predNo")}
           </p>
         </div>
