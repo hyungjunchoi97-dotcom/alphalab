@@ -853,6 +853,8 @@ export default function RRGChart() {
   const [animFrame, setAnimFrame] = useState(0);
   const animRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [chartOpen, setChartOpen] = useState(false); // collapsed by default
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/ideas/rrg")
@@ -867,6 +869,22 @@ export default function RRGChart() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // Fetch AI analysis when market changes and data is available
+  useEffect(() => {
+    const hasData = market === "KR" ? krData.length > 0 : usData.length > 0;
+    if (!hasData) return;
+
+    setAiLoading(true);
+    setAiAnalysis(null);
+    fetch(`/api/analyze-sectors?market=${market}`)
+      .then(r => r.json())
+      .then(json => {
+        if (json.ok && json.analysis) setAiAnalysis(json.analysis);
+      })
+      .catch(() => {})
+      .finally(() => setAiLoading(false));
+  }, [market, krData, usData]);
 
   const sectors = market === "KR" ? krData : usData;
 
@@ -1025,6 +1043,70 @@ export default function RRGChart() {
 
   return (
     <div className="space-y-3">
+      {/* AI Sector Analysis Panel */}
+      <div className="rounded border border-[#222] bg-[#0d0d0d] p-4">
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Left: Analysis text (70%) */}
+          <div className="lg:w-[70%]">
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-amber-400 mb-1">
+              SECTOR ANALYSIS
+            </h3>
+            <p className="text-[10px] text-[#555] mb-3 font-mono">
+              AI-Generated · {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {market === "KR" ? "KR" : "US"} 8W RRG {lang === "kr" ? "기반" : "based"}
+            </p>
+            {aiLoading ? (
+              <div className="flex items-center gap-2 py-3">
+                <div className="h-3 w-3 animate-spin rounded-full border border-[#333] border-t-amber-400" />
+                <span className="text-[11px] text-[#555] font-mono">Generating analysis...</span>
+              </div>
+            ) : aiAnalysis ? (
+              <p className="text-[12px] text-[#bbb] leading-relaxed">{aiAnalysis}</p>
+            ) : (
+              <p className="text-[11px] text-[#444] italic">
+                {lang === "kr" ? "분석 데이터를 불러오는 중입니다." : "Loading analysis data."}
+              </p>
+            )}
+          </div>
+
+          {/* Right: Quadrant legend (30%) */}
+          <div className="lg:w-[30%] lg:border-l lg:border-[#222] lg:pl-4">
+            <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">
+              {lang === "kr" ? "RRG 4분면" : "RRG QUADRANTS"}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded border border-[#1a2a1a] bg-[#0a120a] px-2.5 py-2">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-[#22c55e]" />
+                  <span className="text-[10px] font-semibold text-[#22c55e]">Leading</span>
+                </div>
+                <p className="text-[9px] text-[#666]">{lang === "kr" ? "강세 유지" : "Strength sustained"}</p>
+              </div>
+              <div className="rounded border border-[#2a2a1a] bg-[#12120a] px-2.5 py-2">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-[#eab308]" />
+                  <span className="text-[10px] font-semibold text-[#eab308]">Improving</span>
+                </div>
+                <p className="text-[9px] text-[#666]">{lang === "kr" ? "강세 전환" : "Turning bullish"}</p>
+              </div>
+              <div className="rounded border border-[#2a1a0a] bg-[#120d0a] px-2.5 py-2">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-[#f97316]" />
+                  <span className="text-[10px] font-semibold text-[#f97316]">Weakening</span>
+                </div>
+                <p className="text-[9px] text-[#666]">{lang === "kr" ? "약세 전환" : "Turning bearish"}</p>
+              </div>
+              <div className="rounded border border-[#2a1a1a] bg-[#120a0a] px-2.5 py-2">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-[#ef4444]" />
+                  <span className="text-[10px] font-semibold text-[#ef4444]">Lagging</span>
+                </div>
+                <p className="text-[9px] text-[#666]">{lang === "kr" ? "약세 유지" : "Weakness sustained"}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Methodology Panel */}
       <RRGInfoPanel lang={lang} />
 
