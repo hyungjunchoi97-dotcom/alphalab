@@ -14,7 +14,7 @@ const INPUT =
 const CAT_BADGE_COLOR: Record<string, string> = {
   stock: "bg-blue-500/20 text-blue-400",
   crypto: "bg-orange-500/20 text-orange-400",
-  overseas: "bg-emerald-500/20 text-emerald-400",
+  overseas: "bg-amber-500/20 text-amber-400",
   macro: "bg-cyan-500/20 text-cyan-400",
   politics: "bg-rose-500/20 text-rose-400",
   discussion: "bg-accent/20 text-accent",

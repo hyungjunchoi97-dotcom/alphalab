@@ -33,7 +33,7 @@ const CAT_LABEL_KEY: Record<"all" | PredictionCategory, MessageKey> = {
 const CAT_COLORS: Record<PredictionCategory, { bg: string; text: string }> = {
   stocks: { bg: "bg-blue-500/15", text: "text-blue-400" },
   politics: { bg: "bg-purple-500/15", text: "text-purple-400" },
-  economy: { bg: "bg-emerald-500/15", text: "text-emerald-400" },
+  economy: { bg: "bg-amber-500/15", text: "text-amber-400" },
   entertainment: { bg: "bg-pink-500/15", text: "text-pink-400" },
   crypto: { bg: "bg-orange-500/15", text: "text-orange-400" },
   other: { bg: "bg-gray-500/15", text: "text-gray-400" },

@@ -57,7 +57,7 @@ const TAG_COLORS: Record<string, string> = {
   BREAKOUT: "bg-teal-500/20 text-teal-400",
   VALUE: "bg-blue-500/20 text-blue-400",
   "LOW PER": "bg-cyan-500/20 text-cyan-400",
-  "HIGH DIV": "bg-green-500/20 text-green-400",
+  "HIGH DIV": "bg-amber-500/20 text-amber-400",
 };
 
 function ChgPct({ v }: { v: number }) {

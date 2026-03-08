@@ -310,7 +310,7 @@ export default function AiTradingPage() {
                   <div className="flex items-center gap-3">
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#222]">
                       <div
-                        className="h-full rounded-full bg-green-500 transition-all"
+                        className="h-full rounded-full bg-amber-500 transition-all"
                         style={{ width: `${convictionPercent(result.conviction)}%` }}
                       />
                     </div>

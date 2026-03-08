@@ -998,7 +998,7 @@ export default function RRGChart() {
                     </span>
                     {badge && (
                       <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold tracking-wider ${
-                        badge === "UPGRADE" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                        badge === "UPGRADE" ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
                       }`}>
                         {badge}
                       </span>
