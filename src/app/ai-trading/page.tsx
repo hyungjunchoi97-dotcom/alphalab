@@ -6,19 +6,18 @@ import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 interface AnalysisResult {
   signal: "BUY" | "HOLD" | "SELL";
-  pattern: {
-    english: string;
-    korean: string;
-  };
+  stage: string | null;
+  pattern: string;
+  pattern_detail: string;
+  volume_character: string | null;
+  pivot: number | null;
+  entry: number | null;
+  target: number | null;
+  stop: number | null;
+  rr_ratio: number | null;
   interpretation: string;
-  entry: {
-    price: number | null;
-    target: number | null;
-    targetPct: number | null;
-    stopLoss: number | null;
-    stopLossPct: number | null;
-  };
   conviction: "HIGH" | "MEDIUM" | "LOW";
+  minervini_score: number | null;
 }
 
 function convictionPercent(level: string): number {
@@ -32,10 +31,25 @@ function formatPrice(v: number | null): string {
   return v.toLocaleString();
 }
 
-function formatPct(v: number | null): string {
-  if (v == null) return "—";
-  const sign = v >= 0 ? "+" : "";
-  return `${sign}${v.toFixed(1)}%`;
+function stageBadgeColor(stage: string): string {
+  if (stage === "STAGE_2") return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+  if (stage === "STAGE_4") return "bg-red-500/20 text-red-400 border-red-500/30";
+  return "bg-[#222] text-[#888] border-[#333]";
+}
+
+function stageLabel(stage: string): string {
+  return stage.replace("_", " ");
+}
+
+function volumeBadgeColor(vol: string): string {
+  if (vol === "CONSTRUCTIVE") return "bg-green-500/20 text-green-400 border-green-500/30";
+  if (vol === "BREAKOUT_VOLUME") return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+  if (vol === "CLIMACTIC") return "bg-red-500/20 text-red-400 border-red-500/30";
+  return "bg-[#222] text-[#666] border-[#333]";
+}
+
+function volumeLabel(vol: string): string {
+  return vol.replace("_", " ");
 }
 
 export default function AiTradingPage() {
@@ -50,6 +64,7 @@ export default function AiTradingPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -104,6 +119,7 @@ export default function AiTradingPage() {
 
       const json = await res.json();
       if (json.ok && json.data) {
+        console.log("[AI Analysis Result]", json.data);
         setResult(json.data);
       } else {
         setError(json.error || json.raw || "Failed to parse AI response");
@@ -128,7 +144,7 @@ export default function AiTradingPage() {
             AI Technical Analysis
           </h1>
           <p className="mt-1 text-sm text-[#888]">
-            Upload a chart to receive an institutional-grade technical assessment
+            Minervini SEPA / O&apos;Neil CAN SLIM / Weinstein Stage Analysis
           </p>
         </div>
 
@@ -136,6 +152,44 @@ export default function AiTradingPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* LEFT: Upload zone */}
           <div className="flex flex-col gap-4">
+            {/* Chart setup guide */}
+            <div className="rounded border border-[#1a1a1a] bg-[#0d0d0d]">
+              <button
+                onClick={() => setGuideOpen((v) => !v)}
+                className="flex w-full items-center justify-between px-4 py-3 text-left"
+              >
+                <span className="text-xs font-medium text-[#888]">
+                  최적 분석을 위한 차트 설정
+                </span>
+                <svg
+                  className={`h-4 w-4 text-amber-500 transition-transform ${guideOpen ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {guideOpen && (
+                <div className="border-t border-[#1a1a1a] px-4 py-3 space-y-1.5">
+                  {[
+                    "시간봉 설정: 일봉(Daily) 또는 주봉(Weekly) 차트 사용 — 분봉 차트는 분석 정확도 저하",
+                    "기간 설정: 최소 6개월 이상 차트 포함 (베이스 패턴 식별을 위해 1년 권장)",
+                    "이동평균선: 10주선 + 30주선 표시 필수 (Stage 판단 기준)",
+                    "거래량: 차트 하단 거래량 바 반드시 포함",
+                    "캡처 범위: 현재가 기준 좌측으로 충분한 가격 히스토리 포함",
+                    "권장 출처: TradingView, 키움 HTS, 미래에셋 HTS 차트 캡처",
+                    "해상도: 고해상도 캡처 권장 (차트 글씨 판독 가능해야 함)",
+                  ].map((text, i) => (
+                    <p key={i} className="text-[11px] font-mono text-[#666] leading-relaxed">
+                      · {text}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {!image ? (
               <div
                 onDragOver={(e) => {
@@ -244,24 +298,40 @@ export default function AiTradingPage() {
               </div>
             ) : result ? (
               <div className="space-y-0">
-                {/* 1. TECHNICAL ASSESSMENT */}
+                {/* 1. TECHNICAL ASSESSMENT + STAGE */}
                 <div className="py-5 border-b border-[#222]">
                   <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#555] mb-3">
                     Technical Assessment
                   </h3>
-                  <div className="flex gap-2">
-                    {(["BUY", "HOLD", "SELL"] as const).map((label) => (
-                      <span
-                        key={label}
-                        className={`px-4 py-1.5 text-xs font-bold tracking-wider ${
-                          result.signal === label
-                            ? "bg-white text-black"
-                            : "border border-[#333] text-[#333]"
-                        }`}
-                      >
-                        {label}
-                      </span>
-                    ))}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex gap-2">
+                      {(["BUY", "HOLD", "SELL"] as const).map((label) => {
+                        const isActive = result.signal === label;
+                        const activeColors = {
+                          BUY: "bg-green-500/20 text-green-400 border border-green-500/40",
+                          HOLD: "bg-amber-500/20 text-amber-400 border border-amber-500/40",
+                          SELL: "bg-red-500/20 text-red-400 border border-red-500/40",
+                        };
+                        return (
+                          <span
+                            key={label}
+                            className={`px-6 py-2 text-sm font-bold tracking-widest ${
+                              isActive
+                                ? activeColors[label]
+                                : "border border-[#1a1a1a] text-[#333]"
+                            }`}
+                          >
+                            {label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <span className={`px-3 py-1 text-[10px] font-bold tracking-wider border rounded ${result.stage ? stageBadgeColor(result.stage) : "bg-[#222] text-[#666] border-[#333]"}`}>
+                      {result.stage ? stageLabel(result.stage) : "N/A"}
+                    </span>
+                    <span className={`px-3 py-1 text-[10px] font-medium tracking-wider border rounded ${result.volume_character ? volumeBadgeColor(result.volume_character) : "bg-[#222] text-[#666] border-[#333]"}`}>
+                      {result.volume_character ? volumeLabel(result.volume_character) : "N/A"}
+                    </span>
                   </div>
                 </div>
 
@@ -271,12 +341,13 @@ export default function AiTradingPage() {
                     Pattern Identified
                   </h3>
                   <p className="text-sm font-medium text-foreground">
-                    {result.pattern.english}{" "}
-                    <span className="text-[#888]">· {result.pattern.korean}</span>
+                    {result.pattern}
                   </p>
-                  <p className="mt-1 text-xs text-[#888]">
-                    {result.interpretation}
-                  </p>
+                  {result.pattern_detail && (
+                    <p className="mt-1 text-[11px] font-mono text-[#666]">
+                      {result.pattern_detail}
+                    </p>
+                  )}
                 </div>
 
                 {/* 3. ENTRY GUIDANCE */}
@@ -284,43 +355,120 @@ export default function AiTradingPage() {
                   <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#555] mb-3">
                     Entry Guidance
                   </h3>
-                  <div className="grid grid-cols-3 gap-3">
+                  {result.signal === "HOLD" && result.entry == null && result.target == null && result.stop == null ? (
                     <div>
-                      <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">진입가</p>
-                      <p className="font-mono text-sm text-foreground">{formatPrice(result.entry.price)}</p>
+                      {result.pivot != null && (
+                        <div className="mb-3">
+                          <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">주요 피벗</p>
+                          <p className="font-mono text-sm text-foreground">{formatPrice(result.pivot)}</p>
+                        </div>
+                      )}
+                      <p className="text-xs text-amber-400/90 leading-relaxed font-mono">
+                        현재 명확한 진입 시점 아님 — {result.pattern || "패턴"}이 완성되면{result.pivot != null ? ` ${result.pivot.toLocaleString()}원 돌파 시` : ""} 진입 고려
+                      </p>
                     </div>
-                    <div>
-                      <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">목표가</p>
-                      <p className="font-mono text-sm text-foreground">{formatPrice(result.entry.target)}</p>
-                      <p className="font-mono text-[10px] text-green-400">{formatPct(result.entry.targetPct)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">손절가</p>
-                      <p className="font-mono text-sm text-foreground">{formatPrice(result.entry.stopLoss)}</p>
-                      <p className="font-mono text-[10px] text-red-400">{formatPct(result.entry.stopLossPct)}</p>
-                    </div>
+                  ) : (
+                  <div className="space-y-0">
+                    {result.pivot != null && (
+                      <div className="flex items-center gap-3 py-2 border-b border-[#1a1a1a]">
+                        <div className="w-0.5 h-5 rounded-full bg-[#555]" />
+                        <p className="text-[9px] uppercase tracking-wider text-[#555] w-12">피벗</p>
+                        <p className="font-mono text-sm text-foreground">{formatPrice(result.pivot)}</p>
+                      </div>
+                    )}
+                    {(result.signal === "SELL"
+                      ? [
+                          { label: "손절가", price: result.stop, color: "red" as const },
+                          { label: "진입가", price: result.entry, color: "amber" as const },
+                          { label: "목표가", price: result.target, color: "green" as const },
+                        ]
+                      : [
+                          { label: "목표가", price: result.target, color: "green" as const },
+                          { label: "진입가", price: result.entry, color: "amber" as const },
+                          { label: "손절가", price: result.stop, color: "red" as const },
+                        ]
+                    ).map((row) => {
+                      const stripColor = {
+                        green: "bg-green-500",
+                        amber: "bg-amber-500",
+                        red: "bg-red-500",
+                      }[row.color];
+                      const textColor = {
+                        green: "text-green-400",
+                        amber: "text-foreground font-bold",
+                        red: "text-red-400",
+                      }[row.color];
+
+                      let pctEl: React.ReactNode = null;
+                      if (result.entry != null && row.price != null && row.color !== "amber") {
+                        const pct = ((row.price - result.entry) / result.entry * 100).toFixed(1);
+                        const pctColor = row.color === "green"
+                          ? (result.signal === "SELL"
+                              ? (result.target! < result.entry ? "text-green-400" : "text-red-400")
+                              : (result.target! > result.entry ? "text-green-400" : "text-red-400"))
+                          : (result.signal === "SELL"
+                              ? (result.stop! > result.entry ? "text-red-400" : "text-green-400")
+                              : (result.stop! < result.entry ? "text-red-400" : "text-green-400"));
+                        pctEl = <span className={`font-mono text-[10px] ${pctColor}`}>{pct}%</span>;
+                      }
+
+                      return (
+                        <div key={row.label} className="flex items-center gap-3 py-2.5 border-b border-[#1a1a1a] last:border-b-0">
+                          <div className={`w-0.5 h-5 rounded-full ${stripColor}`} />
+                          <p className="text-[9px] uppercase tracking-wider text-[#555] w-12">{row.label}</p>
+                          <p className={`font-mono text-sm flex-1 ${textColor}`}>{formatPrice(row.price)}</p>
+                          {pctEl}
+                        </div>
+                      );
+                    })}
                   </div>
+                  )}
                 </div>
 
-                {/* 4. CONVICTION */}
+                {/* 4. INTERPRETATION */}
                 <div className="py-5 border-b border-[#222]">
                   <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#555] mb-3">
+                    Interpretation
+                  </h3>
+                  <p className="text-xs text-[#aaa] leading-relaxed font-mono">
+                    {result.interpretation}
+                  </p>
+                </div>
+
+                {/* 5. CONVICTION + R/R + SEPA SCORE */}
+                <div className="py-5 border-b border-[#222]">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#555] mb-4">
                     Conviction
                   </h3>
-                  <div className="flex items-center gap-3">
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-[#222]">
-                      <div
-                        className="h-full rounded-full bg-amber-500 transition-all"
-                        style={{ width: `${convictionPercent(result.conviction)}%` }}
-                      />
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="rounded border border-[#1a1a1a] px-3 py-2.5 text-center">
+                      <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">R/R Ratio</p>
+                      <p className="font-mono text-sm font-bold text-foreground">
+                        {result.rr_ratio != null ? `${result.rr_ratio.toFixed(1)}:1` : "N/A"}
+                      </p>
                     </div>
-                    <span className="text-xs font-bold tracking-wider text-foreground">
-                      {result.conviction}
-                    </span>
+                    <div className="rounded border border-[#1a1a1a] px-3 py-2.5 text-center">
+                      <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">SEPA Score</p>
+                      <p className="font-mono text-sm font-bold text-foreground">
+                        {result.minervini_score != null ? `${result.minervini_score}/10` : "N/A"}
+                      </p>
+                    </div>
+                    <div className="rounded border border-[#1a1a1a] px-3 py-2.5 text-center">
+                      <p className="text-[9px] uppercase tracking-wider text-[#555] mb-1">Conviction</p>
+                      <p className="font-mono text-sm font-bold text-foreground">
+                        {result.conviction}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-[#222]">
+                    <div
+                      className="h-full rounded-full bg-amber-500 transition-all"
+                      style={{ width: `${convictionPercent(result.conviction)}%` }}
+                    />
                   </div>
                 </div>
 
-                {/* 5. DISCLAIMER */}
+                {/* 6. DISCLAIMER */}
                 <div className="pt-5">
                   <p className="text-xs text-[#444] leading-relaxed">
                     본 분석은 AlphaLab AI Technical Model에 의해 생성되었으며, 투자 판단의 참고자료로만 활용하시기 바랍니다. 투자 결과에 대한 책임은 투자자 본인에게 있습니다.
