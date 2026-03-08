@@ -22,6 +22,9 @@ interface ScreenerResult {
 
 const CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
 
+// In-memory fallback cache (for when Supabase table doesn't exist yet)
+const memCache: Record<string, { data: ScreenerResult[]; ts: number }> = {};
+
 // ── KR Top 50 symbols ──────────────────────────────────────────
 const KR_SYMBOLS: [string, string][] = [
   ["005930.KS", "삼성전자"], ["000660.KS", "SK하이닉스"], ["373220.KS", "LG에너지솔루션"],
@@ -317,21 +320,31 @@ export async function GET(req: NextRequest) {
     const market = (searchParams.get("market") || "ALL").toUpperCase();
     const refresh = searchParams.get("refresh") === "true";
 
-    // Check Supabase cache first
+    const totalScanned = (market !== "US" ? KR_SYMBOLS.length : 0) + (market !== "KR" ? US_SYMBOLS.length : 0);
+
+    // Check in-memory cache first, then Supabase
     if (!refresh) {
+      // In-memory
+      if (memCache[market] && Date.now() - memCache[market].ts < CACHE_TTL) {
+        return NextResponse.json({
+          ok: true,
+          results: memCache[market].data,
+          cached: true,
+          updated_at: new Date(memCache[market].ts).toISOString(),
+          stats: { kr_scanned: market !== "US" ? KR_SYMBOLS.length : 0, us_scanned: market !== "KR" ? US_SYMBOLS.length : 0, total_scanned: totalScanned, passed: memCache[market].data.length },
+        });
+      }
+      // Supabase
       const cached = await getCachedResults(market);
       if (cached) {
+        // Populate in-memory too
+        memCache[market] = { data: cached.data, ts: new Date(cached.ts).getTime() };
         return NextResponse.json({
           ok: true,
           results: cached.data,
           cached: true,
           updated_at: cached.ts,
-          stats: {
-            kr_scanned: market !== "US" ? KR_SYMBOLS.length : 0,
-            us_scanned: market !== "KR" ? US_SYMBOLS.length : 0,
-            total_scanned: (market !== "US" ? KR_SYMBOLS.length : 0) + (market !== "KR" ? US_SYMBOLS.length : 0),
-            passed: cached.data.length,
-          },
+          stats: { kr_scanned: market !== "US" ? KR_SYMBOLS.length : 0, us_scanned: market !== "KR" ? US_SYMBOLS.length : 0, total_scanned: totalScanned, passed: cached.data.length },
         });
       }
     }
@@ -354,7 +367,8 @@ export async function GET(req: NextRequest) {
 
     const now = new Date().toISOString();
 
-    // Save to Supabase cache
+    // Save to both caches
+    memCache[market] = { data: all, ts: Date.now() };
     await setCachedResults(market, all);
 
     return NextResponse.json({
@@ -362,12 +376,7 @@ export async function GET(req: NextRequest) {
       results: all,
       cached: false,
       updated_at: now,
-      stats: {
-        kr_scanned: market !== "US" ? KR_SYMBOLS.length : 0,
-        us_scanned: market !== "KR" ? US_SYMBOLS.length : 0,
-        total_scanned: (market !== "US" ? KR_SYMBOLS.length : 0) + (market !== "KR" ? US_SYMBOLS.length : 0),
-        passed: all.length,
-      },
+      stats: { kr_scanned: market !== "US" ? KR_SYMBOLS.length : 0, us_scanned: market !== "KR" ? US_SYMBOLS.length : 0, total_scanned: totalScanned, passed: all.length },
     });
   } catch (err) {
     return NextResponse.json(
