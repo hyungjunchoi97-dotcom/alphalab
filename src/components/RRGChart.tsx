@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLang } from "@/lib/LangContext";
 
 // ── Types ────────────────────────────────────────────────────
@@ -17,6 +17,13 @@ interface SectorData {
   current: RRGPoint;
   quadrant: "leading" | "improving" | "lagging" | "weakening";
   chg5d: number;
+}
+
+interface SectorStockData {
+  ticker: string;
+  name: string;
+  price: number;
+  chgPct: number;
 }
 
 type Quadrant = "leading" | "improving" | "lagging" | "weakening";
@@ -66,6 +73,54 @@ const QUADRANT_SUMMARY: Record<Quadrant, { kr: string; en: string }> = {
   weakening: { kr: "약세 전환 중 — 비중 축소 고려", en: "Turning bearish — consider trimming" },
   lagging: { kr: "약세 유지 — 관망", en: "Weakness sustained — stay cautious" },
 };
+
+// ── Sector → Representative stocks mapping (KR) ──────────────
+
+const KR_SECTOR_STOCKS: Record<string, string[]> = {
+  "091160": ["005930", "000660", "042700", "240810", "056490"], // 반도체
+  "227550": ["207940", "068270", "128940", "326030", "091990"], // 바이오
+  "266370": ["051910", "096770", "009830", "010950", "011170"], // 화학
+  "139250": ["035420", "035720", "259960", "047050", "034220"], // IT
+  "140710": ["011200", "003490", "028670", "086280", "000120"], // 운송
+  "102110": ["005380", "012330", "000270", "021240", "009150"], // 소비재
+  "139260": ["000720", "006360", "047040", "034300", "028260"], // 건설
+  "091170": ["105560", "055550", "086790", "316140", "138930"], // 은행
+  "091180": ["005380", "012330", "000270", "064960", "204320"], // 자동차
+  "091200": ["005490", "004020", "001230", "058430", "004990"], // 철강
+};
+
+// ── Sparkline SVG component ──────────────────────────────────
+
+function MiniSparkline({ trail, color }: { trail: RRGPoint[]; color: string }) {
+  const pts = trail.slice(-5);
+  if (pts.length < 2) return null;
+  const moms = pts.map(p => p.rsMomentum);
+  const min = Math.min(...moms);
+  const max = Math.max(...moms);
+  const range = max - min || 1;
+  const w = 36, h = 14;
+
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="shrink-0">
+      {moms.map((v, i) => {
+        const barH = Math.max(2, ((v - min) / range) * (h - 2));
+        const barW = (w - (moms.length - 1) * 1) / moms.length;
+        return (
+          <rect
+            key={i}
+            x={i * (barW + 1)}
+            y={h - barH}
+            width={barW}
+            height={barH}
+            fill={color}
+            opacity={0.3 + (i / moms.length) * 0.7}
+            rx={1}
+          />
+        );
+      })}
+    </svg>
+  );
+}
 
 // ── Auto summary generator ──────────────────────────────────
 
@@ -168,15 +223,14 @@ function RRGScatterPlot({
 
   // Collision detection: offset overlapping bubbles
   const bubblePositions = useMemo(() => {
-    const BASE_R = 14; // 40% smaller (was 23)
+    const BASE_R = 14;
     const positions = sectors.map(s => ({
       ticker: s.ticker,
       x: scaleX(s.current.rsRatio),
       y: scaleY(s.current.rsMomentum),
-      ox: 0, // offset x
-      oy: 0, // offset y
+      ox: 0,
+      oy: 0,
     }));
-    // Simple collision resolution: push apart overlapping bubbles
     for (let iter = 0; iter < 5; iter++) {
       for (let i = 0; i < positions.length; i++) {
         for (let j = i + 1; j < positions.length; j++) {
@@ -184,7 +238,7 @@ function RRGScatterPlot({
           const dx = (a.x + a.ox) - (b.x + b.ox);
           const dy = (a.y + a.oy) - (b.y + b.oy);
           const dist = Math.sqrt(dx * dx + dy * dy);
-          const minDist = BASE_R * 2.5; // minimum distance between centers
+          const minDist = BASE_R * 2.5;
           if (dist < minDist && dist > 0) {
             const push = (minDist - dist) / 2;
             const nx = dx / dist, ny = dy / dist;
@@ -203,13 +257,11 @@ function RRGScatterPlot({
   return (
     <div className="relative">
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
-        {/* Quadrant backgrounds */}
         <rect x={cx100} y={PAD.top} width={PAD.left + plotW - cx100 + PAD.right} height={cy100 - PAD.top} fill={Q.leading.bg} />
         <rect x={0} y={PAD.top} width={cx100} height={cy100 - PAD.top} fill={Q.improving.bg} />
         <rect x={0} y={cy100} width={cx100} height={PAD.top + plotH - cy100 + PAD.bottom} fill={Q.lagging.bg} />
         <rect x={cx100} y={cy100} width={PAD.left + plotW - cx100 + PAD.right} height={PAD.top + plotH - cy100 + PAD.bottom} fill={Q.weakening.bg} />
 
-        {/* Grid lines */}
         {[...Array(5)].map((_, i) => {
           const xv = xMin + ((xMax - xMin) * i) / 4;
           const yv = yMin + ((yMax - yMin) * i) / 4;
@@ -223,25 +275,14 @@ function RRGScatterPlot({
           );
         })}
 
-        {/* Center crosshair */}
         <line x1={cx100} y1={PAD.top} x2={cx100} y2={PAD.top + plotH} stroke="#2a3040" strokeWidth={1.5} />
         <line x1={PAD.left} y1={cy100} x2={PAD.left + plotW} y2={cy100} stroke="#2a3040" strokeWidth={1.5} />
 
-        {/* Quadrant labels */}
-        <text x={cx100 + 8} y={PAD.top + 18} fill={Q.leading.color} fontSize={12} fontWeight="700" opacity={0.5} fontFamily="ui-sans-serif, system-ui, sans-serif">
-          Leading
-        </text>
-        <text x={PAD.left + 8} y={PAD.top + 18} fill={Q.improving.color} fontSize={12} fontWeight="700" opacity={0.5} fontFamily="ui-sans-serif, system-ui, sans-serif">
-          Improving
-        </text>
-        <text x={PAD.left + 8} y={PAD.top + plotH - 8} fill={Q.lagging.color} fontSize={12} fontWeight="700" opacity={0.5} fontFamily="ui-sans-serif, system-ui, sans-serif">
-          Lagging
-        </text>
-        <text x={cx100 + 8} y={PAD.top + plotH - 8} fill={Q.weakening.color} fontSize={12} fontWeight="700" opacity={0.5} fontFamily="ui-sans-serif, system-ui, sans-serif">
-          Weakening
-        </text>
+        <text x={cx100 + 8} y={PAD.top + 18} fill={Q.leading.color} fontSize={12} fontWeight="700" opacity={0.5} fontFamily="ui-sans-serif, system-ui, sans-serif">Leading</text>
+        <text x={PAD.left + 8} y={PAD.top + 18} fill={Q.improving.color} fontSize={12} fontWeight="700" opacity={0.5} fontFamily="ui-sans-serif, system-ui, sans-serif">Improving</text>
+        <text x={PAD.left + 8} y={PAD.top + plotH - 8} fill={Q.lagging.color} fontSize={12} fontWeight="700" opacity={0.5} fontFamily="ui-sans-serif, system-ui, sans-serif">Lagging</text>
+        <text x={cx100 + 8} y={PAD.top + plotH - 8} fill={Q.weakening.color} fontSize={12} fontWeight="700" opacity={0.5} fontFamily="ui-sans-serif, system-ui, sans-serif">Weakening</text>
 
-        {/* Axis labels */}
         <text x={PAD.left + plotW / 2} y={H - 4} textAnchor="middle" fill="#666" fontSize={10} fontFamily="ui-sans-serif, system-ui, sans-serif">
           RS-Ratio ({lang === "kr" ? "상대강도" : "Relative Strength"})
         </text>
@@ -249,7 +290,6 @@ function RRGScatterPlot({
           RS-Momentum ({lang === "kr" ? "모멘텀" : "Momentum"})
         </text>
 
-        {/* Arrow markers */}
         <defs>
           {sectors.map(s => (
             <marker key={`arrow-${s.ticker}`} id={`arrow-${s.ticker}`} viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -258,21 +298,19 @@ function RRGScatterPlot({
           ))}
         </defs>
 
-        {/* Sector trails and bubbles */}
         {sectors.map((s) => {
           const allPts = s.trail.slice(-trailWeeks);
           const pts = allPts.slice(-TRAIL_DISPLAY);
           const isHighlighted = highlighted === s.ticker;
           const dimmed = highlighted !== null && !isHighlighted;
           const opacity = dimmed ? 0.12 : 1;
-          const r = isHighlighted ? 18 : 14; // 40% smaller
+          const r = isHighlighted ? 18 : 14;
           const offset = bubblePositions.get(s.ticker) || { ox: 0, oy: 0 };
           const bx = scaleX(s.current.rsRatio) + offset.ox;
           const by = scaleY(s.current.rsMomentum) + offset.oy;
 
           return (
             <g key={s.ticker} opacity={opacity}>
-              {/* Trail line with arrow */}
               {pts.length > 1 && (
                 <polyline
                   points={pts.map(p => `${scaleX(p.rsRatio)},${scaleY(p.rsMomentum)}`).join(" ")}
@@ -283,7 +321,6 @@ function RRGScatterPlot({
                   markerEnd={`url(#arrow-${s.ticker})`}
                 />
               )}
-              {/* Trail dots */}
               {pts.slice(0, -1).map((p, i) => (
                 <circle
                   key={i}
@@ -294,15 +331,10 @@ function RRGScatterPlot({
                   opacity={0.25 + (i / pts.length) * 0.45}
                 />
               ))}
-              {/* Current bubble */}
               <circle
-                cx={bx}
-                cy={by}
-                r={r}
-                fill={s.color}
-                fillOpacity={0.15}
-                stroke={s.color}
-                strokeWidth={isHighlighted ? 2 : 1}
+                cx={bx} cy={by} r={r}
+                fill={s.color} fillOpacity={0.15}
+                stroke={s.color} strokeWidth={isHighlighted ? 2 : 1}
                 className="cursor-pointer transition-all"
                 onMouseEnter={(e) => {
                   onHover(s.ticker);
@@ -316,32 +348,12 @@ function RRGScatterPlot({
                 onMouseLeave={() => { onHover(null); setTooltip(null); }}
                 onClick={() => onClick(s.ticker)}
               />
-              {/* Sector name — only on hover */}
               {isHighlighted && (
-                <text
-                  x={bx}
-                  y={by - r - 4}
-                  textAnchor="middle"
-                  fill="#e0e0e0"
-                  fontSize={10}
-                  fontWeight="600"
-                  fontFamily="ui-sans-serif, system-ui, sans-serif"
-                  pointerEvents="none"
-                >
+                <text x={bx} y={by - r - 4} textAnchor="middle" fill="#e0e0e0" fontSize={10} fontWeight="600" fontFamily="ui-sans-serif, system-ui, sans-serif" pointerEvents="none">
                   {lang === "kr" ? s.nameKr : s.name}
                 </text>
               )}
-              {/* % change inside bubble */}
-              <text
-                x={bx}
-                y={by + 3}
-                textAnchor="middle"
-                fill={s.chg5d >= 0 ? "#4ade80" : "#f87171"}
-                fontSize={isHighlighted ? 9 : 7}
-                fontWeight="700"
-                fontFamily="ui-monospace, monospace"
-                pointerEvents="none"
-              >
+              <text x={bx} y={by + 3} textAnchor="middle" fill={s.chg5d >= 0 ? "#4ade80" : "#f87171"} fontSize={isHighlighted ? 9 : 7} fontWeight="700" fontFamily="ui-monospace, monospace" pointerEvents="none">
                 {s.chg5d >= 0 ? "+" : ""}{s.chg5d.toFixed(1)}%
               </text>
             </g>
@@ -349,15 +361,10 @@ function RRGScatterPlot({
         })}
       </svg>
 
-      {/* Tooltip */}
       {tooltip && (
         <div
           className="pointer-events-none absolute z-50 rounded border border-[#2a2a2a] bg-[#0d0d0d] px-4 py-3 shadow-2xl"
-          style={{
-            left: Math.min(tooltip.x + 14, 420),
-            top: Math.max(tooltip.y - 20, 0),
-            minWidth: 260,
-          }}
+          style={{ left: Math.min(tooltip.x + 14, 420), top: Math.max(tooltip.y - 20, 0), minWidth: 260 }}
         >
           <div className="flex items-center gap-2 mb-2">
             <span className="inline-block h-2 w-2 rounded-sm" style={{ background: tooltip.sector.color }} />
@@ -374,15 +381,11 @@ function RRGScatterPlot({
             </div>
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-[#666]">RS-Ratio</span>
-              <span className="font-mono font-medium text-foreground">
-                {tooltip.sector.current.rsRatio.toFixed(2)}
-              </span>
+              <span className="font-mono font-medium text-foreground">{tooltip.sector.current.rsRatio.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-[#666]">RS-Momentum</span>
-              <span className="font-mono font-medium text-foreground">
-                {tooltip.sector.current.rsMomentum.toFixed(2)}
-              </span>
+              <span className="font-mono font-medium text-foreground">{tooltip.sector.current.rsMomentum.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-[#666]">{lang === "kr" ? "5일 수익률" : "5D Return"}</span>
@@ -392,9 +395,7 @@ function RRGScatterPlot({
             </div>
           </div>
           <div className="mt-2 border-t border-[#222] pt-2">
-            <p className="text-[10px] text-[#888] leading-relaxed">
-              {getInterpretation(tooltip.sector, lang)}
-            </p>
+            <p className="text-[10px] text-[#888] leading-relaxed">{getInterpretation(tooltip.sector, lang)}</p>
           </div>
         </div>
       )}
@@ -423,50 +424,33 @@ function RRGInfoPanel({ lang }: { lang: "en" | "kr" }) {
 
       {open && (
         <div className="border-t border-[#1a1a1a] px-4 pb-4 pt-3 space-y-5">
-          {/* METHODOLOGY */}
           <div>
-            <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">
-              METHODOLOGY
-            </h4>
+            <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">METHODOLOGY</h4>
             <p className="text-[11px] text-[#999] leading-relaxed">
               {lang === "kr"
                 ? "RRG는 각 섹터의 상대강도(RS-Ratio)와 그 변화율(RS-Momentum)을 2차원 평면에 시각화한 지표입니다. 단순 수익률이 아닌 벤치마크 대비 상대적 포지셔닝과 방향성을 동시에 파악할 수 있어, 섹터 로테이션 전략 수립 시 활용됩니다."
                 : "RRG visualizes each sector's relative strength (RS-Ratio) and its rate of change (RS-Momentum) on a two-dimensional plane. Unlike simple returns, it captures both relative positioning versus benchmark and directional momentum, making it a standard tool for sector rotation strategy."}
             </p>
           </div>
-
-          {/* HOW TO READ */}
           <div>
-            <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">
-              HOW TO READ
-            </h4>
+            <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">HOW TO READ</h4>
             <div className="space-y-1.5 text-[11px]">
               <div className="flex gap-3 py-1.5 border-b border-[#151515]">
                 <span className="shrink-0 font-mono text-[#555] w-24">X-Axis</span>
-                <span className="text-[#999]">
-                  <span className="text-[#ccc] font-medium">RS-Ratio</span> — {lang === "kr" ? "벤치마크 대비 상대강도. 100 기준, 초과 시 시장 대비 강세." : "Relative strength vs benchmark. 100 = neutral, above = outperforming."}
-                </span>
+                <span className="text-[#999]"><span className="text-[#ccc] font-medium">RS-Ratio</span> — {lang === "kr" ? "벤치마크 대비 상대강도. 100 기준, 초과 시 시장 대비 강세." : "Relative strength vs benchmark. 100 = neutral, above = outperforming."}</span>
               </div>
               <div className="flex gap-3 py-1.5 border-b border-[#151515]">
                 <span className="shrink-0 font-mono text-[#555] w-24">Y-Axis</span>
-                <span className="text-[#999]">
-                  <span className="text-[#ccc] font-medium">RS-Momentum</span> — {lang === "kr" ? "상대강도의 변화율. 100 초과 시 강도 개선 중." : "Rate of change in RS. Above 100 = strength improving."}
-                </span>
+                <span className="text-[#999]"><span className="text-[#ccc] font-medium">RS-Momentum</span> — {lang === "kr" ? "상대강도의 변화율. 100 초과 시 강도 개선 중." : "Rate of change in RS. Above 100 = strength improving."}</span>
               </div>
               <div className="flex gap-3 py-1.5">
                 <span className="shrink-0 font-mono text-[#555] w-24">Trail</span>
-                <span className="text-[#999]">
-                  {lang === "kr" ? "최근 4주 이동 경로. 시계 방향 순환이 일반적 패턴." : "Last 4 weeks path. Clockwise rotation is the typical pattern."}
-                </span>
+                <span className="text-[#999]">{lang === "kr" ? "최근 4주 이동 경로. 시계 방향 순환이 일반적 패턴." : "Last 4 weeks path. Clockwise rotation is the typical pattern."}</span>
               </div>
             </div>
           </div>
-
-          {/* QUADRANT DEFINITIONS */}
           <div>
-            <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">
-              QUADRANT DEFINITIONS
-            </h4>
+            <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">QUADRANT DEFINITIONS</h4>
             <table className="w-full text-[11px]">
               <thead>
                 <tr className="border-b border-[#222]">
@@ -482,25 +466,167 @@ function RRGInfoPanel({ lang }: { lang: "en" | "kr" }) {
                     <td className="py-1.5">
                       <div className="flex items-center gap-1.5">
                         <span className="inline-block h-2 w-2 rounded-sm" style={{ background: Q[q].color }} />
-                        <span className="font-medium" style={{ color: Q[q].color }}>
-                          {Q[q].en} / {Q[q].kr}
-                        </span>
+                        <span className="font-medium" style={{ color: Q[q].color }}>{Q[q].en} / {Q[q].kr}</span>
                       </div>
                     </td>
-                    <td className="py-1.5 font-mono text-[#888]">
-                      {q === "leading" || q === "weakening" ? "> 100" : "< 100"}
-                    </td>
-                    <td className="py-1.5 font-mono text-[#888]">
-                      {q === "leading" || q === "improving" ? "> 100" : "< 100"}
-                    </td>
-                    <td className="py-1.5 text-[#888]">
-                      {lang === "kr" ? Q[q].descKr : Q[q].descEn}
-                    </td>
+                    <td className="py-1.5 font-mono text-[#888]">{q === "leading" || q === "weakening" ? "> 100" : "< 100"}</td>
+                    <td className="py-1.5 font-mono text-[#888]">{q === "leading" || q === "improving" ? "> 100" : "< 100"}</td>
+                    <td className="py-1.5 text-[#888]">{lang === "kr" ? Q[q].descKr : Q[q].descEn}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Sector Detail Panel ──────────────────────────────────────
+
+function SectorDetailPanel({
+  sector,
+  lang,
+  trailWeeks,
+}: {
+  sector: SectorData;
+  lang: "en" | "kr";
+  trailWeeks: number;
+}) {
+  const [stocks, setStocks] = useState<SectorStockData[]>([]);
+  const [stocksLoading, setStocksLoading] = useState(false);
+
+  // Fetch representative stocks data
+  useEffect(() => {
+    if (sector.market !== "KR") {
+      setStocks([]);
+      return;
+    }
+    const tickers = KR_SECTOR_STOCKS[sector.ticker];
+    if (!tickers || tickers.length === 0) {
+      setStocks([]);
+      return;
+    }
+
+    setStocksLoading(true);
+    const symbols = tickers.map(t => `${t}.KS`);
+
+    Promise.all(
+      symbols.map(sym =>
+        fetch(`/api/prices?symbol=${sym}`)
+          .then(r => r.json())
+          .then(json => {
+            if (json.ok && json.data) {
+              return {
+                ticker: sym.replace(".KS", ""),
+                name: json.data.name || sym,
+                price: json.data.price || 0,
+                chgPct: json.data.chgPct || 0,
+              } as SectorStockData;
+            }
+            return null;
+          })
+          .catch(() => null)
+      )
+    ).then(results => {
+      setStocks(results.filter((r): r is SectorStockData => r !== null));
+      setStocksLoading(false);
+    });
+  }, [sector.ticker, sector.market]);
+
+  const isImproving = sector.quadrant === "improving";
+
+  return (
+    <div className="rounded-lg border border-[#1a1a1a] bg-[#0a0a0a] p-5 space-y-4">
+      {/* A) Header */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="inline-block h-3 w-3 rounded-sm" style={{ background: sector.color }} />
+        <h3 className="text-base font-bold text-[#e0e0e0]">
+          {lang === "kr" ? sector.nameKr : sector.name}
+        </h3>
+        <span className="font-mono text-xs font-bold uppercase px-2 py-0.5 rounded" style={{ color: Q[sector.quadrant].color, background: `${Q[sector.quadrant].color}15` }}>
+          {Q[sector.quadrant].en}
+        </span>
+        <span className={`font-mono text-sm font-semibold ${sector.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
+          {sector.chg5d >= 0 ? "+" : ""}{sector.chg5d.toFixed(1)}%
+        </span>
+      </div>
+
+      {/* B) Improving insight box */}
+      {isImproving && (
+        <div className="rounded-lg border border-blue-400/40 bg-blue-950/50 px-4 py-3">
+          <p className="text-[12px] font-medium text-blue-300">
+            {lang === "kr"
+              ? "Lagging → Improving 전환 감지. 모멘텀 상승 초기 구간. 선제 진입 고려."
+              : "Lagging → Improving transition detected. Early momentum recovery. Consider early entry."}
+          </p>
+        </div>
+      )}
+
+      {/* RS metrics */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded border border-[#1a1a1a] px-3 py-2">
+          <p className="text-[9px] uppercase tracking-wider text-[#555] font-mono">RS-Ratio</p>
+          <p className="mt-0.5 text-lg font-bold tabular-nums font-mono text-[#ccc]">{sector.current.rsRatio.toFixed(2)}</p>
+          <p className="text-[9px] text-[#555]">
+            {sector.current.rsRatio >= 100 ? "+" : ""}{(sector.current.rsRatio - 100).toFixed(1)} vs benchmark
+          </p>
+        </div>
+        <div className="rounded border border-[#1a1a1a] px-3 py-2">
+          <p className="text-[9px] uppercase tracking-wider text-[#555] font-mono">RS-Momentum</p>
+          <p className="mt-0.5 text-lg font-bold tabular-nums font-mono text-[#ccc]">{sector.current.rsMomentum.toFixed(2)}</p>
+          <p className="text-[9px] text-[#555]">
+            {sector.current.rsMomentum >= 100 ? (lang === "kr" ? "모멘텀 상승" : "Momentum rising") : (lang === "kr" ? "모멘텀 하락" : "Momentum falling")}
+          </p>
+        </div>
+      </div>
+
+      {/* Interpretation */}
+      <div className="rounded border border-[#151515] bg-[#080808] px-3 py-2">
+        <p className="text-[10px] text-[#888] leading-relaxed">{getInterpretation(sector, lang)}</p>
+        <p className="mt-1 text-[9px] text-[#444] font-mono">
+          ETF: {sector.ticker}{sector.market === "KR" ? ".KS" : ""} | {trailWeeks}W trail
+        </p>
+      </div>
+
+      {/* D) Representative stocks */}
+      {sector.market === "KR" && KR_SECTOR_STOCKS[sector.ticker] && (
+        <div>
+          <h4 className="text-[10px] font-bold uppercase tracking-wider text-[#555] mb-2">
+            {lang === "kr" ? "대표 종목" : "REPRESENTATIVE STOCKS"}
+          </h4>
+          {stocksLoading ? (
+            <div className="flex items-center gap-2 py-3">
+              <div className="h-3 w-3 animate-spin rounded-full border border-[#333] border-t-[#888]" />
+              <span className="text-[10px] text-[#555]">Loading...</span>
+            </div>
+          ) : stocks.length === 0 ? (
+            <p className="text-[10px] text-[#333] py-2 font-mono">—</p>
+          ) : (
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-[#1a1a1a]">
+                  <th className="text-left py-1.5 text-[9px] uppercase tracking-wider text-[#555] font-medium">Ticker</th>
+                  <th className="text-left py-1.5 text-[9px] uppercase tracking-wider text-[#555] font-medium">Name</th>
+                  <th className="text-right py-1.5 text-[9px] uppercase tracking-wider text-[#555] font-medium">Price</th>
+                  <th className="text-right py-1.5 text-[9px] uppercase tracking-wider text-[#555] font-medium">Chg%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stocks.map(st => (
+                  <tr key={st.ticker} className="border-b border-[#111]">
+                    <td className="py-1.5 font-mono font-medium text-accent">{st.ticker}</td>
+                    <td className="py-1.5 text-[#888]">{st.name}</td>
+                    <td className="py-1.5 text-right font-mono tabular-nums text-[#ccc]">{st.price.toLocaleString()}</td>
+                    <td className={`py-1.5 text-right font-mono tabular-nums font-medium ${st.chgPct >= 0 ? "text-gain" : "text-loss"}`}>
+                      {st.chgPct >= 0 ? "+" : ""}{st.chgPct.toFixed(2)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
     </div>
@@ -522,6 +648,7 @@ export default function RRGChart() {
   const [playing, setPlaying] = useState(false);
   const [animFrame, setAnimFrame] = useState(0);
   const animRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [chartOpen, setChartOpen] = useState(false); // collapsed by default
 
   useEffect(() => {
     fetch("/api/ideas/rrg")
@@ -578,23 +705,28 @@ export default function RRGChart() {
         return;
       }
       setAnimFrame(frame);
-    }, 1200); // 2x slower animation (was 600ms)
+    }, 1200);
   };
 
   useEffect(() => {
     return () => { if (animRef.current) clearInterval(animRef.current); };
   }, []);
 
-  const handleBubbleClick = (ticker: string) => {
+  const handleSectorClick = useCallback((ticker: string) => {
     setSelectedSector(prev => prev === ticker ? null : ticker);
     setHighlighted(prev => prev === ticker ? null : ticker);
-  };
+  }, []);
+
+  const selectedSectorData = useMemo(() => {
+    if (!selectedSector) return null;
+    return sectors.find(s => s.ticker === selectedSector) || null;
+  }, [selectedSector, sectors]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#333] border-t-[#888]" />
-        <span className="ml-3 text-xs text-[#555] font-mono">{lang === "kr" ? "Loading RRG data..." : "Loading RRG data..."}</span>
+        <span className="ml-3 text-xs text-[#555] font-mono">Loading RRG data...</span>
       </div>
     );
   }
@@ -602,6 +734,90 @@ export default function RRGChart() {
   if (sectors.length === 0) {
     return <div className="py-16 text-center text-[#555] text-xs font-mono">No data available</div>;
   }
+
+  // Build quadrant card renderer
+  const renderQuadrantCard = (q: Quadrant) => {
+    const qMeta = Q[q];
+    const items = grouped[q];
+    const isImproving = q === "improving";
+    const headerBg = q === "leading" ? "bg-green-900/60" : q === "improving" ? "bg-blue-900/60" : q === "weakening" ? "bg-yellow-900/60" : "bg-red-900/60";
+    const headerBorder = q === "leading" ? "border-green-500/50" : q === "improving" ? "border-blue-500/50" : q === "weakening" ? "border-yellow-500/50" : "border-red-500/50";
+
+    return (
+      <div
+        key={q}
+        className={`rounded-lg border overflow-hidden ${qMeta.border} ${isImproving && items.length > 0 ? "ring-1 ring-blue-400/30 animate-pulse-border" : ""}`}
+        style={{ background: "#0d0d0d" }}
+      >
+        {/* Colored header */}
+        <div className={`${headerBg} border-b ${headerBorder} px-4 py-3 flex items-center justify-between`}>
+          <div className="flex items-center gap-2">
+            <span className="inline-block h-3 w-3 rounded-sm" style={{ background: qMeta.color }} />
+            <span className="text-sm font-bold uppercase tracking-wider" style={{ color: qMeta.color }}>
+              {qMeta.en}
+            </span>
+            <span className="text-xs text-[#888]">/ {qMeta.kr}</span>
+          </div>
+          <span className="text-[11px] font-mono text-[#555]">
+            {items.length} {lang === "kr" ? "섹터" : "sectors"}
+          </span>
+        </div>
+
+        {/* Sector rows */}
+        <div className="px-1">
+          {items.length === 0 ? (
+            <p className="text-xs text-[#333] py-4 px-3 font-mono">—</p>
+          ) : (
+            items.map(s => {
+              const prevPt = s.trail.length >= 2 ? s.trail[s.trail.length - 2] : null;
+              let badge: "UPGRADE" | "DOWNGRADE" | null = null;
+              if (prevPt) {
+                const momDelta = s.current.rsMomentum - prevPt.rsMomentum;
+                if (momDelta > 0.3) badge = "UPGRADE";
+                else if (momDelta < -0.3) badge = "DOWNGRADE";
+              }
+
+              return (
+                <div
+                  key={s.ticker}
+                  className={`flex items-center justify-between rounded px-3 py-2.5 cursor-pointer transition-colors ${
+                    selectedSector === s.ticker ? "bg-[#1a1a1a] ring-1 ring-[#333]" : highlighted === s.ticker ? "bg-[#151515]" : "hover:bg-[#111]"
+                  }`}
+                  onMouseEnter={() => setHighlighted(s.ticker)}
+                  onMouseLeave={() => setHighlighted(null)}
+                  onClick={() => handleSectorClick(s.ticker)}
+                >
+                  <div className="flex items-center gap-3">
+                    <MiniSparkline trail={s.trail} color={s.color} />
+                    <span className="text-[14px] font-medium text-[#ddd]">
+                      {lang === "kr" ? s.nameKr : s.name}
+                    </span>
+                    {badge && (
+                      <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold tracking-wider ${
+                        badge === "UPGRADE" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                      }`}>
+                        {badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`font-mono tabular-nums text-[13px] font-semibold ${s.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
+                    {s.chg5d >= 0 ? "+" : ""}{s.chg5d.toFixed(1)}%
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Summary line */}
+        <div className="border-t border-[#1a1a1a] px-4 py-2">
+          <p className="text-[11px] text-[#555] italic">
+            {lang === "kr" ? QUADRANT_SUMMARY[q].kr : QUADRANT_SUMMARY[q].en}
+          </p>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-3">
@@ -611,7 +827,7 @@ export default function RRGChart() {
       {/* Summary bar */}
       <div className="rounded border border-[#1a1a1a] bg-[#0a0a0a] px-4 py-2">
         <p className="text-[11px] font-mono text-[#888] tracking-wide">
-          <span className="text-[#555] mr-2">{lang === "kr" ? "CURRENT SECTOR POSITIONING" : "CURRENT SECTOR POSITIONING"}</span>
+          <span className="text-[#555] mr-2">CURRENT SECTOR POSITIONING</span>
           <span className="text-[#ccc]">{summary}</span>
         </p>
       </div>
@@ -646,14 +862,26 @@ export default function RRGChart() {
           ))}
         </div>
 
+        {/* Chart toggle */}
         <button
-          onClick={togglePlay}
-          className={`rounded px-3 py-1 text-xs font-mono font-medium transition-colors ${
-            playing ? "bg-loss/20 text-loss" : "bg-[#1a1a1a] text-[#888] hover:text-foreground"
-          }`}
+          onClick={() => setChartOpen(!chartOpen)}
+          className="rounded px-3 py-1 text-xs font-medium transition-colors bg-[#1a1a1a] text-[#888] hover:text-foreground"
         >
-          {playing ? "STOP" : "REPLAY"}
+          {chartOpen
+            ? (lang === "kr" ? "차트 숨기기 ▲" : "Hide Chart ▲")
+            : (lang === "kr" ? "차트 보기 ▼" : "Show Chart ▼")}
         </button>
+
+        {chartOpen && (
+          <button
+            onClick={togglePlay}
+            className={`rounded px-3 py-1 text-xs font-mono font-medium transition-colors ${
+              playing ? "bg-loss/20 text-loss" : "bg-[#1a1a1a] text-[#888] hover:text-foreground"
+            }`}
+          >
+            {playing ? "STOP" : "REPLAY"}
+          </button>
+        )}
 
         {asOf && (
           <span className="ml-auto text-[9px] text-[#444] font-mono tabular-nums">
@@ -662,151 +890,53 @@ export default function RRGChart() {
         )}
       </div>
 
-      {/* Main layout: 60% chart / 40% quadrant table */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
-        {/* LEFT: RRG Chart (60%) */}
-        <div className={`${CARD} lg:col-span-3`}>
+      {/* Collapsible RRG Chart */}
+      {chartOpen && (
+        <div className={CARD}>
           <RRGScatterPlot
             sectors={playing ? animatedSectors : sectors}
             highlighted={highlighted}
             onHover={setHighlighted}
-            onClick={handleBubbleClick}
+            onClick={handleSectorClick}
             trailWeeks={trailWeeks}
             lang={lang}
           />
         </div>
+      )}
 
-        {/* RIGHT: Quadrant Cards (40%) — PRIMARY */}
-        <div className="lg:col-span-2 space-y-3">
-          {QUADRANT_ORDER.map(q => {
-            const qMeta = Q[q];
-            const items = grouped[q];
-            const headerBg = q === "leading" ? "bg-green-900/60" : q === "improving" ? "bg-blue-900/60" : q === "weakening" ? "bg-yellow-900/60" : "bg-red-900/60";
-            const headerBorder = q === "leading" ? "border-green-500/50" : q === "improving" ? "border-blue-500/50" : q === "weakening" ? "border-yellow-500/50" : "border-red-500/50";
-
-            return (
-              <div key={q} className={`rounded-lg border overflow-hidden ${qMeta.border}`} style={{ background: "#0d0d0d" }}>
-                {/* Colored header */}
-                <div className={`${headerBg} border-b ${headerBorder} px-4 py-2.5 flex items-center justify-between`}>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: qMeta.color }} />
-                    <span className="text-xs font-bold uppercase tracking-wider" style={{ color: qMeta.color }}>
-                      {qMeta.en}
-                    </span>
-                    <span className="text-[10px] text-[#888]">
-                      / {qMeta.kr}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-[#555]">
-                    {items.length} {lang === "kr" ? "섹터" : "sectors"}
-                  </span>
-                </div>
-
-                {/* Sector rows */}
-                <div className="px-1">
-                  {items.length === 0 ? (
-                    <p className="text-xs text-[#333] py-3 px-3 font-mono">—</p>
-                  ) : (
-                    items.map(s => {
-                      // Determine upgrade/downgrade: compare momentum direction
-                      const prevPt = s.trail.length >= 2 ? s.trail[s.trail.length - 2] : null;
-                      let badge: "UPGRADE" | "DOWNGRADE" | null = null;
-                      if (prevPt) {
-                        const momDelta = s.current.rsMomentum - prevPt.rsMomentum;
-                        if (momDelta > 0.3) badge = "UPGRADE";
-                        else if (momDelta < -0.3) badge = "DOWNGRADE";
-                      }
-
-                      return (
-                        <div
-                          key={s.ticker}
-                          className={`flex items-center justify-between rounded px-3 py-2 cursor-pointer transition-colors ${
-                            highlighted === s.ticker ? "bg-[#1a1a1a]" : "hover:bg-[#111]"
-                          }`}
-                          onMouseEnter={() => setHighlighted(s.ticker)}
-                          onMouseLeave={() => setHighlighted(null)}
-                          onClick={() => handleBubbleClick(s.ticker)}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-[13px] font-medium text-[#ddd]">
-                              {lang === "kr" ? s.nameKr : s.name}
-                            </span>
-                            {badge && (
-                              <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold tracking-wider ${
-                                badge === "UPGRADE"
-                                  ? "bg-green-500/20 text-green-400"
-                                  : "bg-red-500/20 text-red-400"
-                              }`}>
-                                {badge}
-                              </span>
-                            )}
-                          </div>
-                          <span className={`font-mono tabular-nums text-[12px] font-semibold ${s.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
-                            {s.chg5d >= 0 ? "+" : ""}{s.chg5d.toFixed(1)}%
-                          </span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-
-                {/* Summary line */}
-                <div className="border-t border-[#1a1a1a] px-4 py-2">
-                  <p className="text-[10px] text-[#555] italic">
-                    {lang === "kr" ? QUADRANT_SUMMARY[q].kr : QUADRANT_SUMMARY[q].en}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+      {/* Quadrant cards — 2-column grid when chart collapsed */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {/* Left column: LEADING + IMPROVING */}
+        <div className="space-y-3">
+          {renderQuadrantCard("leading")}
+          {renderQuadrantCard("improving")}
+        </div>
+        {/* Right column: WEAKENING + LAGGING */}
+        <div className="space-y-3">
+          {renderQuadrantCard("weakening")}
+          {renderQuadrantCard("lagging")}
         </div>
       </div>
 
-      {/* Selected sector detail */}
-      {selectedSector && (() => {
-        const s = sectors.find(sec => sec.ticker === selectedSector);
-        if (!s) return null;
-        return (
-          <div className="rounded border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-            <div className="mb-3 flex items-center gap-3">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} />
-              <h3 className="text-sm font-semibold text-[#ccc]">
-                {lang === "kr" ? s.nameKr : s.name}
-              </h3>
-              <span className={`font-mono text-xs tabular-nums font-medium ${s.chg5d >= 0 ? "text-gain" : "text-loss"}`}>
-                {s.chg5d >= 0 ? "+" : ""}{s.chg5d.toFixed(1)}%
-              </span>
-              <span className="font-mono text-[9px] font-medium uppercase" style={{ color: Q[s.quadrant].color }}>
-                {Q[s.quadrant].en} / {Q[s.quadrant].kr}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="rounded border border-[#1a1a1a] px-3 py-2">
-                <p className="text-[9px] uppercase tracking-wider text-[#555] font-mono">RS-Ratio</p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums font-mono text-[#ccc]">{s.current.rsRatio.toFixed(2)}</p>
-                <p className="text-[9px] text-[#555]">
-                  {s.current.rsRatio >= 100 ? "+" : ""}{(s.current.rsRatio - 100).toFixed(1)} vs benchmark
-                </p>
-              </div>
-              <div className="rounded border border-[#1a1a1a] px-3 py-2">
-                <p className="text-[9px] uppercase tracking-wider text-[#555] font-mono">RS-Momentum</p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums font-mono text-[#ccc]">{s.current.rsMomentum.toFixed(2)}</p>
-                <p className="text-[9px] text-[#555]">
-                  {s.current.rsMomentum >= 100 ? (lang === "kr" ? "모멘텀 상승" : "Momentum rising") : (lang === "kr" ? "모멘텀 하락" : "Momentum falling")}
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 rounded border border-[#151515] bg-[#080808] px-3 py-2">
-              <p className="text-[10px] text-[#888] leading-relaxed">
-                {getInterpretation(s, lang)}
-              </p>
-              <p className="mt-1 text-[9px] text-[#444] font-mono">
-                ETF: {s.ticker}{s.market === "KR" ? ".KS" : ""} | {trailWeeks}W trail
-              </p>
-            </div>
-          </div>
-        );
-      })()}
+      {/* Selected sector detail panel */}
+      {selectedSectorData && (
+        <SectorDetailPanel
+          sector={selectedSectorData}
+          lang={lang}
+          trailWeeks={trailWeeks}
+        />
+      )}
+
+      {/* Improving card pulse animation */}
+      <style>{`
+        @keyframes pulse-border {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0); }
+          50% { box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.15); }
+        }
+        .animate-pulse-border {
+          animation: pulse-border 3s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }
