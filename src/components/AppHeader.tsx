@@ -11,7 +11,7 @@ const NAV_ITEMS: { href: string; key: MessageKey }[] = [
   { href: "/flow", key: "flow" },
   { href: "/ideas", key: "ideas" },
   { href: "/ai-trading", key: "aiTrading" },
-  { href: "/prompts", key: "prompts" },
+  { href: "/markets", key: "markets" },
   { href: "/predictions", key: "predictions" },
   { href: "/community", key: "community" },
   { href: "/telegram", key: "telegram" },
