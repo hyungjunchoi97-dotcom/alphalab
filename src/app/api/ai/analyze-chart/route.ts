@@ -47,10 +47,10 @@ Record: pattern name, depth %, duration in weeks, number of VCP contractions.
 Return ONLY valid JSON, no other text:
 {
   "signal": "BUY"|"HOLD"|"SELL",
-  "stage": "STAGE_1"|"STAGE_2"|"STAGE_3"|"STAGE_4",
+  "stage": "STAGE_1"|"STAGE_2"|"STAGE_3"|"STAGE_4"|null (null if MA lines not visible),
   "pattern": "패턴명 (한국어)",
   "pattern_detail": "base depth%, weeks, VCP contraction count",
-  "volume_character": "CONSTRUCTIVE"|"BREAKOUT_VOLUME"|"CLIMACTIC"|"WEAK",
+  "volume_character": "CONSTRUCTIVE"|"BREAKOUT_VOLUME"|"CLIMACTIC"|"WEAK"|null (null if volume bars not visible),
   "pivot": number,
   "entry": number,
   "target": number,
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     const client = new Anthropic({ apiKey });
     const message = await client.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1200,
+      max_tokens: 1500,
       temperature: 0.2,
       system: SYSTEM_PROMPT,
       messages: [

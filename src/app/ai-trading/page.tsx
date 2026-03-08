@@ -355,7 +355,7 @@ export default function AiTradingPage() {
                   <h3 className="text-[10px] font-semibold uppercase tracking-widest text-[#555] mb-3">
                     Entry Guidance
                   </h3>
-                  {result.signal === "HOLD" && result.entry == null && result.target == null && result.stop == null ? (
+                  {result.signal === "HOLD" ? (
                     <div>
                       {result.pivot != null && (
                         <div className="mb-3">
