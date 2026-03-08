@@ -15,28 +15,28 @@ interface SectorDef {
 }
 
 const KR_SECTORS: SectorDef[] = [
-  { ticker: "091160", symbol: "091160.KS", name: "Semiconductors", nameKr: "반도체", color: "#22c55e", market: "KR" },
-  { ticker: "091170", symbol: "091170.KS", name: "Banks", nameKr: "은행", color: "#3b82f6", market: "KR" },
-  { ticker: "091180", symbol: "091180.KS", name: "Automotive", nameKr: "자동차", color: "#f59e0b", market: "KR" },
-  { ticker: "140710", symbol: "140710.KS", name: "Transport", nameKr: "운송", color: "#8b5cf6", market: "KR" },
-  { ticker: "244580", symbol: "244580.KS", name: "Biotech", nameKr: "바이오", color: "#ec4899", market: "KR" },
+  { ticker: "091160", symbol: "091160.KS", name: "Semiconductors", nameKr: "반도체", color: "#3b82f6", market: "KR" },
+  { ticker: "091170", symbol: "091170.KS", name: "Banks", nameKr: "은행", color: "#14b8a6", market: "KR" },
+  { ticker: "091180", symbol: "091180.KS", name: "Automotive", nameKr: "자동차", color: "#9ca3af", market: "KR" },
+  { ticker: "140710", symbol: "140710.KS", name: "Transport", nameKr: "운송", color: "#eab308", market: "KR" },
+  { ticker: "244580", symbol: "244580.KS", name: "Biotech", nameKr: "바이오", color: "#22c55e", market: "KR" },
   { ticker: "117680", symbol: "117680.KS", name: "Steel", nameKr: "철강", color: "#6b7280", market: "KR" },
-  { ticker: "266370", symbol: "266370.KS", name: "Chemicals", nameKr: "화학", color: "#14b8a6", market: "KR" },
-  { ticker: "139250", symbol: "139250.KS", name: "IT", nameKr: "IT", color: "#06b6d4", market: "KR" },
-  { ticker: "227560", symbol: "227560.KS", name: "Consumer", nameKr: "소비재", color: "#f97316", market: "KR" },
-  { ticker: "117700", symbol: "117700.KS", name: "Construction", nameKr: "건설", color: "#a855f7", market: "KR" },
+  { ticker: "266370", symbol: "266370.KS", name: "Chemicals", nameKr: "화학", color: "#f97316", market: "KR" },
+  { ticker: "139250", symbol: "139250.KS", name: "IT", nameKr: "IT", color: "#a855f7", market: "KR" },
+  { ticker: "227560", symbol: "227560.KS", name: "Consumer", nameKr: "소비재", color: "#ef4444", market: "KR" },
+  { ticker: "117700", symbol: "117700.KS", name: "Construction", nameKr: "건설", color: "#92400e", market: "KR" },
 ];
 
 const US_SECTORS: SectorDef[] = [
-  { ticker: "XLK", symbol: "XLK", name: "Technology", nameKr: "기술", color: "#22c55e", market: "US" },
-  { ticker: "XLF", symbol: "XLF", name: "Financial", nameKr: "금융", color: "#3b82f6", market: "US" },
-  { ticker: "XLE", symbol: "XLE", name: "Energy", nameKr: "에너지", color: "#f59e0b", market: "US" },
-  { ticker: "XLV", symbol: "XLV", name: "Healthcare", nameKr: "헬스케어", color: "#ec4899", market: "US" },
-  { ticker: "XLI", symbol: "XLI", name: "Industrial", nameKr: "산업재", color: "#8b5cf6", market: "US" },
-  { ticker: "XLB", symbol: "XLB", name: "Materials", nameKr: "소재", color: "#6b7280", market: "US" },
-  { ticker: "XLP", symbol: "XLP", name: "Staples", nameKr: "필수소비재", color: "#14b8a6", market: "US" },
-  { ticker: "XLY", symbol: "XLY", name: "Discretionary", nameKr: "임의소비재", color: "#f97316", market: "US" },
-  { ticker: "XLU", symbol: "XLU", name: "Utilities", nameKr: "유틸리티", color: "#a855f7", market: "US" },
+  { ticker: "XLK", symbol: "XLK", name: "Technology", nameKr: "기술", color: "#3b82f6", market: "US" },
+  { ticker: "XLF", symbol: "XLF", name: "Financial", nameKr: "금융", color: "#60a5fa", market: "US" },
+  { ticker: "XLE", symbol: "XLE", name: "Energy", nameKr: "에너지", color: "#f97316", market: "US" },
+  { ticker: "XLV", symbol: "XLV", name: "Healthcare", nameKr: "헬스케어", color: "#ef4444", market: "US" },
+  { ticker: "XLI", symbol: "XLI", name: "Industrial", nameKr: "산업재", color: "#9ca3af", market: "US" },
+  { ticker: "XLB", symbol: "XLB", name: "Materials", nameKr: "소재", color: "#92400e", market: "US" },
+  { ticker: "XLP", symbol: "XLP", name: "Staples", nameKr: "필수소비재", color: "#22c55e", market: "US" },
+  { ticker: "XLY", symbol: "XLY", name: "Discretionary", nameKr: "임의소비재", color: "#eab308", market: "US" },
+  { ticker: "XLU", symbol: "XLU", name: "Utilities", nameKr: "유틸리티", color: "#c084fc", market: "US" },
 ];
 
 const KR_BENCHMARK = { symbol: "^KS11", name: "KOSPI" };
