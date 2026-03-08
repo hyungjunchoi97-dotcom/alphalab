@@ -216,7 +216,7 @@ function RRGScatterPlot({
   const plotH = H - PAD.top - PAD.bottom;
 
   const TRAIL_DISPLAY = 8;
-  const BASE_R = 18;
+  const BASE_R = 10;
 
   // Quadrant background colors
   const QBG = {
@@ -269,7 +269,7 @@ function RRGScatterPlot({
           const dx = (a.x + a.ox) - (b.x + b.ox);
           const dy = (a.y + a.oy) - (b.y + b.oy);
           const dist = Math.sqrt(dx * dx + dy * dy);
-          const minDist = BASE_R * 2.8;
+          const minDist = BASE_R * 2.4;
           if (dist < minDist && dist > 0) {
             const push = (minDist - dist) / 2;
             const nx = dx / dist, ny = dy / dist;
@@ -412,23 +412,21 @@ function RRGScatterPlot({
           const isHighlighted = highlighted === s.ticker;
           const dimmed = highlighted !== null && !isHighlighted;
           const opacity = dimmed ? 0.15 : 1;
-          const r = isHighlighted ? 24 : BASE_R;
+          const r = isHighlighted ? 14 : BASE_R;
           const offset = bubblePositions.get(s.ticker) || { ox: 0, oy: 0 };
           const bx = scaleX(s.current.rsRatio) + offset.ox;
           const by = scaleY(s.current.rsMomentum) + offset.oy;
 
           return (
             <g key={`bubble-${s.ticker}`} opacity={opacity} style={{ transition: "opacity 0.2s" }}>
-              {/* Glow */}
+              {/* Glow on hover */}
               {isHighlighted && (
-                <circle cx={bx} cy={by} r={r + 6} fill={s.color} fillOpacity={0.08} />
+                <circle cx={bx} cy={by} r={r + 4} fill={s.color} fillOpacity={0.15} />
               )}
-              {/* Main bubble */}
+              {/* Solid dot */}
               <circle
                 cx={bx} cy={by} r={r}
-                fill={s.color} fillOpacity={isHighlighted ? 0.25 : 0.18}
-                stroke={s.color} strokeWidth={isHighlighted ? 2.5 : 1.5}
-                strokeOpacity={isHighlighted ? 1 : 0.8}
+                fill={s.color} fillOpacity={isHighlighted ? 0.9 : 0.75}
                 className="cursor-pointer"
                 onMouseEnter={(e) => {
                   onHover(s.ticker);
@@ -442,17 +440,6 @@ function RRGScatterPlot({
                 onMouseLeave={() => { onHover(null); setTooltip(null); }}
                 onClick={() => onClick(s.ticker)}
               />
-              {/* Sector label inside bubble */}
-              <text
-                x={bx} y={by}
-                textAnchor="middle" dominantBaseline="central"
-                fill="#fff" fontSize={isHighlighted ? 8.5 : 7} fontWeight="600"
-                fontFamily="ui-sans-serif, system-ui, sans-serif"
-                pointerEvents="none"
-                opacity={isHighlighted ? 1 : 0.9}
-              >
-                {lang === "kr" ? s.nameKr : s.name}
-              </text>
             </g>
           );
         })}
