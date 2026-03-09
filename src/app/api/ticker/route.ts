@@ -120,6 +120,8 @@ export async function GET() {
       ok: true,
       market,
       asOf: new Date().toISOString(),
+    }, {
+      headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" },
     });
   } catch (err) {
     return NextResponse.json({

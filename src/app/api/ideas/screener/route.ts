@@ -606,7 +606,9 @@ export async function GET(req: NextRequest) {
     };
 
     cache = { data: responseData, cachedAt: Date.now() };
-    return NextResponse.json({ ...responseData, source: "live" });
+    return NextResponse.json({ ...responseData, source: "live" }, {
+      headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" },
+    });
   } catch (err) {
     if (cache) return NextResponse.json({ ...cache.data, source: "stale" });
     return NextResponse.json(

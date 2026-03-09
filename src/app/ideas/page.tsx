@@ -1,9 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
-import RRGChart from "@/components/RRGChart";
+
+const RRGChart = dynamic(() => import("@/components/RRGChart"), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-[#1a1a1a] h-[500px] rounded" />,
+});
 
 const CARD =
   "rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_1px_2px_rgba(0,0,0,0.3)]";

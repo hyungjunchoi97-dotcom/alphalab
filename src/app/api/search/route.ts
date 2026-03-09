@@ -115,5 +115,7 @@ export async function GET(req: NextRequest) {
     results = localSearch(q);
   }
 
-  return NextResponse.json({ ok: true, results });
+  return NextResponse.json({ ok: true, results }, {
+    headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" },
+  });
 }

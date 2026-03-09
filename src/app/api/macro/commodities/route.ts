@@ -224,7 +224,9 @@ export async function GET() {
     }
 
     cache = { data: commodityResults, cachedAt: Date.now() };
-    return NextResponse.json({ ok: true, data: commodityResults });
+    return NextResponse.json({ ok: true, data: commodityResults }, {
+      headers: { "Cache-Control": "s-maxage=900, stale-while-revalidate=1800" },
+    });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Unknown error" },

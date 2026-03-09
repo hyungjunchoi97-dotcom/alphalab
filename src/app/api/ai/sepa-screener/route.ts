@@ -20,10 +20,7 @@ interface ScreenerResult {
   ma_alignment: boolean;
 }
 
-const CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
-
-// In-memory fallback cache (for when Supabase table doesn't exist yet)
-const memCache: Record<string, { data: ScreenerResult[]; ts: number }> = {};
+const CACHE_TTL_HOURS = 4;
 
 // ── KR Top 50 symbols ──────────────────────────────────────────
 const KR_SYMBOLS: [string, string][] = [
@@ -150,14 +147,38 @@ function avg(arr: number[]): number {
   return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
+// Diagnostic counters (reset per scan)
+interface ScanDiag {
+  fetch_ok: number;
+  fetch_fail: number;
+  too_few_bars: number;
+  filter1_pass: number;
+  filter2_pass: number;
+  filter3_pass: number;
+  filter4_pass: number;
+  filter5_pass: number;
+  samples: { symbol: string; bars: number; price?: number; ma50?: number; ma150?: number; failed_at?: string }[];
+}
+
+function newDiag(): ScanDiag {
+  return { fetch_ok: 0, fetch_fail: 0, too_few_bars: 0, filter1_pass: 0, filter2_pass: 0, filter3_pass: 0, filter4_pass: 0, filter5_pass: 0, samples: [] };
+}
+
 function screenStock(
   symbol: string,
   name: string,
   market: "KR" | "US",
   bars: DailyBar[],
-  indexBars: DailyBar[]
+  indexBars: DailyBar[],
+  diag?: ScanDiag
 ): ScreenerResult | null {
-  if (bars.length < 150) return null;
+  const addSample = diag && diag.samples.length < 10;
+
+  if (bars.length < 150) {
+    if (diag) diag.too_few_bars++;
+    if (addSample) diag.samples.push({ symbol, bars: bars.length, failed_at: "too_few_bars" });
+    return null;
+  }
 
   const closes = bars.map((b) => b.close);
   const volumes = bars.map((b) => b.volume);
@@ -165,12 +186,20 @@ function screenStock(
   const lows = bars.map((b) => b.low);
   const n = closes.length;
   const price = closes[n - 1];
+  const ma50 = avg(closes.slice(-50));
+  const ma150 = avg(closes.slice(-150));
 
   // FILTER 1: Stage 2 (Weinstein)
-  const ma150 = avg(closes.slice(-150));
-  if (price <= ma150) return null;
+  if (price <= ma150) {
+    if (addSample) diag.samples.push({ symbol, bars: n, price, ma50, ma150, failed_at: "filter1_price<=ma150" });
+    return null;
+  }
   const ma150_20ago = avg(closes.slice(-170, -20));
-  if (ma150 <= ma150_20ago) return null;
+  if (ma150 <= ma150_20ago) {
+    if (addSample) diag.samples.push({ symbol, bars: n, price, ma50, ma150, failed_at: "filter1_ma150_not_rising" });
+    return null;
+  }
+  if (diag) diag.filter1_pass++;
 
   // FILTER 2: 52-week position
   const lookback = Math.min(n, 252);
@@ -178,8 +207,15 @@ function screenStock(
   const low52w = Math.min(...lows.slice(-lookback));
   const distFromHigh = (high52w - price) / high52w;
   const distFromLow = (price - low52w) / low52w;
-  if (distFromHigh > 0.25) return null;
-  if (distFromLow < 0.30) return null;
+  if (distFromHigh > 0.25) {
+    if (addSample) diag.samples.push({ symbol, bars: n, price, ma50, ma150, failed_at: `filter2_far_from_high(${(distFromHigh * 100).toFixed(1)}%)` });
+    return null;
+  }
+  if (distFromLow < 0.30) {
+    if (addSample) diag.samples.push({ symbol, bars: n, price, ma50, ma150, failed_at: `filter2_close_to_low(${(distFromLow * 100).toFixed(1)}%)` });
+    return null;
+  }
+  if (diag) diag.filter2_pass++;
 
   // FILTER 3: Base formation
   const baseDays = 50;
@@ -187,20 +223,34 @@ function screenStock(
   const baseHigh = Math.max(...baseSlice);
   const baseLow = Math.min(...baseSlice);
   const baseDepth = (baseHigh - baseLow) / baseHigh;
-  if (baseDepth > 0.20) return null;
+  if (baseDepth > 0.20) {
+    if (addSample) diag.samples.push({ symbol, bars: n, price, ma50, ma150, failed_at: `filter3_deep_base(${(baseDepth * 100).toFixed(1)}%)` });
+    return null;
+  }
   const recentHigh = Math.max(...highs.slice(-15));
-  if (recentHigh >= high52w) return null;
+  if (recentHigh >= high52w) {
+    if (addSample) diag.samples.push({ symbol, bars: n, price, ma50, ma150, failed_at: "filter3_new_high" });
+    return null;
+  }
+  if (diag) diag.filter3_pass++;
 
   // FILTER 4: Volume contraction
   const vol10 = avg(volumes.slice(-10));
   const vol50 = avg(volumes.slice(-50));
   const volRatio = vol50 > 0 ? vol10 / vol50 : 1;
-  if (volRatio >= 1.0) return null;
+  if (volRatio >= 1.0) {
+    if (addSample) diag.samples.push({ symbol, bars: n, price, ma50, ma150, failed_at: `filter4_vol_expanding(${volRatio.toFixed(2)}x)` });
+    return null;
+  }
+  if (diag) diag.filter4_pass++;
 
   // FILTER 5: MA alignment
-  const ma50 = avg(closes.slice(-50));
   const ma200 = n >= 200 ? avg(closes.slice(-200)) : ma150;
-  if (!(ma50 > ma150 && ma150 > ma200)) return null;
+  if (!(ma50 > ma150 && ma150 > ma200)) {
+    if (addSample) diag.samples.push({ symbol, bars: n, price, ma50, ma150, failed_at: "filter5_ma_misaligned" });
+    return null;
+  }
+  if (diag) diag.filter5_pass++;
 
   // SCORING (0-10)
   let score = 0;
@@ -252,7 +302,8 @@ function screenStock(
 async function processBatch(
   symbols: [string, string][],
   market: "KR" | "US",
-  indexBars: DailyBar[]
+  indexBars: DailyBar[],
+  diag: ScanDiag
 ): Promise<ScreenerResult[]> {
   const results: ScreenerResult[] = [];
   const CONCURRENCY = 20;
@@ -264,10 +315,13 @@ async function processBatch(
         try {
           const bars = await fetchChart(sym);
           if (bars.length > 0) {
-            return screenStock(sym, name, market, bars, indexBars);
+            diag.fetch_ok++;
+            return screenStock(sym, name, market, bars, indexBars, diag);
+          } else {
+            diag.fetch_fail++;
           }
         } catch {
-          // skip
+          diag.fetch_fail++;
         }
         return null;
       })
@@ -280,37 +334,34 @@ async function processBatch(
   return results;
 }
 
-// ── Supabase cache helpers ─────────────────────────────────────
+// ── Supabase persistent cache ─────────────────────────────────
 async function getCachedResults(market: string): Promise<{ data: ScreenerResult[]; ts: string } | null> {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("sepa_screener_cache")
-      .select("results, created_at")
-      .eq("market", market)
-      .single();
+  const { data, error } = await supabaseAdmin
+    .from("sepa_screener_cache")
+    .select("results, created_at")
+    .eq("market", market)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
 
-    if (error || !data) return null;
+  if (error || !data) return null;
 
-    const age = Date.now() - new Date(data.created_at).getTime();
-    if (age > CACHE_TTL) return null;
+  const ageMs = Date.now() - new Date(data.created_at).getTime();
+  if (ageMs > CACHE_TTL_HOURS * 60 * 60 * 1000) return null;
 
-    return { data: data.results as ScreenerResult[], ts: data.created_at };
-  } catch {
-    return null;
-  }
+  return { data: data.results as ScreenerResult[], ts: data.created_at };
 }
 
 async function setCachedResults(market: string, results: ScreenerResult[]): Promise<void> {
-  try {
-    await supabaseAdmin
-      .from("sepa_screener_cache")
-      .upsert(
-        { market, results, created_at: new Date().toISOString() },
-        { onConflict: "market" }
-      );
-  } catch {
-    // cache write failure is non-fatal
-  }
+  // Delete old row for this market, then insert fresh
+  await supabaseAdmin
+    .from("sepa_screener_cache")
+    .delete()
+    .eq("market", market);
+
+  await supabaseAdmin
+    .from("sepa_screener_cache")
+    .insert({ market, results, created_at: new Date().toISOString() });
 }
 
 // ── GET handler ────────────────────────────────────────────────
@@ -322,23 +373,10 @@ export async function GET(req: NextRequest) {
 
     const totalScanned = (market !== "US" ? KR_SYMBOLS.length : 0) + (market !== "KR" ? US_SYMBOLS.length : 0);
 
-    // Check in-memory cache first, then Supabase
+    // Check Supabase persistent cache
     if (!refresh) {
-      // In-memory
-      if (memCache[market] && Date.now() - memCache[market].ts < CACHE_TTL) {
-        return NextResponse.json({
-          ok: true,
-          results: memCache[market].data,
-          cached: true,
-          updated_at: new Date(memCache[market].ts).toISOString(),
-          stats: { kr_scanned: market !== "US" ? KR_SYMBOLS.length : 0, us_scanned: market !== "KR" ? US_SYMBOLS.length : 0, total_scanned: totalScanned, passed: memCache[market].data.length },
-        });
-      }
-      // Supabase
       const cached = await getCachedResults(market);
       if (cached) {
-        // Populate in-memory too
-        memCache[market] = { data: cached.data, ts: new Date(cached.ts).getTime() };
         return NextResponse.json({
           ok: true,
           results: cached.data,
@@ -356,9 +394,11 @@ export async function GET(req: NextRequest) {
     ]);
 
     // Process KR and US in parallel (20 concurrent per market)
+    const krDiag = newDiag();
+    const usDiag = newDiag();
     const [krResults, usResults] = await Promise.all([
-      market !== "US" ? processBatch(KR_SYMBOLS, "KR", kospiIndex) : Promise.resolve([]),
-      market !== "KR" ? processBatch(US_SYMBOLS, "US", spyIndex) : Promise.resolve([]),
+      market !== "US" ? processBatch(KR_SYMBOLS, "KR", kospiIndex, krDiag) : Promise.resolve([]),
+      market !== "KR" ? processBatch(US_SYMBOLS, "US", spyIndex, usDiag) : Promise.resolve([]),
     ]);
 
     const all = [...krResults, ...usResults]
@@ -367,9 +407,43 @@ export async function GET(req: NextRequest) {
 
     const now = new Date().toISOString();
 
-    // Save to both caches
-    memCache[market] = { data: all, ts: Date.now() };
+    // Save to Supabase cache
     await setCachedResults(market, all);
+
+    // Build diagnostics
+    const diag: Record<string, unknown> = {};
+    if (market !== "US") {
+      diag.kr = {
+        total: KR_SYMBOLS.length,
+        fetch_ok: krDiag.fetch_ok,
+        fetch_fail: krDiag.fetch_fail,
+        too_few_bars: krDiag.too_few_bars,
+        filter1_pass: krDiag.filter1_pass,
+        filter2_pass: krDiag.filter2_pass,
+        filter3_pass: krDiag.filter3_pass,
+        filter4_pass: krDiag.filter4_pass,
+        filter5_pass: krDiag.filter5_pass,
+        passed: krResults.length,
+        kospi_index_bars: kospiIndex.length,
+        samples: krDiag.samples,
+      };
+    }
+    if (market !== "KR") {
+      diag.us = {
+        total: US_SYMBOLS.length,
+        fetch_ok: usDiag.fetch_ok,
+        fetch_fail: usDiag.fetch_fail,
+        too_few_bars: usDiag.too_few_bars,
+        filter1_pass: usDiag.filter1_pass,
+        filter2_pass: usDiag.filter2_pass,
+        filter3_pass: usDiag.filter3_pass,
+        filter4_pass: usDiag.filter4_pass,
+        filter5_pass: usDiag.filter5_pass,
+        passed: usResults.length,
+        sp500_index_bars: spyIndex.length,
+        samples: usDiag.samples,
+      };
+    }
 
     return NextResponse.json({
       ok: true,
@@ -377,6 +451,7 @@ export async function GET(req: NextRequest) {
       cached: false,
       updated_at: now,
       stats: { kr_scanned: market !== "US" ? KR_SYMBOLS.length : 0, us_scanned: market !== "KR" ? US_SYMBOLS.length : 0, total_scanned: totalScanned, passed: all.length },
+      diagnostics: diag,
     });
   } catch (err) {
     return NextResponse.json(

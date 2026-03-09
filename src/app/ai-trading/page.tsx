@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, Fragment } from "react";
 import AppHeader from "@/components/AppHeader";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 
@@ -70,7 +70,7 @@ function volumeLabel(vol: string): string {
 
 // Symbol counts for loading display
 const KR_SYMBOLS_COUNT = 50;
-const US_SYMBOLS_COUNT = 130;
+const US_SYMBOLS_COUNT = 133;
 
 export default function AiTradingPage() {
   const requireAuth = useRequireAuth();
@@ -99,6 +99,7 @@ export default function AiTradingPage() {
   const [screenerCached, setScreenerCached] = useState(false);
   const [screenerStats, setScreenerStats] = useState<{ kr_scanned: number; us_scanned: number; total_scanned: number; passed: number } | null>(null);
   const [screenerPrompt, setScreenerPrompt] = useState<string | null>(null);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   const fetchScreener = useCallback(async (market: string, refresh = false) => {
     setScreenerLoading(true);
@@ -746,12 +747,15 @@ export default function AiTradingPage() {
                   </thead>
                   <tbody>
                     {screenerResults.map((r) => {
+                      const rowKey = `${r.market}-${r.symbol}`;
                       const dimmed = r.score < 6;
                       const highlight = r.score >= 8;
+                      const isExpanded = selectedSymbol === rowKey;
                       return (
+                        <Fragment key={rowKey}>
                         <tr
-                          key={`${r.market}-${r.symbol}`}
-                          className={`border-b border-[#111] hover:bg-[#0a0a0a] transition-colors ${dimmed ? "opacity-40" : ""} ${highlight ? "border-l-2 border-l-amber-500/50" : ""}`}
+                          onClick={() => setSelectedSymbol(isExpanded ? null : rowKey)}
+                          className={`border-b border-[#111] cursor-pointer hover:bg-[#0d0d0d] transition-colors ${dimmed ? "opacity-40" : ""} ${highlight ? "border-l-2 border-l-amber-500/50" : ""}`}
                         >
                           <td className="px-3 py-2.5 text-xs font-mono font-bold text-foreground whitespace-nowrap">
                             {r.symbol}
@@ -792,7 +796,8 @@ export default function AiTradingPage() {
                           </td>
                           <td className="px-3 py-2.5">
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setScreenerPrompt(`이 종목을 분석하려면 차트를 업로드하세요: ${r.symbol}`);
                                 setActiveTab("chart");
                               }}
@@ -802,6 +807,54 @@ export default function AiTradingPage() {
                             </button>
                           </td>
                         </tr>
+                        {isExpanded && (
+                          <tr>
+                            <td colSpan={10} className="bg-[#0d0d0d] border-t border-[#1a1a1a] px-6 py-4">
+                              <div className="space-y-3">
+                                <p className="text-xs font-mono font-bold text-amber-400 tracking-wider">WHY THIS STOCK</p>
+                                <div className="space-y-1.5">
+                                  <p className="text-xs font-mono text-gray-400">
+                                    <span className="text-amber-500 mr-2">·</span>
+                                    Stage 2: Current price {r.market === "KR" ? r.price.toLocaleString() : r.price.toFixed(2)} &gt; 150-day MA — Uptrend confirmed
+                                  </p>
+                                  <p className="text-xs font-mono text-gray-400">
+                                    <span className="text-amber-500 mr-2">·</span>
+                                    Base: Base depth {r.base_depth_pct}% / {r.weeks_in_base} weeks — Volatility contraction in progress
+                                  </p>
+                                  <p className="text-xs font-mono text-gray-400">
+                                    <span className="text-amber-500 mr-2">·</span>
+                                    52W: {r.dist_from_52w_high_pct}% below 52-week high — Near highs zone
+                                  </p>
+                                  <p className="text-xs font-mono text-gray-400">
+                                    <span className="text-amber-500 mr-2">·</span>
+                                    Volume: Volume contraction {r.volume_ratio.toFixed(2)}x — Selling pressure diminishing within base
+                                  </p>
+                                  <p className="text-xs font-mono text-gray-400">
+                                    <span className="text-amber-500 mr-2">·</span>
+                                    MA Alignment: MA50 &gt; MA150 &gt; MA200 — Full uptrend alignment confirmed
+                                  </p>
+                                </div>
+                                <div className="pt-2">
+                                  <p className="text-xs font-mono font-bold text-amber-400 tracking-wider mb-2">NEXT STEP</p>
+                                  <p className="text-xs font-mono text-gray-400 mb-3">
+                                    Capture {r.symbol} weekly chart on TradingView and run AI analysis
+                                  </p>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setScreenerPrompt(`이 종목을 분석하려면 차트를 업로드하세요: ${r.symbol}`);
+                                      setActiveTab("chart");
+                                    }}
+                                    className="border border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black px-3 py-1 text-xs font-mono transition-colors"
+                                  >
+                                    Analyze Chart →
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       );
                     })}
                   </tbody>

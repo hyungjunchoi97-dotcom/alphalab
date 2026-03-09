@@ -165,7 +165,9 @@ export async function GET(req: NextRequest) {
     if (news.length === 0) news = mockNews(category);
 
     cache.set(cacheKey, { data: news, cachedAt: Date.now() });
-    return NextResponse.json({ ok: true, news, category });
+    return NextResponse.json({ ok: true, news, category }, {
+      headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" },
+    });
   } catch {
     const category = "breaking";
     return NextResponse.json({ ok: true, news: mockNews(category), category });

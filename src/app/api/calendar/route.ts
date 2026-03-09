@@ -257,5 +257,7 @@ export async function GET() {
 
   const fetchedAt = new Date().toISOString();
   cache = { data: deduped, cachedAt: Date.now(), fetchedAt };
-  return NextResponse.json({ ok: true, events: deduped, fetchedAt, source: fredKey ? "fred+curated" : "curated" });
+  return NextResponse.json({ ok: true, events: deduped, fetchedAt, source: fredKey ? "fred+curated" : "curated" }, {
+    headers: { "Cache-Control": "s-maxage=1800, stale-while-revalidate=3600" },
+  });
 }

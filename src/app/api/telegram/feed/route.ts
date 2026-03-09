@@ -208,6 +208,8 @@ export async function GET(req: NextRequest) {
       ok: true,
       messages: allMessages,
       channels: CHANNELS,
+    }, {
+      headers: { "Cache-Control": "s-maxage=120, stale-while-revalidate=300" },
     });
   } catch (err) {
     return NextResponse.json(

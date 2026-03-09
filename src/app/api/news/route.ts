@@ -87,7 +87,6 @@ async function fetchRssFeed(feedUrl: string, defaultSymbol: string): Promise<New
     const res = await fetch(feedUrl, {
       headers: { "User-Agent": "project-stockmarket/1.0" },
     });
-    console.log("[news] RSS fetch", feedUrl.slice(0, 80), "status:", res.status);
     if (!res.ok) return [];
     const xml = await res.text();
     const items = parseRssItems(xml);
@@ -106,7 +105,6 @@ async function fetchRssFeed(feedUrl: string, defaultSymbol: string): Promise<New
       };
     });
   } catch (err) {
-    console.log("[news] RSS error:", err instanceof Error ? err.message : err);
     return [];
   }
 }
@@ -135,7 +133,9 @@ export async function GET(req: NextRequest) {
 
       if (news.length === 0) news = mockNews();
       setCache(cacheKey, news);
-      return NextResponse.json({ ok: true, news });
+      return NextResponse.json({ ok: true, news }, {
+        headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" },
+      });
     }
 
     // General market news from default RSS feeds
@@ -149,7 +149,9 @@ export async function GET(req: NextRequest) {
 
     if (news.length === 0) news = mockNews();
     setCache("general", news);
-    return NextResponse.json({ ok: true, news });
+    return NextResponse.json({ ok: true, news }, {
+      headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" },
+    });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Unknown error", news: mockNews() },

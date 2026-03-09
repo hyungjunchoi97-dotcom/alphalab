@@ -229,7 +229,9 @@ export async function GET(req: NextRequest) {
     if (market === "us") usCache = entry;
     else jpCache = entry;
 
-    return NextResponse.json({ ok: true, sectors, asOf: entry.asOf, source: "live" });
+    return NextResponse.json({ ok: true, sectors, asOf: entry.asOf, source: "live" }, {
+      headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" },
+    });
   } catch (err) {
     // Return stale cache on error
     if (cache) {

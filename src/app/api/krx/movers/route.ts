@@ -155,7 +155,6 @@ async function fetchMarketDataDbg(
   basDd: string
 ): Promise<KrxStockRow[] | null> {
   const url = `https://data-dbg.krx.co.kr/svc/apis/sto/${endpoint}?basDd=${basDd}`;
-  console.log(`[KRX-DBG] GET ${url}`);
   const res = await fetchWithTimeout(url, {
     method: "GET",
     headers: {
@@ -164,8 +163,6 @@ async function fetchMarketDataDbg(
       "User-Agent": "alphalab/1.0",
     },
   }, 10000);
-  console.log(`[KRX-DBG] ${endpoint} status=${res.status}`);
-
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`KRX-DBG ${endpoint} returned ${res.status}: ${body.slice(0, 200)}`);
@@ -183,7 +180,6 @@ async function fetchMarketOpenApi(
   basDd: string
 ): Promise<KrxStockRow[] | null> {
   const url = `https://openapi.krx.co.kr/contents/OPP/APIS/sto/${endpoint}`;
-  console.log(`[KRX-OPP] POST ${url} basDd=${basDd}`);
   const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: {
@@ -195,8 +191,6 @@ async function fetchMarketOpenApi(
     body: JSON.stringify({ basDd }),
     redirect: "follow",
   }, 10000);
-  console.log(`[KRX-OPP] ${endpoint} status=${res.status}`);
-
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`KRX-OPP ${endpoint} returned ${res.status}: ${body.slice(0, 200)}`);
@@ -218,14 +212,12 @@ async function fetchMarket(
     const rows = await fetchMarketDataDbg(apiKey, endpoint, basDd);
     if (rows && rows.length > 0) return rows;
   } catch (e) {
-    console.log(`[KRX] data-dbg failed for ${endpoint}: ${e instanceof Error ? e.message : e}`);
   }
 
   try {
     const rows = await fetchMarketOpenApi(apiKey, endpoint, basDd);
     if (rows && rows.length > 0) return rows;
   } catch (e) {
-    console.log(`[KRX] openapi failed for ${endpoint}: ${e instanceof Error ? e.message : e}`);
   }
 
   return null;
@@ -265,8 +257,6 @@ async function fetchFromKrx(): Promise<{
       lastError = `KRX empty data for ${basDd}`;
       continue;
     }
-
-    console.log(`[KRX] Got ${allRows.length} rows for ${basDd} (KOSPI: ${kospiRows?.length ?? 0}, KOSDAQ: ${kosdaqRows?.length ?? 0})`);
 
     const data = processRows(allRows);
 
@@ -476,9 +466,7 @@ export async function GET(req: NextRequest) {
     if (resolved) {
       try {
         result = await fetchFromKrx();
-        console.log(`[KRX] Success: ${result.totalGainers} gainers, ${result.totalLosers} losers`);
-      } catch (krxErr) {
-        console.log(`[KRX] Failed: ${krxErr instanceof Error ? krxErr.message : krxErr}, trying Yahoo Finance fallback`);
+      } catch {
         result = await fetchFromYahoo();
         source = "yahoo";
       }
@@ -507,6 +495,8 @@ export async function GET(req: NextRequest) {
       asOf: result.asOf,
       fetchedAtISO,
       message: result.message,
+    }, {
+      headers: { "Cache-Control": "s-maxage=120, stale-while-revalidate=300" },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

@@ -230,7 +230,9 @@ export async function GET() {
 
     cache = { data: seriesMap, netLiquidity, sp500, cachedAt: Date.now() };
 
-    return NextResponse.json({ ok: true, series: seriesMap, netLiquidity, sp500 });
+    return NextResponse.json({ ok: true, series: seriesMap, netLiquidity, sp500 }, {
+      headers: { "Cache-Control": "s-maxage=1800, stale-while-revalidate=3600" },
+    });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Unknown error" },

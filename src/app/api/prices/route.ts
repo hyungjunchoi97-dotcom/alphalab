@@ -140,5 +140,7 @@ export async function POST(req: NextRequest) {
     })
   );
 
-  return NextResponse.json({ ok: true, prices });
+  return NextResponse.json({ ok: true, prices }, {
+    headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" },
+  });
 }

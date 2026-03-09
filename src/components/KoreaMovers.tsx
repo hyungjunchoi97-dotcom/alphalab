@@ -95,7 +95,10 @@ export default function KoreaMovers() {
   const [totalLosers, setTotalLosers] = useState(0);
   const [showCount, setShowCount] = useState(60);
 
-  const fetchMovers = useCallback(async () => {
+  const [stale, setStale] = useState(false);
+
+  const fetchMovers = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const res = await fetch("/api/krx/movers");
       const json = await res.json();
@@ -113,22 +116,46 @@ export default function KoreaMovers() {
         }
         if (json.fetchedAtISO) setFetchedAt(json.fetchedAtISO);
         setSource(json.source || "");
+        setStale(json.source === "stale-cache");
+      } else {
+        // API returned error — keep existing data if any
+        if (gainers.length > 0) setStale(true);
       }
     } catch {
-      // silent
+      // Network failure — keep existing data if any
+      if (gainers.length > 0) setStale(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [gainers.length]);
 
   useEffect(() => {
     fetchMovers();
   }, [fetchMovers]);
 
+  // Auto-refresh every 60 seconds
+  useEffect(() => {
+    const id = setInterval(() => fetchMovers(true), 60_000);
+    return () => clearInterval(id);
+  }, [fetchMovers]);
+
   if (loading) {
     return (
-      <div className="flex h-[200px] items-center justify-center">
-        <span className="text-xs text-muted animate-pulse">Loading...</span>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {[0, 1].map((col) => (
+          <div key={col} className="space-y-2">
+            <div className="h-4 w-24 rounded bg-card-border/30 animate-pulse" />
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 py-1">
+                <div className="h-3 w-4 rounded bg-card-border/20 animate-pulse" />
+                <div className="h-3 flex-1 rounded bg-card-border/20 animate-pulse" />
+                <div className="h-3 w-16 rounded bg-card-border/20 animate-pulse" />
+                <div className="h-3 w-12 rounded bg-card-border/20 animate-pulse" />
+                <div className="h-3 w-12 rounded bg-card-border/20 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     );
   }
@@ -194,6 +221,9 @@ export default function KoreaMovers() {
         )}
         {source === "mock" && (
           <span className="text-yellow-500">(sample data)</span>
+        )}
+        {stale && (
+          <span className="text-yellow-500">(캐시)</span>
         )}
       </div>
     </div>

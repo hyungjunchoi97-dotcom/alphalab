@@ -1,11 +1,22 @@
 "use client";
 
-import HeatmapTreemap from "@/components/HeatmapTreemap";
-import NewsList from "@/components/NewsList";
-import KoreaMovers from "@/components/KoreaMovers";
-import MarketCalendar from "@/components/MarketCalendar";
+import dynamic from "next/dynamic";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
+
+const HeatmapTreemap = dynamic(() => import("@/components/HeatmapTreemap"), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-[#1a1a1a] h-[400px] rounded" />,
+});
+const NewsList = dynamic(() => import("@/components/NewsList"), {
+  loading: () => <div className="animate-pulse bg-[#1a1a1a] h-40 rounded" />,
+});
+const KoreaMovers = dynamic(() => import("@/components/KoreaMovers"), {
+  loading: () => <div className="animate-pulse bg-[#1a1a1a] h-40 rounded" />,
+});
+const MarketCalendar = dynamic(() => import("@/components/MarketCalendar"), {
+  loading: () => <div className="animate-pulse bg-[#1a1a1a] h-40 rounded" />,
+});
 
 function SectionHeader({
   title,

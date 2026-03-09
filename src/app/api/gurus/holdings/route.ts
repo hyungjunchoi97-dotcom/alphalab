@@ -267,7 +267,9 @@ export async function GET() {
     }
 
     cache = { data: gurus, cachedAt: Date.now() };
-    return NextResponse.json({ ok: true, gurus });
+    return NextResponse.json({ ok: true, gurus }, {
+      headers: { "Cache-Control": "s-maxage=3600, stale-while-revalidate=7200" },
+    });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Unknown error", gurus: [] },
