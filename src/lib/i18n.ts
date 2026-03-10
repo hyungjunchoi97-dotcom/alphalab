@@ -122,7 +122,7 @@ export const messages = {
     telegram: "Telegram",
     newsRun: "News Run",
     macro: "Macro",
-    macroPro: "Macro Pro",
+    macroPro: "Commodity",
     liquidityNav: "Liquidity",
     gurus: "Gurus",
     // Flow page
@@ -330,7 +330,7 @@ export const messages = {
     telegram: "텔레그램",
     newsRun: "뉴스런",
     macro: "매크로",
-    macroPro: "매크로 Pro",
+    macroPro: "원자재",
     liquidityNav: "유동성",
     gurus: "구루",
     // Flow page

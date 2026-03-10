@@ -42,6 +42,22 @@ interface MarketSnapshot {
   asOf: string;
 }
 
+interface LiveMarketItem { price: number; change: number; changePct: number }
+
+interface LiveMarket {
+  sp500: LiveMarketItem | null;
+  nasdaq: LiveMarketItem | null;
+  usdkrw: LiveMarketItem | null;
+  dxy: LiveMarketItem | null;
+  gold: LiveMarketItem | null;
+  silver: LiveMarketItem | null;
+  wti: LiveMarketItem | null;
+  btc: LiveMarketItem | null;
+  eth: LiveMarketItem | null;
+  fearGreed: { score: number; rating: string };
+  asOf: string;
+}
+
 interface Report {
   keyIssues?: KeyIssue[];
   securities?: Security[];
@@ -205,6 +221,48 @@ function SnapshotSidebar({ snapshot }: { snapshot: MarketSnapshot }) {
   );
 }
 
+// ── Live Market Bar ──────────────────────────────────────────
+
+function LiveMarketTicker({ label, item }: { label: string; item: LiveMarketItem | null }) {
+  if (!item) return null;
+  const pos = item.changePct >= 0;
+  return (
+    <div className="flex items-baseline gap-1.5 shrink-0">
+      <span className="text-[9px] text-[#555] uppercase">{label}</span>
+      <span className="text-[11px] font-mono text-white">{item.price.toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>
+      <span className={`text-[10px] font-mono ${pos ? "text-emerald-400" : "text-red-400"}`}>
+        {pos ? "+" : ""}{item.changePct.toFixed(2)}%
+      </span>
+    </div>
+  );
+}
+
+function LiveMarketBar({ data }: { data: LiveMarket }) {
+  return (
+    <div className="mb-6 rounded border border-white/[0.08] bg-white/[0.015] px-4 py-2.5 overflow-x-auto">
+      <div className="flex items-center gap-5 min-w-max">
+        <LiveMarketTicker label="S&P 500" item={data.sp500} />
+        <LiveMarketTicker label="NASDAQ" item={data.nasdaq} />
+        <LiveMarketTicker label="USD/KRW" item={data.usdkrw} />
+        <LiveMarketTicker label="DXY" item={data.dxy} />
+        <LiveMarketTicker label="GOLD" item={data.gold} />
+        <LiveMarketTicker label="SILVER" item={data.silver} />
+        <LiveMarketTicker label="WTI" item={data.wti} />
+        <LiveMarketTicker label="BTC" item={data.btc} />
+        <LiveMarketTicker label="ETH" item={data.eth} />
+        {data.fearGreed.score > 0 && (
+          <div className="flex items-baseline gap-1.5 shrink-0 border-l border-white/[0.08] pl-5">
+            <span className="text-[9px] text-[#555] uppercase">F&G</span>
+            <span className={`text-[11px] font-mono font-bold ${fgColor(data.fearGreed.rating)}`}>
+              {data.fearGreed.score}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────
 
 export default function NewsRunPage() {
@@ -215,6 +273,7 @@ export default function NewsRunPage() {
   const [error, setError] = useState<string | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [snapshot, setSnapshot] = useState<MarketSnapshot | null>(null);
+  const [liveMarket, setLiveMarket] = useState<LiveMarket | null>(null);
 
   // Fetch dates on mount
   useEffect(() => {
@@ -231,7 +290,7 @@ export default function NewsRunPage() {
     })();
   }, []);
 
-  // Fetch live market snapshot on mount
+  // Fetch live market snapshot on mount (sidebar)
   useEffect(() => {
     (async () => {
       try {
@@ -242,6 +301,22 @@ export default function NewsRunPage() {
         /* noop */
       }
     })();
+  }, []);
+
+  // Fetch live market bar (auto-refresh every 5 min)
+  useEffect(() => {
+    const fetchLive = async () => {
+      try {
+        const res = await fetch("/api/news-run/market");
+        const json = await res.json();
+        if (json?.ok && json.data) setLiveMarket(json.data);
+      } catch {
+        /* noop */
+      }
+    };
+    fetchLive();
+    const id = setInterval(fetchLive, 5 * 60 * 1000);
+    return () => clearInterval(id);
   }, []);
 
   // Fetch report when date changes
@@ -464,6 +539,7 @@ export default function NewsRunPage() {
       <AppHeader active="newsRun" />
 
       <div className="mx-auto max-w-[1100px] px-4 py-8">
+        {liveMarket && <LiveMarketBar data={liveMarket} />}
         <div className="flex gap-8">
           {/* Sidebar — desktop only */}
           <aside className="hidden lg:block w-48 shrink-0">

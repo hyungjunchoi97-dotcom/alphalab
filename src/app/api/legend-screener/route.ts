@@ -8,6 +8,20 @@ const FMP_KEY = process.env.FMP_API_KEY;
 const FMP_BASE = "https://financialmodelingprep.com/stable";
 const CACHE_TTL_HOURS = 24;
 
+// ── S&P 100 ────────────────────────────────────────────────────
+const SP100 = [
+  "AAPL","MSFT","NVDA","AMZN","GOOGL","META","BRK-B","LLY","AVGO","TSLA",
+  "JPM","UNH","V","XOM","MA","COST","HD","PG","JNJ","ABBV",
+  "BAC","MRK","KO","CVX","CRM","NFLX","AMD","PEP","TMO","ACN",
+  "MCD","ADBE","LIN","DHR","WMT","TXN","NEE","PM","MS","ORCL",
+  "AMGN","RTX","GE","HON","QCOM","UPS","IBM","INTU","CAT","SPGI",
+  "DE","GS","BLK","ISRG","MDLZ","AXP","GILD","ADI","VRTX","PLD",
+  "SYK","REGN","LRCX","NOW","MMC","ZTS","BSX","ETN","MO","KLAC",
+  "CI","CME","AON","MCO","SHW","DUK","SO","PGR","TGT","SCHW",
+  "HUM","ELV","ICE","APD","ITW","NSC","FDX","EMR","PSA","WM",
+  "ROP","MAR","MCHP","AIG","TFC","USB","MMM","COP","OXY",
+];
+
 // ── Types ──────────────────────────────────────────────────────
 interface LegendResult {
   symbol: string;
@@ -22,11 +36,11 @@ interface LegendResult {
 
 type GuruKey = "buffett" | "oneil" | "lynch" | "druckenmiller";
 
-// ── FMP helpers ────────────────────────────────────────────────
+// ── FMP helper ─────────────────────────────────────────────────
 async function fmpGet<T>(path: string): Promise<T | null> {
   try {
     const url = `${FMP_BASE}${path}${path.includes("?") ? "&" : "?"}apikey=${FMP_KEY}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -34,195 +48,168 @@ async function fmpGet<T>(path: string): Promise<T | null> {
   }
 }
 
-// ── Phase 1: FMP screener with built-in filters per guru ──────
-interface ScreenerItem {
+// ── Per-symbol data fetch ──────────────────────────────────────
+interface StockData {
   symbol: string;
-  companyName?: string;
+  // key-metrics
+  roe?: number;
+  npm?: number;
+  de?: number;
+  pe?: number;
+  // quote
+  price: number;
+  changePct: number;
+  name: string;
+  // income-statement derived
+  epsYoY?: number;
+  revYoY?: number;
+}
+
+interface KeyMetric {
+  returnOnEquity?: number;
+}
+
+interface RatioItem {
+  netProfitMargin?: number;
+  debtToEquityRatio?: number;
+  priceToEarningsRatio?: number;
+}
+
+interface IncomeStmt {
+  revenue?: number;
+  eps?: number;
+}
+
+interface QuoteItem {
+  symbol?: string;
   price?: number;
   changesPercentage?: number;
-  marketCap?: number;
+  name?: string;
 }
 
-async function getPreFilteredSymbols(guru: GuruKey): Promise<ScreenerItem[]> {
-  let params = "exchange=NYSE,NASDAQ&isActivelyTrading=true&marketCapMoreThan=2000000000";
-
-  switch (guru) {
-    case "buffett":
-      // ROE > 15%, NPM > 10%, low debt
-      params += "&returnOnEquityMoreThan=15&netProfitMarginMoreThan=10&limit=50";
-      break;
-    case "oneil":
-      // High growth, actively trading
-      params += "&revenueGrowthMoreThan=20&limit=60";
-      break;
-    case "lynch":
-      // Reasonable PE, some growth, low debt
-      params += "&peRatioLessThan=20&revenueGrowthMoreThan=10&limit=60";
-      break;
-    case "druckenmiller":
-      // High revenue growth (momentum)
-      params += "&revenueGrowthMoreThan=20&limit=60";
-      break;
-  }
-
-  const data = await fmpGet<ScreenerItem[]>(`/stock-screener?${params}`);
-  if (!data || !Array.isArray(data)) return [];
-  return data;
-}
-
-// ── Phase 2: Detailed screening for top candidates ─────────────
-
-async function detailBuffett(symbol: string, name: string, prePrice: number, preChg: number): Promise<LegendResult | null> {
-  const [ratios, income] = await Promise.all([
-    fmpGet<{ roe?: number; debtEquityRatio?: number; netProfitMargin?: number }[]>(`/financial-ratios/${symbol}?period=annual&limit=1`),
-    fmpGet<{ eps?: number }[]>(`/income-statement/${symbol}?period=annual&limit=5`),
-  ]);
-
-  const r = Array.isArray(ratios) ? ratios[0] : null;
-  if (!r) return null;
-
-  const roe = r.roe != null ? r.roe * 100 : null;
-  const debtEq = r.debtEquityRatio ?? null;
-  const npm = r.netProfitMargin != null ? r.netProfitMargin * 100 : null;
-
-  const epsList = Array.isArray(income) ? income.map((i) => i.eps ?? 0).reverse() : [];
-  let epsGrowing = false;
-  if (epsList.length >= 4) {
-    epsGrowing = epsList.slice(-3).every((v, i, a) => i === 0 || v > a[i - 1]);
-  }
-
-  const criteria: LegendResult["criteria"] = [
-    { label: "ROE > 15%", value: roe != null ? `${roe.toFixed(1)}%` : "N/A", passed: roe != null && roe > 15 },
-    { label: "D/E < 0.5", value: debtEq != null ? debtEq.toFixed(2) : "N/A", passed: debtEq != null && debtEq < 0.5 },
-    { label: "NPM > 10%", value: npm != null ? `${npm.toFixed(1)}%` : "N/A", passed: npm != null && npm > 10 },
-    { label: "EPS 3Y Growth", value: epsGrowing ? "Yes" : "No", passed: epsGrowing },
-  ];
-
-  const score = criteria.filter((c) => c.passed).length;
-  if (score < 2) return null;
-
-  return { symbol, name, market: "US", price: prePrice, change_pct: preChg, score, max_score: 4, criteria };
-}
-
-async function detailOneil(symbol: string, name: string, prePrice: number, preChg: number): Promise<LegendResult | null> {
-  const [income, quote] = await Promise.all([
-    fmpGet<{ eps?: number }[]>(`/income-statement/${symbol}?period=quarter&limit=8`),
-    fmpGet<{ price?: number; changesPercentage?: number; yearHigh?: number }[]>(`/quote/${symbol}`),
+async function fetchStockData(symbol: string): Promise<StockData | null> {
+  const [metrics, ratios, income, quote] = await Promise.all([
+    fmpGet<KeyMetric[]>(`/key-metrics?symbol=${symbol}&period=annual&limit=1`),
+    fmpGet<RatioItem[]>(`/ratios?symbol=${symbol}&period=annual&limit=1`),
+    fmpGet<IncomeStmt[]>(`/income-statement?symbol=${symbol}&period=annual&limit=2`),
+    fmpGet<QuoteItem[]>(`/quote?symbol=${symbol}`),
   ]);
 
   const q = Array.isArray(quote) ? quote[0] : null;
-  const price = q?.price ?? prePrice;
-  const yearHigh = q?.yearHigh ?? 0;
+  if (symbol === "AAPL") console.log("[DEBUG AAPL]", JSON.stringify({m: metrics?.[0]?.returnOnEquity, r: ratios?.[0]?.netProfitMargin, q: q?.price}));
+  if (!q?.price) return null;
 
-  const epsList = Array.isArray(income) ? income.map((i) => i.eps ?? 0).reverse() : [];
-  let epsQoQ = 0;
-  if (epsList.length >= 2) {
-    const prev = epsList[epsList.length - 2];
-    const cur = epsList[epsList.length - 1];
-    if (prev > 0) epsQoQ = ((cur - prev) / prev) * 100;
+  const m = Array.isArray(metrics) ? metrics[0] : null;
+  const r = Array.isArray(ratios) ? ratios[0] : null;
+  const incArr = Array.isArray(income) ? income : [];
+
+  // DEBUG: AAPL only
+  if (symbol === "AAPL") {
+    console.log("[DEBUG AAPL] key-metrics:", JSON.stringify(m));
+    console.log("[DEBUG AAPL] ratios:", JSON.stringify(r));
+    console.log("[DEBUG AAPL] income-statement:", JSON.stringify(incArr));
+    console.log("[DEBUG AAPL] quote:", JSON.stringify(q));
   }
 
-  const distFromHigh = yearHigh > 0 ? ((yearHigh - price) / yearHigh) * 100 : 100;
-
-  const criteria: LegendResult["criteria"] = [
-    { label: "EPS QoQ +25%", value: `${epsQoQ.toFixed(1)}%`, passed: epsQoQ >= 25 },
-    { label: "Near 52W High", value: `${distFromHigh.toFixed(1)}% off`, passed: distFromHigh <= 10 },
-  ];
-
-  const score = criteria.filter((c) => c.passed).length;
-  if (score < 1) return null;
-
-  return { symbol, name, market: "US", price, change_pct: q?.changesPercentage ?? preChg, score, max_score: 2, criteria };
-}
-
-async function detailLynch(symbol: string, name: string, prePrice: number, preChg: number): Promise<LegendResult | null> {
-  const ratios = await fmpGet<{ priceEarningsToGrowthRatio?: number; debtEquityRatio?: number }[]>(
-    `/financial-ratios/${symbol}?period=annual&limit=1`
-  );
-
-  const r = Array.isArray(ratios) ? ratios[0] : null;
-  if (!r) return null;
-
-  const peg = r.priceEarningsToGrowthRatio ?? null;
-  const debtEq = r.debtEquityRatio ?? null;
-
-  const criteria: LegendResult["criteria"] = [
-    { label: "PEG < 1", value: peg != null ? peg.toFixed(2) : "N/A", passed: peg != null && peg > 0 && peg < 1 },
-    { label: "Low D/E", value: debtEq != null ? debtEq.toFixed(2) : "N/A", passed: debtEq != null && debtEq < 1 },
-  ];
-
-  const score = criteria.filter((c) => c.passed).length;
-  if (score < 1) return null;
-
-  return { symbol, name, market: "US", price: prePrice, change_pct: preChg, score, max_score: 2, criteria };
-}
-
-async function detailDruckenmiller(symbol: string, name: string, prePrice: number, preChg: number): Promise<LegendResult | null> {
-  const [quote, growth] = await Promise.all([
-    fmpGet<{ price?: number; changesPercentage?: number; yearHigh?: number }[]>(`/quote/${symbol}`),
-    fmpGet<{ revenueGrowth?: number }[]>(`/financial-growth/${symbol}?period=annual&limit=1`),
-  ]);
-
-  const q = Array.isArray(quote) ? quote[0] : null;
-  const g = Array.isArray(growth) ? growth[0] : null;
-
-  const price = q?.price ?? prePrice;
-  const yearHigh = q?.yearHigh ?? 0;
-  const distFromHigh = yearHigh > 0 ? ((yearHigh - price) / yearHigh) * 100 : 100;
-  const revGrowth = g?.revenueGrowth != null ? g.revenueGrowth * 100 : null;
-
-  const criteria: LegendResult["criteria"] = [
-    { label: "Near 52W High", value: `${distFromHigh.toFixed(1)}% off`, passed: distFromHigh <= 5 },
-    { label: "Rev Growth >20%", value: revGrowth != null ? `${revGrowth.toFixed(1)}%` : "N/A", passed: revGrowth != null && revGrowth > 20 },
-  ];
-
-  const score = criteria.filter((c) => c.passed).length;
-  if (score < 1) return null;
-
-  return { symbol, name, market: "US", price, change_pct: q?.changesPercentage ?? preChg, score, max_score: 2, criteria };
-}
-
-// ── Two-phase screening ───────────────────────────────────────
-
-async function runScreen(guru: GuruKey): Promise<LegendResult[]> {
-  // Phase 1: Get pre-filtered candidates from FMP screener (1 API call)
-  const candidates = await getPreFilteredSymbols(guru);
-  if (candidates.length === 0) return [];
-
-  // Take top 25 candidates for detailed screening
-  const top = candidates.slice(0, 25);
-
-  // Phase 2: Detailed screening in parallel batches of 10
-  const BATCH = 10;
-  const results: LegendResult[] = [];
-
-  for (let i = 0; i < top.length; i += BATCH) {
-    const batch = top.slice(i, i + BATCH);
-    const promises = batch.map(async (item) => {
-      const sym = item.symbol;
-      const name = item.companyName || sym;
-      const price = item.price ?? 0;
-      const chg = item.changesPercentage ?? 0;
-      try {
-        switch (guru) {
-          case "buffett": return await detailBuffett(sym, name, price, chg);
-          case "oneil": return await detailOneil(sym, name, price, chg);
-          case "lynch": return await detailLynch(sym, name, price, chg);
-          case "druckenmiller": return await detailDruckenmiller(sym, name, price, chg);
-        }
-      } catch {
-        return null;
-      }
-    });
-    const batchResults = await Promise.all(promises);
-    for (const r of batchResults) {
-      if (r) results.push(r);
+  // YoY growth: income[0] = latest, income[1] = previous year
+  let epsYoY: number | undefined;
+  let revYoY: number | undefined;
+  if (incArr.length >= 2) {
+    const cur = incArr[0];
+    const prev = incArr[1];
+    if (prev.eps && prev.eps > 0 && cur.eps != null) {
+      epsYoY = ((cur.eps - prev.eps) / Math.abs(prev.eps)) * 100;
+    }
+    if (prev.revenue && prev.revenue > 0 && cur.revenue != null) {
+      revYoY = ((cur.revenue - prev.revenue) / Math.abs(prev.revenue)) * 100;
     }
   }
 
-  return results
-    .sort((a, b) => b.score - a.score || b.change_pct - a.change_pct)
-    .slice(0, 30);
+  return {
+    symbol,
+    roe: m?.returnOnEquity,
+    npm: r?.netProfitMargin,
+    de: r?.debtToEquityRatio,
+    pe: r?.priceToEarningsRatio,
+    price: q.price,
+    changePct: q.changesPercentage ?? 0,
+    name: q.name || symbol,
+    epsYoY,
+    revYoY,
+  };
+}
+
+// ── Criteria builders ──────────────────────────────────────────
+const pct = (v: number | undefined) => (v != null ? v * 100 : null);
+const fmtPct = (v: number | null) => (v != null ? `${v.toFixed(1)}%` : "N/A");
+
+function buildCriteria(guru: GuruKey, d: StockData): LegendResult["criteria"] {
+  const roe = pct(d.roe);
+  const npm = pct(d.npm);
+  const de = d.de;
+  const pe = d.pe;
+  const revG = d.revYoY;
+  const epsG = d.epsYoY;
+
+  switch (guru) {
+    case "buffett":
+      return [
+        { label: "ROE > 15%", value: fmtPct(roe), passed: roe != null && roe > 15 },
+        { label: "NPM > 10%", value: fmtPct(npm), passed: npm != null && npm > 10 },
+        { label: "D/E < 2.0", value: de != null ? de.toFixed(2) : "N/A", passed: de != null && de < 2.0 },
+        { label: "EPS YoY Growth", value: fmtPct(epsG ?? null), passed: epsG != null && epsG > 0 },
+      ];
+    case "oneil":
+      return [
+        { label: "EPS YoY > 25%", value: fmtPct(epsG ?? null), passed: epsG != null && epsG > 25 },
+        { label: "Rev YoY > 20%", value: fmtPct(revG ?? null), passed: revG != null && revG > 20 },
+        { label: "Price > $15", value: `$${d.price.toFixed(2)}`, passed: d.price > 15 },
+      ];
+    case "lynch":
+      return [
+        { label: "P/E 5–20", value: pe != null ? pe.toFixed(1) : "N/A", passed: pe != null && pe > 5 && pe < 20 },
+        { label: "Rev YoY > 10%", value: fmtPct(revG ?? null), passed: revG != null && revG > 10 },
+        { label: "D/E < 1", value: de != null ? de.toFixed(2) : "N/A", passed: de != null && de < 1 },
+      ];
+    case "druckenmiller":
+      return [
+        { label: "Rev YoY > 20%", value: fmtPct(revG ?? null), passed: revG != null && revG > 20 },
+        { label: "EPS YoY > 15%", value: fmtPct(epsG ?? null), passed: epsG != null && epsG > 15 },
+        { label: "ROE > 10%", value: fmtPct(roe), passed: roe != null && roe > 10 },
+      ];
+  }
+}
+
+// ── Screen runner ──────────────────────────────────────────────
+async function runScreen(guru: GuruKey): Promise<LegendResult[]> {
+  const results: LegendResult[] = [];
+  const BATCH = 10;
+
+  for (let i = 0; i < SP100.length; i += BATCH) {
+    const batch = SP100.slice(i, i + BATCH);
+    const batchData = await Promise.all(batch.map((sym) => fetchStockData(sym)));
+    await new Promise(r => setTimeout(r, 300));
+
+    for (const d of batchData) {
+      if (!d) continue;
+      const criteria = buildCriteria(guru, d);
+      const score = criteria.filter((c) => c.passed).length;
+      const minScore = guru === "buffett" ? 3 : 2;
+      if (score < minScore) continue;
+      results.push({
+        symbol: d.symbol,
+        name: d.name,
+        market: "US",
+        price: d.price,
+        change_pct: d.changePct,
+        score,
+        max_score: criteria.length,
+        criteria,
+      });
+    }
+  }
+
+  return results.sort((a, b) => b.score - a.score || b.change_pct - a.change_pct);
 }
 
 // ── In-memory fallback cache ───────────────────────────────────
@@ -263,7 +250,7 @@ export async function GET(request: NextRequest) {
             results: data.results,
             cached: true,
             updated_at: data.created_at,
-            stats: { scanned: 0, passed: Array.isArray(data.results) ? data.results.length : 0 },
+            stats: { scanned: SP100.length, passed: Array.isArray(data.results) ? data.results.length : 0 },
           });
         }
       }
@@ -276,7 +263,7 @@ export async function GET(request: NextRequest) {
           results: mem.results,
           cached: true,
           updated_at: new Date(mem.at).toISOString(),
-          stats: { scanned: 0, passed: mem.results.length },
+          stats: { scanned: SP100.length, passed: mem.results.length },
         });
       }
     }
@@ -303,7 +290,7 @@ export async function GET(request: NextRequest) {
       results,
       cached: false,
       updated_at: new Date().toISOString(),
-      stats: { scanned: 25, passed: results.length },
+      stats: { scanned: SP100.length, passed: results.length },
     });
   } catch (err) {
     return NextResponse.json(
