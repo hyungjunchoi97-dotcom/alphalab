@@ -36,6 +36,8 @@ interface RowDef {
   isBold?: boolean;
   indent?: boolean;
   isRed?: boolean;
+  isSectionHeader?: boolean;
+  isTotal?: boolean;
 }
 
 // ── Formatters ──────────────────────────────────────────────
@@ -187,19 +189,42 @@ export default function FinancialsPage() {
   ];
 
   const BS_ROWS: RowDef[] = [
-    { label: "Total Assets", key: "totalAssets", isBold: true },
+    // ASSETS
+    { label: "ASSETS", key: "_assets_header", isSectionHeader: true },
+    { label: "Total Current Assets", key: "totalCurrentAssets", isBold: true },
     { label: "Cash & Equivalents", key: "cash", indent: true },
     { label: "Short-term Investments", key: "shortTermInvestments", indent: true },
+    { label: "Accounts Receivable", key: "accountsReceivable", indent: true },
+    { label: "Inventory", key: "inventory", indent: true },
+    { label: "Other Current Assets", key: "otherCurrentAssets", indent: true },
+    { label: "Total Non-Current Assets", key: "totalNonCurrentAssets", isBold: true },
+    { label: "PP&E Net", key: "ppeNet", indent: true },
     { label: "Long-term Investments", key: "longTermInvestments", indent: true },
     { label: "Goodwill", key: "goodwill", indent: true },
-    { label: "Intangible Assets", key: "intangibleAssets", indent: true },
-    { label: "Total Liabilities", key: "totalLiabilities", isBold: true },
+    { label: "Other Non-Current", key: "otherNonCurrent", indent: true },
+    { label: "Total Assets", key: "totalAssets", isBold: true, isTotal: true },
+    // LIABILITIES
+    { label: "LIABILITIES", key: "_liab_header", isSectionHeader: true },
+    { label: "Total Current Liabilities", key: "totalCurrentLiabilities", isBold: true },
+    { label: "Accounts Payable", key: "accountPayables", indent: true },
     { label: "Short-term Debt", key: "shortTermDebt", indent: true },
+    { label: "Deferred Revenue", key: "deferredRevenue", indent: true },
+    { label: "Other Current Liabilities", key: "otherCurrentLiabilities", indent: true },
+    { label: "Total Non-Current Liabilities", key: "totalNonCurrentLiabilities", isBold: true },
     { label: "Long-term Debt", key: "longTermDebt", indent: true },
-    { label: "Total Equity", key: "totalEquity", isBold: true },
+    { label: "Other Non-Current Liabilities", key: "otherNonCurrentLiabilities", indent: true },
+    { label: "Total Liabilities", key: "totalLiabilities", isBold: true, isTotal: true },
+    // EQUITY
+    { label: "EQUITY", key: "_equity_header", isSectionHeader: true },
+    { label: "Common Stock", key: "commonStock", indent: true },
+    { label: "Retained Earnings", key: "retainedEarnings", indent: true },
+    { label: "Total Equity", key: "totalEquity", isBold: true, isTotal: true },
+    // KEY METRICS
+    { label: "KEY METRICS", key: "_metrics_header", isSectionHeader: true },
     { label: "Net Debt", key: "netDebt" },
     { label: "Debt/Equity", key: "debtToEquity", isRatio: true },
     { label: "Current Ratio", key: "currentRatio", isRatio: true },
+    { label: "Total Investments", key: "totalInvestments" },
   ];
 
   const CF_ROWS: RowDef[] = [
@@ -459,41 +484,63 @@ export default function FinancialsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {currentRows.map((row) => (
-                      <tr
-                        key={row.key}
-                        className="transition-colors hover:bg-white/[0.02]"
-                        style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                      >
-                        <td
-                          className="sticky left-0 z-10 py-1.5 pl-3 pr-4 text-left whitespace-nowrap"
+                    {currentRows.map((row) => {
+                      if (row.isSectionHeader) {
+                        return (
+                          <tr key={row.key} style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                            <td
+                              className="sticky left-0 z-10 pt-4 pb-1 pl-3 pr-4 text-left whitespace-nowrap text-[10px] font-bold uppercase tracking-wider"
+                              style={{ background: "#0d1117", color: "rgba(251,191,36,0.6)" }}
+                            >
+                              {row.label}
+                            </td>
+                            {quarterly.map((_, ci) => (
+                              <td key={ci} className="pt-4 pb-1" />
+                            ))}
+                          </tr>
+                        );
+                      }
+                      return (
+                        <tr
+                          key={row.key}
+                          className="transition-colors hover:bg-white/[0.02]"
                           style={{
-                            background: "#0d1117",
-                            color: row.isBold ? "#e8e8e8" : "#9ca3af",
-                            fontWeight: row.isBold ? 500 : 400,
-                            paddingLeft: row.indent ? "28px" : "12px",
-                            fontSize: row.isMargin || row.isRatio ? "10px" : "11px",
+                            borderBottom: row.isTotal
+                              ? "2px solid rgba(255,255,255,0.1)"
+                              : "1px solid rgba(255,255,255,0.04)",
                           }}
                         >
-                          {row.label}
-                        </td>
-                        {quarterly.map((q, ci) => {
-                          const { text, color } = renderCell(q, row);
-                          return (
-                            <td
-                              key={ci}
-                              className="py-1.5 px-3 text-right tabular-nums"
-                              style={{
-                                color,
-                                fontSize: row.isMargin || row.isRatio ? "10px" : "11px",
-                              }}
-                            >
-                              {text}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
+                          <td
+                            className="sticky left-0 z-10 py-1.5 pl-3 pr-4 text-left whitespace-nowrap"
+                            style={{
+                              background: "#0d1117",
+                              color: row.isTotal ? "#ffffff" : row.isBold ? "#e8e8e8" : "#9ca3af",
+                              fontWeight: row.isBold || row.isTotal ? 500 : 400,
+                              paddingLeft: row.indent ? "28px" : "12px",
+                              fontSize: row.isMargin || row.isRatio ? "10px" : "11px",
+                            }}
+                          >
+                            {row.label}
+                          </td>
+                          {quarterly.map((q, ci) => {
+                            const { text, color } = renderCell(q, row);
+                            return (
+                              <td
+                                key={ci}
+                                className="py-1.5 px-3 text-right tabular-nums"
+                                style={{
+                                  color: row.isTotal ? "#ffffff" : color,
+                                  fontWeight: row.isTotal ? 500 : undefined,
+                                  fontSize: row.isMargin || row.isRatio ? "10px" : "11px",
+                                }}
+                              >
+                                {text}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

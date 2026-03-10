@@ -216,22 +216,67 @@ async function fetchUS(ticker: string, period: string) {
       eps: eps != null ? Math.round(eps * 100) / 100 : null,
       revenueGrowth: null as number | null, // computed after reverse
       // B/S
-      totalAssets: m(bs.totalAssets),
+      totalCurrentAssets: m(bs.totalCurrentAssets),
       cash: m(bs.cashAndCashEquivalents),
       shortTermInvestments: m(bs.shortTermInvestments),
+      accountsReceivable: m(bs.netReceivables ?? bs.accountsReceivables),
+      inventory: m(bs.inventory),
+      otherCurrentAssets: (() => {
+        const tca = m(bs.totalCurrentAssets);
+        const sub = [bs.cashAndCashEquivalents, bs.shortTermInvestments, bs.netReceivables ?? bs.accountsReceivables, bs.inventory]
+          .reduce((acc: number, v: number | undefined) => acc + (v ? Math.round(v / 1e6) : 0), 0);
+        return tca != null ? tca - sub : null;
+      })(),
+      totalNonCurrentAssets: m(bs.totalNonCurrentAssets),
+      ppeNet: m(bs.propertyPlantEquipmentNet),
       longTermInvestments: m(bs.longTermInvestments),
       goodwill: m(bs.goodwill),
-      intangibleAssets: m(bs.intangibleAssets),
-      totalLiabilities: m(bs.totalLiabilities),
+      otherNonCurrent: (() => {
+        const tnca = m(bs.totalNonCurrentAssets);
+        const sub = [bs.propertyPlantEquipmentNet, bs.longTermInvestments, bs.goodwill]
+          .reduce((acc: number, v: number | undefined) => acc + (v ? Math.round(v / 1e6) : 0), 0);
+        return tnca != null ? tnca - sub : null;
+      })(),
+      totalAssets: m(bs.totalAssets),
+      totalCurrentLiabilities: m(bs.totalCurrentLiabilities),
+      accountPayables: m(bs.accountPayables),
       shortTermDebt: m(bs.shortTermDebt),
+      deferredRevenue: m(bs.deferredRevenue),
+      otherCurrentLiabilities: (() => {
+        const tcl = m(bs.totalCurrentLiabilities);
+        const sub = [bs.accountPayables, bs.shortTermDebt, bs.deferredRevenue]
+          .reduce((acc: number, v: number | undefined) => acc + (v ? Math.round(v / 1e6) : 0), 0);
+        return tcl != null ? tcl - sub : null;
+      })(),
+      totalNonCurrentLiabilities: (() => {
+        const tl = m(bs.totalLiabilities);
+        const tcl = m(bs.totalCurrentLiabilities);
+        return tl != null && tcl != null ? tl - tcl : null;
+      })(),
       longTermDebt: m(bs.longTermDebt),
+      otherNonCurrentLiabilities: (() => {
+        const tl = m(bs.totalLiabilities);
+        const tcl = m(bs.totalCurrentLiabilities);
+        const ltd = m(bs.longTermDebt);
+        const tncl = tl != null && tcl != null ? tl - tcl : null;
+        return tncl != null && ltd != null ? tncl - ltd : null;
+      })(),
+      totalLiabilities: m(bs.totalLiabilities),
+      commonStock: m(bs.commonStock),
+      retainedEarnings: m(bs.retainedEarnings),
       totalEquity: totalEquityVal,
-      totalDebt: totalDebtVal,
       netDebt: m(bs.netDebt),
+      totalDebt: totalDebtVal,
       debtToEquity: totalEquityVal && totalDebtVal != null && totalEquityVal !== 0
         ? Math.round((totalDebtVal / totalEquityVal) * 10000) / 100 : null,
       currentRatio: bs.totalCurrentAssets && bs.totalCurrentLiabilities && bs.totalCurrentLiabilities !== 0
         ? Math.round((bs.totalCurrentAssets / bs.totalCurrentLiabilities) * 100) / 100 : null,
+      totalInvestments: (() => {
+        const si = m(bs.shortTermInvestments);
+        const li = m(bs.longTermInvestments);
+        if (si == null && li == null) return null;
+        return (si ?? 0) + (li ?? 0);
+      })(),
       // C/F
       operatingCF: m(cf.operatingCashFlow),
       sbc: m(cf.stockBasedCompensation),
