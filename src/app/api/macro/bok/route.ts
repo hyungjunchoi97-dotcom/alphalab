@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -19,6 +19,7 @@ interface SeriesResult {
 
 interface CacheEntry {
   data: Record<string, SeriesResult>;
+  liveUsdKrw: number | null;
   cachedAt: number;
 }
 
@@ -89,6 +90,35 @@ async function fetchBokSeries(
   }
 }
 
+// ── Live USD/KRW from Yahoo Finance (same source as ticker bar) ──
+
+async function fetchLiveUsdKrw(): Promise<number | null> {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/KRW%3DX?interval=1d&range=5d`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const result = json.chart?.result?.[0];
+    if (!result) return null;
+
+    // Use regularMarketPrice for most current value
+    const price = result.meta?.regularMarketPrice;
+    if (price != null && !isNaN(price)) return Math.round(price * 100) / 100;
+
+    // Fallback: last non-null close
+    const closes: (number | null)[] = result.indicators?.quote?.[0]?.close || [];
+    for (let i = closes.length - 1; i >= 0; i--) {
+      if (closes[i] != null && !isNaN(closes[i]!)) return Math.round(closes[i]! * 100) / 100;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function toBokDate(time: string): string {
   // BOK TIME format: "202401" or "2024Q1" → convert to "2024-01"
   if (time.length === 6) {
@@ -114,25 +144,39 @@ function toSeriesResult(
   return { id, label, unit, observations: parsed, latest, previous, change: latest - previous };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   if (!BOK_API_KEY) {
     return NextResponse.json({ ok: false, error: "BOK_API_KEY not configured" }, { status: 500 });
   }
 
-  if (cache && Date.now() - cache.cachedAt < CACHE_TTL) {
-    return NextResponse.json({ ok: true, series: cache.data });
+  const forceRefresh = request.nextUrl.searchParams.get("refresh") === "true";
+
+  if (!forceRefresh && cache && Date.now() - cache.cachedAt < CACHE_TTL) {
+    return NextResponse.json({
+      ok: true,
+      series: cache.data,
+      liveUsdKrw: cache.liveUsdKrw,
+      updatedAt: new Date(cache.cachedAt).toISOString(),
+    });
   }
 
   try {
-    const results = await Promise.allSettled(
-      SERIES.map((s) => fetchBokSeries(s.statCode, s.itemCode1, s.cycle))
-    );
+    // Fetch BOK series and live USD/KRW in parallel
+    const [bokResults, liveUsdKrw] = await Promise.all([
+      Promise.allSettled(SERIES.map((s) => fetchBokSeries(s.statCode, s.itemCode1, s.cycle))),
+      fetchLiveUsdKrw(),
+    ]);
 
     const seriesMap: Record<string, SeriesResult> = {};
     for (let i = 0; i < SERIES.length; i++) {
-      const r = results[i];
+      const r = bokResults[i];
       const obs = r.status === "fulfilled" ? r.value : [];
       seriesMap[SERIES[i].id] = toSeriesResult(SERIES[i].id, SERIES[i].label, SERIES[i].unit, obs);
+    }
+
+    // Override USDKRW latest with live Yahoo Finance value if available
+    if (liveUsdKrw != null && seriesMap["USDKRW"]) {
+      seriesMap["USDKRW"].latest = liveUsdKrw;
     }
 
     // Compute KR CPI YoY %
@@ -159,8 +203,17 @@ export async function GET() {
       };
     }
 
-    cache = { data: seriesMap, cachedAt: Date.now() };
-    return NextResponse.json({ ok: true, series: seriesMap });
+    const now = Date.now();
+    cache = { data: seriesMap, liveUsdKrw, cachedAt: now };
+
+    return NextResponse.json({
+      ok: true,
+      series: seriesMap,
+      liveUsdKrw,
+      updatedAt: new Date(now).toISOString(),
+    }, {
+      headers: { "Cache-Control": "s-maxage=1800, stale-while-revalidate=3600" },
+    });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Unknown error" },

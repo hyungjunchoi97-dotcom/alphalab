@@ -3,16 +3,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
-import {
-  ComposedChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -77,120 +67,88 @@ interface CommodityData {
 
 interface IndicatorConfig {
   id: string;
+  seriesKey: string; // key in FRED series map
   labelKr: string;
   labelEn: string;
   unit: string;
   sparkColor: string;
   explanation: string;
   zones: { green: [number, number]; yellow: [number, number]; red: [number, number] };
-  // For zone border: which condition = which color
   getZoneColor: (v: number) => string;
   dashedLines?: number[];
-  invertZone?: boolean; // red at top (e.g. RRP, TGA)
+  invertZone?: boolean;
+  getStatus: (v: number) => { label: string; labelKr: string };
+  getInterpretation: (status: string) => string;
+  negativeIsRed?: boolean; // special: show red when value < 0
 }
 
 const INDICATORS: Record<string, IndicatorConfig> = {
-  WALCL: {
-    id: "WALCL",
-    labelKr: "연준 총자산",
-    labelEn: "Fed Total Assets",
-    unit: "B$",
-    sparkColor: "#60a5fa",
-    explanation:
-      "연준이 보유한 국채·MBS 규모. QE(양적완화)시 증가→시장에 돈 풀림. QT(양적긴축)시 감소→유동성 축소. 현재 QT 진행 중으로 고점(9조$) 대비 감소 추세.",
-    zones: { green: [7000, Infinity], yellow: [6000, 7000], red: [-Infinity, 6000] },
-    getZoneColor: (v) => (v > 7000 ? "#4ade80" : v > 6000 ? "#facc15" : "#f87171"),
-    dashedLines: [6000, 7000],
-  },
-  RRPONTSYD: {
-    id: "RRPONTSYD",
-    labelKr: "역레포",
-    labelEn: "Reverse Repo",
-    unit: "B$",
-    sparkColor: "#f472b6",
-    explanation:
-      "MMF 등이 연준에 단기로 맡긴 돈. 잔고↑ = 시중 유동성 흡수(악재). 잔고↓ = 시중으로 유동성 방출(호재). 2022년 고점 2.5조$ → 현재 급감은 시장에 긍정적 신호.",
-    zones: { red: [1500, Infinity], yellow: [500, 1500], green: [-Infinity, 500] },
-    getZoneColor: (v) => (v > 1500 ? "#f87171" : v > 500 ? "#facc15" : "#4ade80"),
-    dashedLines: [500, 1500],
-    invertZone: true,
-  },
-  WTREGEN: {
-    id: "WTREGEN",
-    labelKr: "TGA 잔고",
-    labelEn: "TGA Balance",
-    unit: "B$",
-    sparkColor: "#facc15",
-    explanation:
-      "미국 정부의 연준 내 통장. TGA↑ = 세금/국채발행으로 민간돈이 정부로 흡수(악재). TGA↓ = 정부지출로 시중에 돈 풀림(호재). 부채한도 협상 시즌에 급변동 주의.",
-    zones: { red: [1000000, Infinity], yellow: [500000, 1000000], green: [-Infinity, 500000] },
-    getZoneColor: (v) => (v > 1000000 ? "#f87171" : v > 500000 ? "#facc15" : "#4ade80"),
-    dashedLines: [500000, 1000000],
-    invertZone: true,
-  },
-  NET_LIQUIDITY: {
-    id: "NET_LIQUIDITY",
-    labelKr: "순유동성",
-    labelEn: "Net Liquidity",
-    unit: "T$",
-    sparkColor: "#4ade80",
-    explanation:
-      "시장에 실제로 풀린 돈의 양. S&P500과 높은 상관관계. 순유동성↑ = 증시 상승 압력. 순유동성↓ = 증시 하락 압력. 가장 중요한 단일 지표.",
-    zones: { green: [5.5, Infinity], yellow: [5, 5.5], red: [-Infinity, 5] },
-    getZoneColor: (v) => (v > 5.5 ? "#4ade80" : v > 5 ? "#facc15" : "#f87171"),
-    dashedLines: [5, 5.5],
-  },
   FEDFUNDS: {
-    id: "FEDFUNDS",
-    labelKr: "기준금리",
-    labelEn: "Fed Funds Rate",
-    unit: "%",
-    sparkColor: "#c084fc",
-    explanation:
-      "연준 기준금리. 금리↑ = 대출비용↑, 유동성↓, 증시압박. 금리↓ = 완화적. 현재 사이클 고점 통과 후 인하 기대감 존재.",
-    zones: { red: [4, Infinity], yellow: [2, 4], green: [-Infinity, 2] },
-    getZoneColor: (v) => (v > 4 ? "#f87171" : v > 2 ? "#facc15" : "#4ade80"),
-    dashedLines: [2, 4],
-    invertZone: true,
-  },
-  T10Y2Y: {
-    id: "T10Y2Y",
-    labelKr: "10Y-2Y 스프레드",
-    labelEn: "10Y-2Y Spread",
-    unit: "%",
-    sparkColor: "#2dd4bf",
-    explanation:
-      "장단기 금리차. 음수(역전) = 경기침체 선행지표. 역전 후 평균 12-18개월 후 침체 발생. 현재 정상화 중이나 주의 필요.",
-    zones: { red: [-Infinity, 0], yellow: [0, 0.5], green: [0.5, Infinity] },
-    getZoneColor: (v) => (v < 0 ? "#f87171" : v < 0.5 ? "#facc15" : "#4ade80"),
-    dashedLines: [0],
+    id: "FEDFUNDS", seriesKey: "FEDFUNDS",
+    labelKr: "기준금리", labelEn: "Fed Funds Rate", unit: "%", sparkColor: "#ffffff",
+    explanation: "연준 기준금리. 금리↑ = 대출비용↑, 유동성↓, 증시압박.",
+    zones: { red: [4.5, Infinity], yellow: [3, 4.5], green: [-Infinity, 3] },
+    getZoneColor: (v) => (v > 4.5 ? "#f87171" : v > 3 ? "#facc15" : "#4ade80"),
+    dashedLines: [3, 4.5], invertZone: true,
+    getStatus: (v) => v > 4.5 ? { label: "RESTRICTIVE", labelKr: "긴축" } : v >= 3 ? { label: "NEUTRAL", labelKr: "중립" } : { label: "ACCOMMODATIVE", labelKr: "완화" },
+    getInterpretation: (s) => s === "RESTRICTIVE" ? "긴축 유지 중. 고금리 장기화 압박." : s === "NEUTRAL" ? "중립 구간. 인하 사이클 진입 여부 주목." : "완화적 환경. 유동성 공급 우호적.",
   },
   CPIAUCSL: {
-    id: "CPIAUCSL",
-    labelKr: "CPI YoY",
-    labelEn: "CPI YoY",
-    unit: "%",
-    sparkColor: "#fb923c",
-    explanation:
-      "소비자물가 전년대비 상승률. 연준 목표 2%. 높을수록 금리인하 어려움.",
-    zones: { green: [-Infinity, 2], yellow: [2, 4], red: [4, Infinity] },
-    getZoneColor: (v) => (v > 4 ? "#f87171" : v > 2 ? "#facc15" : "#4ade80"),
-    dashedLines: [2, 4],
-    invertZone: true,
+    id: "CPIAUCSL", seriesKey: "CPI_YOY",
+    labelKr: "CPI YoY", labelEn: "CPI YoY", unit: "%", sparkColor: "#ffffff",
+    explanation: "소비자물가 전년대비 상승률. 연준 목표 2%.",
+    zones: { green: [-Infinity, 2], yellow: [2, 3], red: [3, Infinity] },
+    getZoneColor: (v) => (v > 3 ? "#f87171" : v > 2 ? "#facc15" : "#4ade80"),
+    dashedLines: [2, 3], invertZone: true,
+    getStatus: (v) => v > 3 ? { label: "HIGH", labelKr: "높음" } : v >= 2 ? { label: "TARGET", labelKr: "목표" } : { label: "LOW", labelKr: "낮음" },
+    getInterpretation: (s) => s === "HIGH" ? "목표치 상회. 추가 긴축 가능성." : s === "TARGET" ? "목표 수준. 금리 정상화 진행 중." : "디플레 우려. 경기 부양 여지.",
   },
   UNRATE: {
-    id: "UNRATE",
-    labelKr: "실업률",
-    labelEn: "Unemployment Rate",
-    unit: "%",
-    sparkColor: "#2dd4bf",
-    explanation:
-      "실업률. 4% 이하 = 완전고용. 급등 시 침체신호.",
+    id: "UNRATE", seriesKey: "UNRATE",
+    labelKr: "실업률", labelEn: "Unemployment Rate", unit: "%", sparkColor: "#ffffff",
+    explanation: "실업률. 4% 이하 = 완전고용. 급등 시 침체신호.",
     zones: { green: [-Infinity, 4], yellow: [4, 5], red: [5, Infinity] },
     getZoneColor: (v) => (v < 4 ? "#4ade80" : v < 5 ? "#facc15" : "#f87171"),
     dashedLines: [4, 5],
+    getStatus: (v) => v < 4 ? { label: "TIGHT", labelKr: "과열" } : v <= 5 ? { label: "NORMAL", labelKr: "정상" } : { label: "RISING", labelKr: "상승" },
+    getInterpretation: (s) => s === "TIGHT" ? "노동시장 과열. 임금 인플레 압력." : s === "NORMAL" ? "고용 안정. 연착륙 시나리오 유효." : "고용 악화. 경기 침체 신호 주시.",
+  },
+  T10Y3M: {
+    id: "T10Y3M", seriesKey: "T10Y3M",
+    labelKr: "10Y-3M 금리차", labelEn: "10Y-3M Spread", unit: "%", sparkColor: "#ffffff",
+    explanation: "장단기 금리차. 역전(음수) = 경기침체 선행 지표.",
+    zones: { red: [-Infinity, 0], yellow: [0, 1], green: [1, Infinity] },
+    getZoneColor: (v) => (v < 0 ? "#f87171" : v < 1 ? "#facc15" : "#4ade80"),
+    dashedLines: [0], negativeIsRed: true,
+    getStatus: (v) => v < 0 ? { label: "INVERSION", labelKr: "역전 ⚠" } : v <= 1 ? { label: "FLAT", labelKr: "평탄" } : { label: "NORMAL", labelKr: "정상" },
+    getInterpretation: (s) => s === "INVERSION" ? "⚠ 장단기 역전. 역사적 경기침체 선행 지표." : s === "FLAT" ? "금리차 축소. 경기 둔화 경계 구간." : "정상 커브. 경기 확장 우호적.",
+  },
+  BAMLH0A0HYM2: {
+    id: "BAMLH0A0HYM2", seriesKey: "BAMLH0A0HYM2",
+    labelKr: "HY 스프레드", labelEn: "HY Spread", unit: "%", sparkColor: "#ffffff",
+    explanation: "하이일드 채권 스프레드. 신용 리스크 지표.",
+    zones: { green: [-Infinity, 3], yellow: [3, 5], red: [5, Infinity] },
+    getZoneColor: (v) => (v > 5 ? "#f87171" : v > 3 ? "#facc15" : "#4ade80"),
+    dashedLines: [3, 5], invertZone: true,
+    getStatus: (v) => v < 3 ? { label: "LOW RISK", labelKr: "안정" } : v <= 5 ? { label: "MODERATE", labelKr: "주의" } : { label: "HIGH RISK", labelKr: "위험 ⚠" },
+    getInterpretation: (s) => s === "LOW RISK" ? "신용 시장 안정. 위험 선호 환경." : s === "MODERATE" ? "스프레드 확대 중. 기업 부도 리스크 주시." : "⚠ 신용 경색 신호. 위험자산 회피 구간.",
+  },
+  VIX: {
+    id: "VIX", seriesKey: "VIX",
+    labelKr: "VIX 공포지수", labelEn: "VIX Index", unit: "pts", sparkColor: "#ffffff",
+    explanation: "시장 변동성 지수. 공포 심리 지표.",
+    zones: { green: [-Infinity, 15], yellow: [15, 25], red: [25, Infinity] },
+    getZoneColor: (v) => (v > 35 ? "#f87171" : v > 25 ? "#fb923c" : v > 15 ? "#facc15" : "#4ade80"),
+    dashedLines: [15, 25],
+    getStatus: (v) => v > 35 ? { label: "FEAR", labelKr: "공포 ⚠" } : v > 25 ? { label: "ELEVATED", labelKr: "불안" } : v > 15 ? { label: "NORMAL", labelKr: "보통" } : { label: "COMPLACENT", labelKr: "안일" },
+    getInterpretation: (s) => s === "COMPLACENT" ? "시장 과신 구간. 역발상 주의." : s === "NORMAL" ? "정상 변동성. 시장 균형 상태." : s === "ELEVATED" ? "불안 고조. 변동성 확대 대비." : "⚠ 극단적 공포. 역사적 매수 기회 구간.",
   },
 };
+
+const INDICATOR_ORDER = ["FEDFUNDS", "CPIAUCSL", "UNRATE", "T10Y3M", "BAMLH0A0HYM2", "VIX"];
+type CardRange = "3M" | "6M" | "1Y" | "3Y" | "5Y";
+const CARD_RANGES: CardRange[] = ["3M", "6M", "1Y", "3Y", "5Y"];
+const CARD_RANGE_MONTHS: Record<CardRange, number> = { "3M": 3, "6M": 6, "1Y": 12, "3Y": 36, "5Y": 60 };
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -705,73 +663,114 @@ function DetailModal({
   );
 }
 
-// ── Metric Card ───────────────────────────────────────────────
+// ── Sparkline Area (full-width chart for cards) ──────────────
+
+function CardSparkline({ data, id }: { data: { date: string; value: number }[]; id: string }) {
+  if (data.length < 2) return <div className="h-[100px]" />;
+  const vals = data.map((d) => d.value);
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const range = max - min || 1;
+  const W = 400, H = 100, PAD = 8;
+  const pts = vals.map((v, i) => ({
+    x: PAD + (i / (vals.length - 1)) * (W - PAD * 2),
+    y: PAD + (H - PAD * 2) - ((v - min) / range) * (H - PAD * 2),
+  }));
+  const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join("");
+  const areaPath = linePath + `L${pts[pts.length - 1].x},${H - PAD}L${pts[0].x},${H - PAD}Z`;
+  const gradId = `cs-${id}`;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-[100px] w-full">
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor="#ffffff" stopOpacity="0.15" />
+          <stop offset="95%" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill={`url(#${gradId})`} />
+      <path d={linePath} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+// ── Metric Card (Bloomberg monochrome) ───────────────────────
 
 function MetricCard({
   indicator,
   series,
   lang,
-  large,
   onClick,
 }: {
   indicator: IndicatorConfig;
   series: SeriesData;
   lang: string;
-  large?: boolean;
   onClick: () => void;
 }) {
-  const zoneColor = indicator.getZoneColor(series.latest);
   const animated = useCountUp(series.latest);
   const isUp = series.changePercent >= 0;
-  const sparkData = series.observations.slice(-12).map((o) => o.value);
+  const status = indicator.getStatus(series.latest);
+  const interpretation = indicator.getInterpretation(status.label);
+  const valueColor = indicator.negativeIsRed && series.latest < 0 ? "#ef4444" : "#e8e8e8";
 
   return (
     <button
       onClick={onClick}
-      className={`group rounded-xl text-left transition-all hover:scale-[1.01] ${large ? "p-5" : "p-4"}`}
+      className="group flex flex-col rounded-lg text-left transition-all hover:border-white/20"
       style={{
-        background: "linear-gradient(135deg, #111111 0%, #0d0d0d 100%)",
+        background: "#111111",
         border: "1px solid #222222",
-        borderLeft: `4px solid ${zoneColor}`,
+        padding: "14px 16px",
+        minHeight: "200px",
       }}
     >
-      <div className="mb-1 flex items-center justify-between">
-        <span className={`font-medium ${large ? "text-xs" : "text-[11px]"}`} style={{ color: "#888" }}>
-          {lang === "kr" ? indicator.labelKr : indicator.labelEn}
-        </span>
-        <svg
-          width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#444"
-          strokeWidth="2" className="opacity-0 transition-opacity group-hover:opacity-100"
-        >
-          <path d="M7 17L17 7M17 7H7M17 7V17" />
-        </svg>
-      </div>
-      <div className="flex items-end justify-between">
-        <div>
-          <div className={`font-bold ${large ? "text-2xl" : "text-xl"}`} style={{ color: "#e8e8e8" }}>
-            {fmt(animated, indicator.unit)}
-            {indicator.unit === "%" && (
-              <span className="ml-0.5 text-sm font-normal" style={{ color: "#666" }}>%</span>
-            )}
-          </div>
-          <div className="mt-0.5 text-[11px] font-medium" style={{ color: isUp ? "#4ade80" : "#f87171" }}>
-            {fmtChange(series.change, indicator.unit)} ({isUp ? "+" : ""}
-            {series.changePercent.toFixed(2)}%)
-          </div>
+      {/* Header: label + status + % badge */}
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-medium tracking-wide" style={{ color: "#888" }}>
+            {lang === "kr" ? indicator.labelKr : indicator.labelEn}
+          </span>
+          <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#666" }}>
+            {lang === "kr" ? status.labelKr : status.label}
+          </span>
         </div>
-        <Sparkline
-          data={sparkData}
-          color={indicator.sparkColor}
-          width={large ? 100 : 80}
-          height={large ? 40 : 32}
-          id={indicator.id}
-        />
+        <span
+          className="rounded-full px-2.5 py-1 text-xs font-mono font-medium"
+          style={{
+            background: isUp ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
+            color: isUp ? "#4ade80" : "#f87171",
+            border: `1px solid ${isUp ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
+          }}
+        >
+          {isUp ? "+" : ""}{series.changePercent.toFixed(2)}%
+        </span>
       </div>
-      {large && (
-        <p className="mt-2 text-[10px] leading-relaxed" style={{ color: "#555" }}>
-          {indicator.explanation.slice(0, 60)}...
-        </p>
-      )}
+
+      {/* Value */}
+      <div>
+        <div className="text-xl font-bold tabular-nums" style={{ color: valueColor }}>
+          {fmt(animated, indicator.unit)}
+          {indicator.unit === "%" && (
+            <span className="ml-0.5 text-sm font-normal" style={{ color: "#555" }}>%</span>
+          )}
+          {indicator.unit === "pts" && (
+            <span className="ml-0.5 text-[11px] font-normal" style={{ color: "#555" }}>pts</span>
+          )}
+        </div>
+        <div className="mt-0.5 text-[11px] font-medium tabular-nums" style={{ color: "#666" }}>
+          {fmtChange(series.change, indicator.unit)}
+        </div>
+      </div>
+
+      {/* Sparkline — full width, fills remaining space */}
+      <div className="mt-2 flex-1 w-full">
+        <CardSparkline data={series.observations} id={indicator.id} />
+      </div>
+
+      {/* Interpretation */}
+      <p className="mt-1.5 text-[10px] leading-relaxed" style={{ color: "#555" }}>
+        {interpretation}
+      </p>
     </button>
   );
 }
@@ -1191,10 +1190,9 @@ function FxChartModal({
 
 export default function MacroPage() {
   const { lang } = useLang();
-  const [series, setSeries] = useState<Record<string, SeriesData>>({});
-  const [netLiquidity, setNetLiquidity] = useState<Observation[]>([]);
+  const [seriesFull, setSeriesFull] = useState<Record<string, SeriesData>>({});
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState<Range>("1Y");
+  const [cardRange, setCardRange] = useState<CardRange>("1Y");
   const [modalId, setModalId] = useState<string | null>(null);
   const [bokSeries, setBokSeries] = useState<Record<string, { observations: { date: string; value: number }[]; latest: number; previous: number; change: number }>>({});
   const [bokLoading, setBokLoading] = useState(true);
@@ -1206,14 +1204,15 @@ export default function MacroPage() {
   const [commodities, setCommodities] = useState<CommodityData[]>([]);
   const [comLoading, setComLoading] = useState(true);
   const [comTooltip, setComTooltip] = useState<string | null>(null);
+  const [liveUsdKrw, setLiveUsdKrw] = useState<number | null>(null);
+  const [comparisonUpdatedAt, setComparisonUpdatedAt] = useState<string>("");
 
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch("/api/macro/fred");
       const json = await res.json();
       if (json.ok) {
-        setSeries(json.series || {});
-        setNetLiquidity(json.netLiquidity || []);
+        setSeriesFull(json.series || {});
       }
     } catch {
       // silent
@@ -1226,7 +1225,11 @@ export default function MacroPage() {
     try {
       const res = await fetch("/api/macro/bok");
       const json = await res.json();
-      if (json.ok) setBokSeries(json.series || {});
+      if (json.ok) {
+        setBokSeries(json.series || {});
+        if (json.liveUsdKrw != null) setLiveUsdKrw(json.liveUsdKrw);
+        if (json.updatedAt) setComparisonUpdatedAt(json.updatedAt);
+      }
     } catch { /* silent */ } finally {
       setBokLoading(false);
     }
@@ -1242,11 +1245,89 @@ export default function MacroPage() {
     }
   }, []);
 
+  const fxDataRef = useRef<FxData[]>([]);
+
   const fetchFx = useCallback(async () => {
     try {
-      const res = await fetch("/api/macro/fx");
-      const json = await res.json();
-      if (json.ok) setFxData(json.data || []);
+      // 1. Load FRED baseline once (for sparklines + cross-rate history)
+      if (fxDataRef.current.length === 0) {
+        try {
+          const fredRes = await fetch("/api/macro/fx");
+          const fredJson = await fredRes.json();
+          if (fredJson.ok && fredJson.data) {
+            fxDataRef.current = fredJson.data;
+          }
+        } catch { /* FRED optional */ }
+      }
+
+      // 2. Fetch live rates from ticker API (same source as ticker tape)
+      const tickerRes = await fetch("/api/ticker");
+      const tickerJson = await tickerRes.json();
+      if (!(tickerJson.ok || tickerJson.market) || !tickerJson.market) {
+        // Ticker failed — fall back to FRED baseline if available
+        if (fxDataRef.current.length > 0 && fxData.length === 0) {
+          setFxData(fxDataRef.current);
+        }
+        return;
+      }
+
+      const fxItems = (tickerJson.market as { type: string; label: string; value: number | null; changePct: number | null }[])
+        .filter((m) => m.type === "FX" && m.value != null);
+
+      if (fxItems.length === 0) {
+        if (fxDataRef.current.length > 0 && fxData.length === 0) {
+          setFxData(fxDataRef.current);
+        }
+        return;
+      }
+
+      // Build live lookup
+      const liveMap = new Map<string, { value: number; changePct: number }>();
+      for (const item of fxItems) {
+        liveMap.set(item.label, { value: item.value!, changePct: item.changePct ?? 0 });
+      }
+
+      const usdkrw = liveMap.get("USD/KRW");
+      const usdjpy = liveMap.get("USD/JPY");
+      const eurusd = liveMap.get("EUR/USD");
+
+      if (fxDataRef.current.length > 0) {
+        // Overlay live rates on FRED baseline (keeps sparklines)
+        setFxData(fxDataRef.current.map((pair) => {
+          if (pair.id === "USDKRW" && usdkrw) {
+            const change = usdkrw.value - pair.previous;
+            return { ...pair, current: usdkrw.value, change: Math.round(change * 100) / 100, changePercent: Math.round(usdkrw.changePct * 100) / 100 };
+          }
+          if (pair.id === "JPYKRW" && usdkrw && usdjpy) {
+            const live = Math.round((usdkrw.value / usdjpy.value) * 100) / 100;
+            const change = live - pair.previous;
+            const pct = pair.previous !== 0 ? (change / Math.abs(pair.previous)) * 100 : 0;
+            return { ...pair, current: live, change: Math.round(change * 100) / 100, changePercent: Math.round(pct * 100) / 100 };
+          }
+          if (pair.id === "EURKRW" && usdkrw && eurusd) {
+            const live = Math.round(usdkrw.value * eurusd.value * 100) / 100;
+            const change = live - pair.previous;
+            const pct = pair.previous !== 0 ? (change / Math.abs(pair.previous)) * 100 : 0;
+            return { ...pair, current: live, change: Math.round(change * 100) / 100, changePercent: Math.round(pct * 100) / 100 };
+          }
+          return pair;
+        }));
+      } else {
+        // No FRED data — build FX cards purely from ticker
+        const built: FxData[] = [];
+        if (usdkrw) {
+          built.push({ id: "USDKRW", label: "USD/KRW", labelKr: "원달러", flag: "\u{1F1FA}\u{1F1F8}", current: usdkrw.value, previous: 0, change: 0, changePercent: usdkrw.changePct, sparkline: [] });
+        }
+        if (usdkrw && usdjpy) {
+          const val = Math.round((usdkrw.value / usdjpy.value) * 100) / 100;
+          built.push({ id: "JPYKRW", label: "JPY/KRW", labelKr: "엔원", flag: "\u{1F1EF}\u{1F1F5}", current: val, previous: 0, change: 0, changePercent: 0, sparkline: [] });
+        }
+        if (usdkrw && eurusd) {
+          const val = Math.round(usdkrw.value * eurusd.value * 100) / 100;
+          built.push({ id: "EURKRW", label: "EUR/KRW", labelKr: "유로원", flag: "\u{1F1EA}\u{1F1FA}", current: val, previous: 0, change: 0, changePercent: 0, sparkline: [] });
+        }
+        if (built.length > 0) setFxData(built);
+      }
     } catch { /* silent */ } finally {
       setFxLoading(false);
     }
@@ -1270,12 +1351,25 @@ export default function MacroPage() {
     fetchCommodities();
   }, [fetchData, fetchBok, fetchFearGreed, fetchFx, fetchCommodities]);
 
-  const chartData = useMemo(() => filterByRange(netLiquidity, range), [netLiquidity, range]);
+  // Auto-refresh FX rates every 60 seconds (same interval as ticker tape)
+  useEffect(() => {
+    const id = setInterval(fetchFx, 60_000);
+    return () => clearInterval(id);
+  }, [fetchFx]);
 
-  const ranges: Range[] = ["6M", "1Y", "2Y", "5Y"];
-
-  const topCards = ["WALCL", "RRPONTSYD", "WTREGEN"];
-  const bottomCards = ["FEDFUNDS", "T10Y2Y", "CPIAUCSL", "UNRATE"];
+  // Filter series observations by selected card range
+  const series = useMemo(() => {
+    const cutoffMonths = CARD_RANGE_MONTHS[cardRange];
+    const now = new Date();
+    const cutoff = new Date(now.getFullYear(), now.getMonth() - cutoffMonths, now.getDate());
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const filtered: Record<string, SeriesData> = {};
+    for (const [key, sd] of Object.entries(seriesFull)) {
+      const obs = sd.observations.filter((o) => o.date >= cutoffStr);
+      filtered[key] = { ...sd, observations: obs };
+    }
+    return filtered;
+  }, [seriesFull, cardRange]);
 
   return (
     <div className="min-h-screen font-[family-name:var(--font-noto-sans-kr)]" style={{ background: "#0a0a0a" }}>
@@ -1354,79 +1448,22 @@ export default function MacroPage() {
           )}
         </div>
 
-        {/* Net Liquidity (prominent) + 3 top cards */}
-        <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-4">
-          {loading ? (
-            <>
-              <SkeletonCard large />
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-            </>
-          ) : (
-            <>
-              <MetricCard
-                indicator={INDICATORS.NET_LIQUIDITY}
-                series={series["NET_LIQUIDITY"] || {} as SeriesData}
-                lang={lang}
-                large
-                onClick={() => setModalId("NET_LIQUIDITY")}
-              />
-              {topCards.map((id) => (
-                <MetricCard
-                  key={id}
-                  indicator={INDICATORS[id]}
-                  series={series[id] || {} as SeriesData}
-                  lang={lang}
-                  onClick={() => setModalId(id)}
-                />
-              ))}
-            </>
-          )}
-        </div>
-
-        {/* Bottom row */}
-        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {loading ? (
-            <>
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-            </>
-          ) : (
-            bottomCards.map((id) => {
-              // Use CPI_YOY series for CPIAUCSL card
-              const seriesData = id === "CPIAUCSL" ? (series["CPI_YOY"] || series[id] || {} as SeriesData) : (series[id] || {} as SeriesData);
-              return (
-                <MetricCard
-                  key={id}
-                  indicator={INDICATORS[id]}
-                  series={seriesData}
-                  lang={lang}
-                  onClick={() => setModalId(id)}
-                />
-              );
-            })
-          )}
-        </div>
-
-        {/* ── Net Liquidity Chart ──────────────────────────── */}
-        <div className="mb-4 rounded-xl p-4" style={{ background: "#111111", border: "1px solid #222222" }}>
+        {/* ── Macro Indicator Cards ────────────────────────── */}
+        <div className="mb-6">
+          {/* Time range selector */}
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold" style={{ color: "#e8e8e8" }}>
-              {lang === "kr" ? "연준 순유동성 추이" : "Fed Net Liquidity Trend"}
+            <h2 className="text-sm font-bold" style={{ color: "#e8e8e8" }}>
+              {lang === "kr" ? "매크로 지표" : "Macro Indicators"}
             </h2>
             <div className="flex gap-1">
-              {ranges.map((r) => (
+              {CARD_RANGES.map((r) => (
                 <button
                   key={r}
-                  onClick={() => setRange(r)}
-                  className="rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors"
+                  onClick={() => setCardRange(r)}
+                  className="rounded px-2 py-0.5 text-[11px] font-medium transition-colors"
                   style={{
-                    background: range === r ? "rgba(96,165,250,0.15)" : "transparent",
-                    color: range === r ? "#60a5fa" : "#666",
-                    border: range === r ? "1px solid rgba(96,165,250,0.3)" : "1px solid #222",
+                    color: cardRange === r ? "#e8e8e8" : "#555",
+                    borderBottom: cardRange === r ? "1px solid #e8e8e8" : "1px solid transparent",
                   }}
                 >
                   {r}
@@ -1435,46 +1472,25 @@ export default function MacroPage() {
             </div>
           </div>
 
-          {loading ? (
-            <div className="flex h-[360px] items-center justify-center animate-pulse rounded-lg" style={{ background: "#0d0d0d" }}>
-              <span style={{ color: "#444" }}>Loading...</span>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={400}>
-              <ComposedChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-                <XAxis dataKey="date" stroke="#444" tick={{ fill: "#666", fontSize: 11 }} tickFormatter={(v: string) => v.slice(0, 7)} minTickGap={60} />
-                <YAxis
-                  stroke="#22c55e"
-                  tick={{ fill: "#22c55e", fontSize: 11 }}
-                  tickFormatter={(v: number) => `${v.toFixed(1)}T`}
-                />
-                <RechartsTooltip
-                  contentStyle={{ background: "#111", border: "1px solid #333", borderRadius: 6, fontSize: 11 }}
-                  labelStyle={{ color: "#888", fontSize: 10 }}
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  formatter={(value: any) => {
-                    const v = Number(value);
-                    if (isNaN(v)) return "-";
-                    return [`${v.toFixed(2)}T`, lang === "kr" ? "순유동성" : "Net Liquidity"];
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  name={lang === "kr" ? "순유동성" : "Net Liquidity"}
-                  fill="#22c55e22"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
-          <div className="mt-2 text-[10px]" style={{ color: "#555" }}>
-            {lang === "kr"
-              ? "순유동성 = 연준 총자산 - TGA 잔고 - 역레포 | 출처: FRED"
-              : "Net Liquidity = Fed Assets - TGA - Reverse Repo | Source: FRED"}
+          {/* 3×2 grid */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {loading ? (
+              Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
+            ) : (
+              INDICATOR_ORDER.map((id) => {
+                const ind = INDICATORS[id];
+                const sd = series[ind.seriesKey] || ({} as SeriesData);
+                return (
+                  <MetricCard
+                    key={id}
+                    indicator={ind}
+                    series={sd}
+                    lang={lang}
+                    onClick={() => setModalId(id)}
+                  />
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -1492,15 +1508,15 @@ export default function MacroPage() {
             >
               {[
                 { label: lang === "kr" ? "한국 금리" : "BOK Rate", value: `${bokSeries["BASE_RATE"]?.latest?.toFixed(2) || "—"}%`, color: "#f472b6" },
-                { label: lang === "kr" ? "Fed 금리" : "Fed Rate", value: `${series["FEDFUNDS"]?.latest?.toFixed(2) || "—"}%`, color: "#60a5fa" },
+                { label: lang === "kr" ? "Fed 금리" : "Fed Rate", value: `${seriesFull["FEDFUNDS"]?.latest?.toFixed(2) || "—"}%`, color: "#60a5fa" },
                 {
                   label: lang === "kr" ? "금리차" : "Spread",
-                  value: `${((series["FEDFUNDS"]?.latest || 0) - (bokSeries["BASE_RATE"]?.latest || 0)).toFixed(2)}%p`,
-                  color: ((series["FEDFUNDS"]?.latest || 0) - (bokSeries["BASE_RATE"]?.latest || 0)) > 2 ? "#f87171" : ((series["FEDFUNDS"]?.latest || 0) - (bokSeries["BASE_RATE"]?.latest || 0)) > 0 ? "#facc15" : "#4ade80",
+                  value: `${((seriesFull["FEDFUNDS"]?.latest || 0) - (bokSeries["BASE_RATE"]?.latest || 0)).toFixed(2)}%p`,
+                  color: ((seriesFull["FEDFUNDS"]?.latest || 0) - (bokSeries["BASE_RATE"]?.latest || 0)) > 2 ? "#f87171" : ((seriesFull["FEDFUNDS"]?.latest || 0) - (bokSeries["BASE_RATE"]?.latest || 0)) > 0 ? "#facc15" : "#4ade80",
                 },
-                { label: lang === "kr" ? "환율" : "USD/KRW", value: `${(series["DEXKOUS"]?.latest || bokSeries["USDKRW"]?.latest)?.toFixed(0) || "—"}원`, color: "#fb923c" },
+                { label: lang === "kr" ? "환율" : "USD/KRW", value: `${(liveUsdKrw || seriesFull["DEXKOUS"]?.latest || bokSeries["USDKRW"]?.latest)?.toFixed(0) || "—"}원`, color: "#fb923c" },
                 { label: lang === "kr" ? "한국 CPI" : "KR CPI", value: `${bokSeries["KR_CPI_YOY"]?.latest?.toFixed(1) || "—"}%`, color: "#f472b6" },
-                { label: lang === "kr" ? "미국 CPI" : "US CPI", value: `${series["CPI_YOY"]?.latest?.toFixed(1) || "—"}%`, color: "#60a5fa" },
+                { label: lang === "kr" ? "미국 CPI" : "US CPI", value: `${seriesFull["CPI_YOY"]?.latest?.toFixed(1) || "—"}%`, color: "#60a5fa" },
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <span className="text-[11px]" style={{ color: "#666" }}>{item.label}</span>
@@ -1508,6 +1524,25 @@ export default function MacroPage() {
                   {i < 5 && <span style={{ color: "#333" }}>|</span>}
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Timestamp */}
+          {comparisonUpdatedAt && (
+            <div className="mb-3 text-right">
+              <span className="text-[10px]" style={{ color: "#555" }}>
+                {lang === "kr" ? "기준" : "As of"}:{" "}
+                {(() => {
+                  const d = new Date(comparisonUpdatedAt);
+                  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+                  const yyyy = kst.getUTCFullYear();
+                  const mm = String(kst.getUTCMonth() + 1).padStart(2, "0");
+                  const dd = String(kst.getUTCDate()).padStart(2, "0");
+                  const hh = String(kst.getUTCHours()).padStart(2, "0");
+                  const mi = String(kst.getUTCMinutes()).padStart(2, "0");
+                  return `${yyyy}.${mm}.${dd} ${hh}:${mi} KST`;
+                })()}
+              </span>
             </div>
           )}
 
@@ -1525,7 +1560,7 @@ export default function MacroPage() {
               ) : (
                 <KrUsRateChart
                   bokRate={bokSeries["BASE_RATE"]?.observations || []}
-                  fedRate={(series["FEDFUNDS"]?.observations || []).map(o => ({ date: o.date.slice(0, 7), value: o.value }))}
+                  fedRate={(seriesFull["FEDFUNDS"]?.observations || []).map(o => ({ date: o.date.slice(0, 7), value: o.value }))}
                   lang={lang}
                 />
               )}
@@ -1543,7 +1578,7 @@ export default function MacroPage() {
               ) : (
                 <CpiComparisonChart
                   krCpi={bokSeries["KR_CPI_YOY"]?.observations || []}
-                  usCpi={series["CPI_YOY"]?.observations || []}
+                  usCpi={seriesFull["CPI_YOY"]?.observations || []}
                   lang={lang}
                 />
               )}
@@ -1590,27 +1625,33 @@ export default function MacroPage() {
                     className="rounded-xl p-4 text-left transition-all hover:border-accent/40"
                     style={{ background: "#111", border: "1px solid #222" }}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide"
+                          style={{ background: "rgba(96,165,250,0.12)", color: "#60a5fa", fontFamily: "monospace" }}
+                        >
+                          {tag}
+                        </span>
+                        <span className="text-[11px] font-medium" style={{ color: "#888" }}>
+                          {lang === "kr" ? pair.labelKr : pair.label}
+                        </span>
+                      </div>
                       <span
-                        className="rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide"
-                        style={{ background: "rgba(96,165,250,0.12)", color: "#60a5fa", fontFamily: "monospace" }}
+                        className="rounded-full px-2.5 py-1 text-xs font-mono font-medium"
+                        style={{
+                          background: pair.changePercent > 0 ? "rgba(248,113,113,0.15)" : pair.changePercent < 0 ? "rgba(74,222,128,0.15)" : "rgba(255,255,255,0.05)",
+                          color: pair.changePercent > 0 ? "#f87171" : pair.changePercent < 0 ? "#4ade80" : "#888",
+                          border: `1px solid ${pair.changePercent > 0 ? "rgba(248,113,113,0.3)" : pair.changePercent < 0 ? "rgba(74,222,128,0.3)" : "rgba(255,255,255,0.1)"}`,
+                        }}
                       >
-                        {tag}
-                      </span>
-                      <span className="text-[11px] font-medium" style={{ color: "#888" }}>
-                        {lang === "kr" ? pair.labelKr : pair.label}
+                        {pair.changePercent > 0 ? "+" : ""}{pair.changePercent.toFixed(2)}%
                       </span>
                     </div>
                     <div className="mt-2 text-lg font-bold" style={{ color: "#e8e8e8" }}>
                       {pair.current >= 100 ? pair.current.toLocaleString(undefined, { maximumFractionDigits: 0 }) : pair.current.toFixed(4)}
                     </div>
                     <div className="mt-0.5 flex items-center gap-1.5">
-                      <span
-                        className="text-[11px] font-medium"
-                        style={{ color: pair.changePercent > 0 ? "#f87171" : pair.changePercent < 0 ? "#4ade80" : "#888" }}
-                      >
-                        {pair.changePercent > 0 ? "+" : ""}{pair.changePercent.toFixed(2)}%
-                      </span>
                       <span className="text-[10px]" style={{ color: "#555" }}>
                         ({pair.change > 0 ? "+" : ""}{pair.change >= 100 ? pair.change.toFixed(0) : pair.change.toFixed(2)})
                       </span>
@@ -1672,35 +1713,27 @@ export default function MacroPage() {
                           onMouseLeave={() => setComTooltip(null)}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold" style={{ color: "#ccc" }}>
-                              {lang === "kr" ? com.labelKr : com.label}
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold" style={{ color: "#ccc" }}>
+                                {lang === "kr" ? com.labelKr : com.label}
+                              </span>
+                              <span className="text-[10px]" style={{ color: "#555" }}>{com.unit}</span>
+                            </div>
+                            <span
+                              className="rounded-full px-2.5 py-1 text-xs font-mono font-medium"
+                              style={{
+                                background: com.changePercent > 0 ? "rgba(248,113,113,0.15)" : com.changePercent < 0 ? "rgba(74,222,128,0.15)" : "rgba(255,255,255,0.05)",
+                                color: com.changePercent > 0 ? "#f87171" : com.changePercent < 0 ? "#4ade80" : "#888",
+                                border: `1px solid ${com.changePercent > 0 ? "rgba(248,113,113,0.3)" : com.changePercent < 0 ? "rgba(74,222,128,0.3)" : "rgba(255,255,255,0.1)"}`,
+                              }}
+                            >
+                              {com.changePercent > 0 ? "+" : ""}{com.changePercent.toFixed(2)}%
                             </span>
-                            <span className="text-[10px]" style={{ color: "#555" }}>{com.unit}</span>
                           </div>
                           <div className="mt-1.5 flex items-end justify-between">
                             <div>
                               <div className="text-xl font-bold" style={{ color: "#e8e8e8" }}>
                                 ${com.current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </div>
-                              <div className="mt-1 flex items-center gap-3">
-                                <div>
-                                  <span className="text-[10px]" style={{ color: "#555" }}>{lang === "kr" ? "전일" : "1D"} </span>
-                                  <span
-                                    className="text-[11px] font-medium"
-                                    style={{ color: com.changePercent > 0 ? "#f87171" : com.changePercent < 0 ? "#4ade80" : "#888" }}
-                                  >
-                                    {com.changePercent > 0 ? "+" : ""}{com.changePercent.toFixed(2)}%
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-[10px]" style={{ color: "#555" }}>{lang === "kr" ? "전주" : "1W"} </span>
-                                  <span
-                                    className="text-[11px] font-medium"
-                                    style={{ color: com.weekChangePercent > 0 ? "#f87171" : com.weekChangePercent < 0 ? "#4ade80" : "#888" }}
-                                  >
-                                    {com.weekChangePercent > 0 ? "+" : ""}{com.weekChangePercent.toFixed(2)}%
-                                  </span>
-                                </div>
                               </div>
                             </div>
                             <div className="shrink-0">
@@ -1738,7 +1771,7 @@ export default function MacroPage() {
       {modalId && INDICATORS[modalId] && (
         <DetailModal
           indicator={INDICATORS[modalId]}
-          series={modalId === "CPIAUCSL" ? (series["CPI_YOY"] || series[modalId] || {} as SeriesData) : (series[modalId] || {} as SeriesData)}
+          series={seriesFull[INDICATORS[modalId].seriesKey] || {} as SeriesData}
           onClose={() => setModalId(null)}
           lang={lang}
           barChartConfig={modalId === "CPIAUCSL" ? CPI_BAR_CONFIG : modalId === "UNRATE" ? UNRATE_BAR_CONFIG : undefined}

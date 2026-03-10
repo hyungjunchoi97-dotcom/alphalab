@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useLang } from "@/lib/LangContext";
+import { messages } from "@/lib/i18n";
 import AppHeader from "@/components/AppHeader";
+import AiAnalysisPanel from "@/components/AiAnalysisPanel";
 
 const RRGChart = dynamic(() => import("@/components/RRGChart"), {
   ssr: false,
@@ -35,23 +37,20 @@ interface AiResult {
   confidence: number;
 }
 
-type SignalFilter = "ALL" | "VOLUME SPIKE" | "BREAKOUT" | "MOMO" | "52W HIGH";
-type MarketFilter = "KR" | "US";
+type SignalFilter = "ALL" | "VOLUME SPIKE" | "BREAKOUT" | "MOMO";
 
-const SIGNAL_FILTERS: SignalFilter[] = ["ALL", "VOLUME SPIKE", "BREAKOUT", "MOMO", "52W HIGH"];
+const SIGNAL_FILTERS: SignalFilter[] = ["ALL", "VOLUME SPIKE", "BREAKOUT", "MOMO"];
 
 const SIGNAL_TOOLTIPS: Record<string, string> = {
   "VOLUME SPIKE": "평균 대비 3배 이상 거래량 급증. 기관/세력 개입 가능성",
   "BREAKOUT": "최근 20일 고점 돌파. 신규 상승 추세 시작 신호",
   "MOMO": "가격과 거래량 동반 상승. 추세 추종 매매 포착",
-  "52W HIGH": "52주 신고가 돌파. 강한 상승 추세 지속 신호",
 };
 
 const SIGNAL_BORDER_COLOR: Record<string, string> = {
   "VOLUME SPIKE": "border-l-yellow-500",
   "BREAKOUT": "border-l-blue-500",
   "MOMO": "border-l-green-500",
-  "52W HIGH": "border-l-purple-500",
 };
 
 const TAG_COLORS: Record<string, string> = {
@@ -100,6 +99,28 @@ function TooltipIcon({ text }: { text: string }) {
   );
 }
 
+// ── Legend Screener types ────────────────────────────────────
+interface LegendResult {
+  symbol: string;
+  name: string;
+  market: "KR" | "US";
+  price: number;
+  change_pct: number;
+  score: number;
+  max_score: number;
+  criteria: { label: string; value: string; passed: boolean }[];
+}
+
+type GuruKey = "buffett" | "oneil" | "lynch" | "druckenmiller" | "minervini";
+
+const GURU_LIST: { key: GuruKey; label: string; desc?: string }[] = [
+  { key: "buffett", label: "버핏" },
+  { key: "oneil", label: "오닐" },
+  { key: "lynch", label: "피터린치" },
+  { key: "druckenmiller", label: "드러켄밀러" },
+  { key: "minervini", label: "미너비니", desc: "Weinstein Stage 2 · VCP 패턴" },
+];
+
 // ── Per-tab tables ──────────────────────────────────────────
 
 function FomoTable({ items, selected, onSelect, lang }: { items: FomoItem[]; selected: string | null; onSelect: (item: FomoItem) => void; lang: "en" | "kr" }) {
@@ -146,24 +167,530 @@ function FomoTable({ items, selected, onSelect, lang }: { items: FomoItem[]; sel
   );
 }
 
+// ── Financials Tab ───────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FinData = any;
+
+interface FinRow {
+  label: string;
+  key: string;
+  isHeader?: boolean;
+  isYoY?: boolean;
+  indent?: boolean;
+  ratio?: boolean;
+}
+
+const IS_ROWS_US: FinRow[] = [
+  { label: "finRevenue", key: "revenue", isHeader: true },
+  { label: "finGrowthYoY", key: "revenue_yoy", isYoY: true, indent: true },
+  { label: "finGrossProfit", key: "grossProfit", indent: true },
+  { label: "finOperatingIncome", key: "operatingIncome", isHeader: true },
+  { label: "finGrowthYoY", key: "operatingIncome_yoy", isYoY: true, indent: true },
+  { label: "finEBITDA", key: "ebitda", indent: true },
+  { label: "finNetIncome", key: "netIncome", isHeader: true },
+  { label: "finGrowthYoY", key: "netIncome_yoy", isYoY: true, indent: true },
+  { label: "finEPS", key: "eps", indent: true },
+];
+
+const BS_ROWS_US: FinRow[] = [
+  { label: "finTotalAssets", key: "totalAssets", isHeader: true },
+  { label: "finTotalDebt", key: "totalDebt", indent: true },
+  { label: "finCash", key: "cashAndCashEquivalents", indent: true },
+  { label: "finTotalEquity", key: "totalStockholdersEquity", isHeader: true },
+  { label: "finDebtEquity", key: "debtEquity", indent: true, ratio: true },
+];
+
+const CF_ROWS_US: FinRow[] = [
+  { label: "finOperatingCF", key: "operatingCashFlow", isHeader: true },
+  { label: "finInvestingCF", key: "netCashUsedForInvestingActivites", indent: true },
+  { label: "finFinancingCF", key: "netCashUsedProvidedByFinancingActivities", indent: true },
+  { label: "finFCF", key: "freeCashFlow", isHeader: true },
+];
+
+const IS_ROWS_KR: FinRow[] = [
+  { label: "finRevenue", key: "매출액", isHeader: true },
+  { label: "finGrowthYoY", key: "매출액_yoy", isYoY: true, indent: true },
+  { label: "finGrossProfit", key: "매출총이익", indent: true },
+  { label: "finOperatingIncome", key: "영업이익", isHeader: true },
+  { label: "finGrowthYoY", key: "영업이익_yoy", isYoY: true, indent: true },
+  { label: "finNetIncome", key: "당기순이익", isHeader: true },
+  { label: "finGrowthYoY", key: "당기순이익_yoy", isYoY: true, indent: true },
+];
+
+const BS_ROWS_KR: FinRow[] = [
+  { label: "finTotalAssets", key: "자산총계", isHeader: true },
+  { label: "finTotalDebt", key: "부채총계", indent: true },
+  { label: "finCash", key: "현금및현금성자산", indent: true },
+  { label: "finTotalEquity", key: "자본총계", isHeader: true },
+  { label: "finDebtEquity", key: "debtEquity", indent: true, ratio: true },
+];
+
+const CF_ROWS_KR: FinRow[] = [
+  { label: "finOperatingCF", key: "영업활동으로인한현금흐름", isHeader: true },
+  { label: "finInvestingCF", key: "투자활동으로인한현금흐름", indent: true },
+  { label: "finFinancingCF", key: "재무활동으로인한현금흐름", indent: true },
+];
+
+function fmtFinNum(v: number | null | undefined, isRatio?: boolean): string {
+  if (v == null || isNaN(v)) return "—";
+  if (isRatio) return v.toFixed(2);
+  const abs = Math.abs(v);
+  const formatted = abs >= 1e9
+    ? (abs / 1e6).toLocaleString(undefined, { maximumFractionDigits: 1 })
+    : abs >= 1e6
+    ? (abs / 1e6).toLocaleString(undefined, { maximumFractionDigits: 1 })
+    : abs.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  return v < 0 ? `(${formatted})` : formatted;
+}
+
+function fmtKrNum(v: number | null | undefined, isRatio?: boolean): string {
+  if (v == null || isNaN(v)) return "—";
+  if (isRatio) return v.toFixed(2);
+  // DART returns raw KRW — convert to 억원
+  const inEok = v / 1e8;
+  const abs = Math.abs(inEok);
+  const formatted = abs.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return v < 0 ? `(${formatted})` : formatted;
+}
+
+function fmtYoY(v: number | null | undefined): string {
+  if (v == null || isNaN(v)) return "—";
+  return `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
+}
+
+function computeYoY(data: FinData[], key: string): (number | null)[] {
+  return data.map((d, i) => {
+    if (i >= data.length - 1) return null;
+    const cur = d[key];
+    const prev = data[i + 1]?.[key];
+    if (cur == null || prev == null || prev === 0) return null;
+    return ((cur - prev) / Math.abs(prev)) * 100;
+  });
+}
+
+function compute5YAvg(data: FinData[], key: string): number | null {
+  const yoy = computeYoY(data, key).filter((v): v is number => v != null);
+  if (yoy.length === 0) return null;
+  return yoy.reduce((a, b) => a + b, 0) / yoy.length;
+}
+
+interface TickerResult {
+  ticker: string;
+  name: string;
+  nameEn: string;
+  market: "KR" | "US";
+  exchange: string;
+}
+
+function FinancialsTab({ lang }: { lang: string }) {
+  const t = messages[lang as "en" | "kr"] || messages.en;
+  const [query, setQuery] = useState("");
+  const [selectedTicker, setSelectedTicker] = useState("");
+  const [market, setMarket] = useState<"US" | "KR">("US");
+  const [period, setPeriod] = useState<"annual" | "quarterly">("annual");
+  const [sheet, setSheet] = useState<"IS" | "BS" | "CF">("IS");
+  const [finData, setFinData] = useState<FinData | null>(null);
+  const [finLoading, setFinLoading] = useState(false);
+  const [finError, setFinError] = useState("");
+
+  // Search dropdown state
+  const [searchResults, setSearchResults] = useState<TickerResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Debounced search
+  const handleQueryChange = (val: string) => {
+    setQuery(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!val.trim()) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setSearchLoading(true);
+      setShowDropdown(true);
+      try {
+        const res = await fetch(`/api/search-ticker?q=${encodeURIComponent(val.trim())}&limit=8`);
+        const json = await res.json();
+        setSearchResults(json.ok ? json.results || [] : []);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+  };
+
+  const fetchFinancials = useCallback(async (tk: string, mk: string) => {
+    if (!tk.trim()) return;
+    setFinLoading(true);
+    setFinError("");
+    setFinData(null);
+    try {
+      const res = await fetch(`/api/financials?ticker=${encodeURIComponent(tk.trim())}&market=${mk}`);
+      const json = await res.json();
+      if (json.ok) setFinData(json.data);
+      else setFinError(json.error || "Error");
+    } catch {
+      setFinError("Network error");
+    } finally {
+      setFinLoading(false);
+    }
+  }, []);
+
+  const selectResult = (r: TickerResult) => {
+    setQuery(`${r.ticker} — ${r.name}`);
+    setSelectedTicker(r.ticker);
+    setMarket(r.market);
+    setShowDropdown(false);
+    setSearchResults([]);
+    fetchFinancials(r.ticker, r.market);
+  };
+
+  // Get data for current view
+  const currentData: FinData[] = finData
+    ? (period === "annual" ? finData.annual : finData.quarterly)?.[
+        sheet === "IS" ? "incomeStatement" : sheet === "BS" ? "balanceSheet" : "cashFlow"
+      ] || []
+    : [];
+
+  const isKR = market === "KR";
+  const rows = sheet === "IS"
+    ? (isKR ? IS_ROWS_KR : IS_ROWS_US)
+    : sheet === "BS"
+    ? (isKR ? BS_ROWS_KR : BS_ROWS_US)
+    : (isKR ? CF_ROWS_KR : CF_ROWS_US);
+
+  const fmt = isKR ? fmtKrNum : fmtFinNum;
+
+  // Column headers
+  const columns: string[] = currentData.map((d: FinData) => {
+    if (d.period) return d.period;
+    if (d.calendarYear) return `${d.calendarYear}`;
+    if (d.year) return `${d.year}`;
+    if (d.date) return d.date.substring(0, 4);
+    return "—";
+  });
+
+  // Precompute YoY values
+  const yoyCache: Record<string, (number | null)[]> = {};
+  for (const row of rows) {
+    if (row.isYoY) {
+      const baseKey = row.key.replace("_yoy", "");
+      yoyCache[row.key] = computeYoY(currentData, baseKey);
+    }
+  }
+
+  // 5Y Avg growth for annual
+  const show5YAvg = period === "annual" && currentData.length >= 2;
+
+  return (
+    <div className="space-y-3">
+      {/* Search bar with autocomplete */}
+      <div ref={dropdownRef} className="relative w-full max-w-lg">
+        <input
+          value={query}
+          onChange={(e) => handleQueryChange(e.target.value)}
+          onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
+          placeholder={lang === "kr" ? "종목명 또는 티커 검색..." : "Search ticker or company name..."}
+          className="w-full rounded border px-3 py-2 text-sm font-mono outline-none transition-colors focus:border-amber-400/50"
+          style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)", color: "#e8e8e8" }}
+        />
+        {showDropdown && (
+          <div
+            className="absolute z-50 mt-1 w-full overflow-hidden rounded"
+            style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.1)" }}
+          >
+            {searchLoading ? (
+              <div className="px-3 py-3 text-[11px] animate-pulse" style={{ color: "#6b7280" }}>
+                {lang === "kr" ? "검색중..." : "Searching..."}
+              </div>
+            ) : searchResults.length === 0 ? (
+              <div className="px-3 py-3 text-[11px]" style={{ color: "#4b5563" }}>
+                {lang === "kr" ? "결과 없음" : "No results found"}
+              </div>
+            ) : (
+              searchResults.map((r) => (
+                <button
+                  key={`${r.market}-${r.ticker}`}
+                  onClick={() => selectResult(r)}
+                  className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-white/5"
+                >
+                  <div>
+                    <span className="text-sm" style={{ color: "#e8e8e8" }}>{r.name}</span>
+                    <span className="ml-2 text-[10px]" style={{ color: "#6b7280" }}>{r.exchange}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px]" style={{ color: "#fbbf24" }}>{r.ticker}</span>
+                    <span
+                      className="rounded px-1.5 py-0.5 text-[9px] font-bold"
+                      style={{
+                        background: r.market === "KR" ? "rgba(96,165,250,0.12)" : "rgba(251,191,36,0.12)",
+                        color: r.market === "KR" ? "#60a5fa" : "#fbbf24",
+                      }}
+                    >
+                      {r.market}
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Loading */}
+      {finLoading && (
+        <div className="py-12 text-center text-[11px] animate-pulse" style={{ color: "#555" }}>
+          {t.finLoading}
+        </div>
+      )}
+
+      {/* Error */}
+      {finError && (
+        <div className="py-8 text-center text-[11px]" style={{ color: "#f87171" }}>{finError}</div>
+      )}
+
+      {/* Table */}
+      {finData && !finLoading && (
+        <>
+          {/* Controls: Period + Sheet toggles */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex gap-px rounded bg-card-border p-px">
+              {(["annual", "quarterly"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-3 py-1 text-[11px] font-mono font-medium tracking-widest transition-colors ${
+                    period === p ? "bg-white/10 text-white" : "bg-transparent text-gray-500 hover:text-gray-300"
+                  }`}
+                >
+                  {p === "annual" ? t.finAnnual : t.finQuarterly}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-px rounded bg-card-border p-px">
+              {(["IS", "BS", "CF"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSheet(s)}
+                  className={`px-3 py-1 text-[11px] font-mono font-medium tracking-widest transition-colors ${
+                    sheet === s ? "bg-white/10 text-white" : "bg-transparent text-gray-500 hover:text-gray-300"
+                  }`}
+                >
+                  {s === "IS" ? t.finIS : s === "BS" ? t.finBS : t.finCF}
+                </button>
+              ))}
+            </div>
+            <span className="ml-auto text-[9px] font-mono" style={{ color: "#555" }}>
+              {t.finUnit}
+            </span>
+          </div>
+
+          {currentData.length === 0 ? (
+            <div className="py-8 text-center text-[11px]" style={{ color: "#555" }}>{t.finNoData}</div>
+          ) : (
+            <div className="overflow-x-auto rounded-lg" style={{ border: "1px solid #222" }}>
+              <table className="w-full font-mono text-[11px]" style={{ background: "#080c12" }}>
+                <thead>
+                  <tr style={{ background: "#0d1117", borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
+                    <th
+                      className="sticky left-0 z-10 py-2 pl-3 pr-4 text-left text-[10px] font-medium uppercase tracking-wider"
+                      style={{ background: "#0d1117", color: "#6b7280", width: "208px", minWidth: "208px" }}
+                    >
+                      &nbsp;
+                    </th>
+                    {columns.map((col, i) => (
+                      <th
+                        key={i}
+                        className="py-2 px-3 text-right text-[10px] font-medium uppercase tracking-wider"
+                        style={{ color: "#6b7280", minWidth: "90px" }}
+                      >
+                        {col}
+                      </th>
+                    ))}
+                    {show5YAvg && (
+                      <th
+                        className="py-2 px-3 text-right text-[10px] font-medium uppercase tracking-wider"
+                        style={{ color: "#6b7280", minWidth: "90px" }}
+                      >
+                        {t.fin5YAvg}
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
+                    const isYoY = row.isYoY;
+                    const label = t[row.label as keyof typeof t] || row.label;
+
+                    return (
+                      <tr
+                        key={row.key}
+                        style={{
+                          borderBottom: "1px solid rgba(255,255,255,0.04)",
+                          background: row.isHeader ? "rgba(255,255,255,0.03)" : "transparent",
+                        }}
+                      >
+                        {/* Label cell */}
+                        <td
+                          className="sticky left-0 z-10 py-1.5 pl-3 pr-4 text-left whitespace-nowrap"
+                          style={{
+                            background: "#080c12",
+                            color: isYoY ? "#4b5563" : row.isHeader ? "#e8e8e8" : "#9ca3af",
+                            fontWeight: row.isHeader ? 500 : 400,
+                            paddingLeft: row.indent || isYoY ? "28px" : "12px",
+                            fontSize: isYoY ? "10px" : "11px",
+                          }}
+                        >
+                          {label}
+                        </td>
+
+                        {/* Data cells */}
+                        {currentData.map((d: FinData, ci: number) => {
+                          if (isYoY) {
+                            const yoyVal = yoyCache[row.key]?.[ci];
+                            return (
+                              <td
+                                key={ci}
+                                className="py-1.5 px-3 text-right tabular-nums"
+                                style={{
+                                  fontSize: "10px",
+                                  color: yoyVal == null ? "#4b5563" : yoyVal >= 0 ? "#4ade80" : "#ef4444",
+                                }}
+                              >
+                                {fmtYoY(yoyVal)}
+                              </td>
+                            );
+                          }
+
+                          // For ratio rows, compute from data
+                          if (row.ratio && row.key === "debtEquity") {
+                            const debt = isKR ? d["부채총계"] : d.totalDebt;
+                            const equity = isKR ? d["자본총계"] : d.totalStockholdersEquity;
+                            const ratio = debt && equity && equity !== 0 ? debt / equity : null;
+                            return (
+                              <td
+                                key={ci}
+                                className="py-1.5 px-3 text-right tabular-nums"
+                                style={{ color: ratio != null && ratio > 2 ? "#f87171" : "#9ca3af" }}
+                              >
+                                {ratio != null ? ratio.toFixed(2) : "—"}
+                              </td>
+                            );
+                          }
+
+                          const val = d[row.key];
+                          const numVal = typeof val === "number" ? val : typeof val === "string" ? parseFloat(val.replace(/,/g, "")) : null;
+
+                          return (
+                            <td
+                              key={ci}
+                              className="py-1.5 px-3 text-right tabular-nums"
+                              style={{
+                                color: numVal != null && numVal < 0 ? "#f87171" : row.isHeader ? "#e8e8e8" : "#9ca3af",
+                              }}
+                            >
+                              {fmt(numVal, row.ratio)}
+                            </td>
+                          );
+                        })}
+
+                        {/* 5Y Avg column */}
+                        {show5YAvg && (
+                          <td
+                            className="py-1.5 px-3 text-right tabular-nums"
+                            style={{ fontSize: isYoY ? "10px" : "11px" }}
+                          >
+                            {isYoY ? (() => {
+                              const baseKey = row.key.replace("_yoy", "");
+                              const avg = compute5YAvg(currentData, baseKey);
+                              return (
+                                <span style={{ color: avg == null ? "#4b5563" : avg >= 0 ? "#4ade80" : "#ef4444" }}>
+                                  {fmtYoY(avg)}
+                                </span>
+                              );
+                            })() : <span style={{ color: "#4b5563" }}>—</span>}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* AI Analysis Panel */}
+          <div className="mt-4 rounded-lg p-4" style={{ background: "#0d1117", border: "1px solid #222" }}>
+            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#6b7280" }}>
+              AI ANALYSIS
+            </h3>
+            <AiAnalysisPanel
+              ticker={finData.ticker}
+              market={finData.market}
+              financialData={finData}
+              lang={lang}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────
 
 export default function IdeasPage() {
   const { t, lang } = useLang();
-  const [tab, setTab] = useState<"fomo" | "rotation">("fomo");
+  const [tab, setTab] = useState<"fomo" | "legend" | "rotation" | "financials">("fomo");
   const [selected, setSelected] = useState<FomoItem | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Financials for detail panel
+  const [detailFin, setDetailFin] = useState<{
+    market: string;
+    ticker: string;
+    marketCap: number | null;
+    price: number | null;
+    quarterly: { label: string; revenue: number | null; operatingIncome: number | null; netIncome: number | null }[];
+  } | null>(null);
+  const [detailFinLoading, setDetailFinLoading] = useState(false);
+  const [detailFinError, setDetailFinError] = useState(false);
   const [showCount, setShowCount] = useState(20);
 
-  // Market & signal filter
-  const [market, setMarket] = useState<MarketFilter>("KR");
+  // Signal filter
   const [signalFilter, setSignalFilter] = useState<SignalFilter>("ALL");
+
+  // Legend screener state
+  const [legendGuru, setLegendGuru] = useState<GuruKey>("buffett");
+  const [legendResults, setLegendResults] = useState<LegendResult[]>([]);
+  const [legendLoading, setLegendLoading] = useState(false);
+  const [legendError, setLegendError] = useState<string | null>(null);
+  const [legendUpdatedAt, setLegendUpdatedAt] = useState<string | null>(null);
+  const [legendCached, setLegendCached] = useState(false);
+  const [legendStats, setLegendStats] = useState<{ scanned: number; passed: number } | null>(null);
+  const [legendSelected, setLegendSelected] = useState<string | null>(null);
 
   // Data
   const [fomoKr, setFomoKr] = useState<FomoItem[]>([]);
-  const [fomoUs, setFomoUs] = useState<FomoItem[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [asOf, setAsOf] = useState<string | null>(null);
@@ -177,7 +704,6 @@ export default function IdeasPage() {
       const json = await res.json();
       if (json.ok) {
         setFomoKr(json.fomoKr || json.fomo || []);
-        setFomoUs(json.fomoUs || []);
         if (json.asOf) setAsOf(json.asOf);
         setTotalStocks(json.totalStocks || 0);
       } else {
@@ -190,9 +716,70 @@ export default function IdeasPage() {
     }
   }, []);
 
+  const fetchLegend = useCallback(async (guru: GuruKey, refresh = false) => {
+    setLegendLoading(true);
+    setLegendError(null);
+    try {
+      if (guru === "minervini") {
+        // Fetch from SEPA screener API and convert to LegendResult
+        const res = await fetch(`/api/ai/sepa-screener?market=US${refresh ? "&refresh=true" : ""}`);
+        const json = await res.json();
+        if (json.ok) {
+          // Convert SepaResult[] → LegendResult[]
+          const converted: LegendResult[] = (json.results || []).map((r: { symbol: string; name: string; market: "KR" | "US"; price: number; change_pct: number; score: number; base_depth_pct: number; weeks_in_base: number; volume_ratio: number; dist_from_52w_high_pct: number; ma_alignment: boolean }) => {
+            const criteria: LegendResult["criteria"] = [
+              { label: "Stage 2", value: "Yes", passed: true },
+              { label: "MA Alignment", value: r.ma_alignment ? "Yes" : "No", passed: r.ma_alignment },
+              { label: "Near 52W High", value: `-${r.dist_from_52w_high_pct}%`, passed: r.dist_from_52w_high_pct <= 10 },
+              { label: "VCP", value: `${r.volume_ratio.toFixed(2)}x`, passed: r.volume_ratio < 0.8 },
+              { label: "Tight Base", value: `${r.base_depth_pct}%`, passed: r.base_depth_pct <= 10 },
+            ];
+            return {
+              symbol: r.symbol,
+              name: r.name,
+              market: r.market,
+              price: r.price,
+              change_pct: r.change_pct,
+              score: criteria.filter((c) => c.passed).length,
+              max_score: 5,
+              criteria,
+            };
+          });
+          setLegendResults(converted.sort((a: LegendResult, b: LegendResult) => b.score - a.score));
+          setLegendUpdatedAt(json.updated_at);
+          setLegendCached(json.cached ?? false);
+          setLegendStats(json.stats ? { scanned: json.stats.total_scanned || 0, passed: converted.length } : null);
+        } else {
+          setLegendError(json.error || "Failed to fetch minervini screener");
+        }
+      } else {
+        const res = await fetch(`/api/legend-screener?guru=${guru}&market=US${refresh ? "&refresh=true" : ""}`);
+        const json = await res.json();
+        if (json.ok) {
+          setLegendResults(json.results);
+          setLegendUpdatedAt(json.updated_at);
+          setLegendCached(json.cached ?? false);
+          setLegendStats(json.stats ?? null);
+        } else {
+          setLegendError(json.error || "Failed to fetch legend screener");
+        }
+      }
+    } catch (err) {
+      setLegendError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setLegendLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchScreener();
   }, [fetchScreener]);
+
+  useEffect(() => {
+    if (tab === "legend" && legendResults.length === 0 && !legendLoading) {
+      fetchLegend(legendGuru);
+    }
+  }, [tab, legendResults.length, legendLoading, legendGuru, fetchLegend]);
 
   // Reset show count when switching tabs
   useEffect(() => {
@@ -200,7 +787,7 @@ export default function IdeasPage() {
   }, [tab]);
 
   // Filtered items
-  const fomoItems = market === "KR" ? fomoKr : fomoUs;
+  const fomoItems = fomoKr;
 
   const filteredFomo = useMemo(() => {
     let items = fomoItems;
@@ -231,16 +818,14 @@ export default function IdeasPage() {
         case "VOLUME SPIKE": return `거래량 폭증 — ${count}개 종목`;
         case "BREAKOUT": return `돌파 매수 신호 — ${count}개 종목`;
         case "MOMO": return `모멘텀 상승 — ${count}개 종목`;
-        case "52W HIGH": return `52주 신고가 — ${count}개 종목`;
-        default: return `FOMO 스크리너 — ${count}개 종목`;
+        default: return `FOMO 스크리너 — KR ${count}개 종목`;
       }
     }
     switch (signalFilter) {
-      case "VOLUME SPIKE": return `Volume Spike — ${count} stocks`;
-      case "BREAKOUT": return `Breakout Signal — ${count} stocks`;
-      case "MOMO": return `Momentum Rising — ${count} stocks`;
-      case "52W HIGH": return `52W High — ${count} stocks`;
-      default: return `FOMO Screener — ${count} stocks`;
+      case "VOLUME SPIKE": return `Volume Spike — KR ${count} stocks`;
+      case "BREAKOUT": return `Breakout Signal — KR ${count} stocks`;
+      case "MOMO": return `Momentum Rising — KR ${count} stocks`;
+      default: return `FOMO Screener — KR ${count} stocks`;
     }
   }, [signalFilter, filteredFomo.length, lang]);
 
@@ -248,39 +833,18 @@ export default function IdeasPage() {
     setSelected(item);
     setAiResult(null);
     setError(null);
-  };
-
-  const handleExplain = async () => {
-    if (!selected) return;
-    setLoading(true);
-    setError(null);
-    setAiResult(null);
-
-    try {
-      const res = await fetch("/api/ideas/explain", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ticker: selected.ticker,
-          name: selected.name,
-          price: selected.price,
-          chgPct: selected.chgPct,
-          metrics: selected.metrics,
-          mode: tab,
-        }),
-      });
-
-      const json = await res.json();
-      if (json.ok && json.data) {
-        setAiResult(json.data);
-      } else {
-        setError(json.raw || "Failed to parse AI response");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error");
-    } finally {
-      setLoading(false);
-    }
+    // Auto-fetch financials
+    setDetailFin(null);
+    setDetailFinError(false);
+    setDetailFinLoading(true);
+    fetch(`/api/financials?ticker=${encodeURIComponent(item.ticker)}&market=KR`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.ok) setDetailFin(json.data);
+        else setDetailFinError(true);
+      })
+      .catch(() => setDetailFinError(true))
+      .finally(() => setDetailFinLoading(false));
   };
 
   return (
@@ -291,7 +855,7 @@ export default function IdeasPage() {
         {/* Tab pills + sub-tabs */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-px rounded bg-card-border p-px w-fit">
-            {(["fomo", "rotation"] as const).map((tv) => (
+            {(["fomo", "legend", "rotation", "financials"] as const).map((tv) => (
               <button
                 key={tv}
                 onClick={() => {
@@ -306,7 +870,7 @@ export default function IdeasPage() {
                     : "bg-card-bg text-muted hover:text-foreground"
                 }`}
               >
-                {tv === "fomo" ? "FOMO" : (lang === "kr" ? "섹터 로테이션" : "Sector Rotation")}
+                {tv === "fomo" ? "FOMO" : tv === "legend" ? (lang === "kr" ? "대가 스크리너" : "Legend Screener") : tv === "rotation" ? (lang === "kr" ? "섹터 로테이션" : "Sector Rotation") : (lang === "kr" ? "재무제표" : "Financials")}
               </button>
             ))}
           </div>
@@ -323,35 +887,274 @@ export default function IdeasPage() {
         {/* Rotation tab */}
         {tab === "rotation" && <RRGChart />}
 
+        {/* Financials tab */}
+        {tab === "financials" && <FinancialsTab lang={lang} />}
+
+        {/* Legend Screener tab */}
+        {tab === "legend" && (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+            {/* Left: List */}
+            <section className={`${CARD} lg:col-span-3`}>
+              {/* Guru selector */}
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <div className="flex gap-px rounded bg-card-border p-px w-fit">
+                  {GURU_LIST.map((g) => (
+                    <button
+                      key={g.key}
+                      onClick={() => {
+                        setLegendGuru(g.key);
+                        setLegendResults([]);
+                        setLegendSelected(null);
+                        fetchLegend(g.key);
+                      }}
+                      className={`px-3 py-1 text-xs font-medium transition-colors ${
+                        legendGuru === g.key
+                          ? "bg-accent text-white"
+                          : "bg-card-bg text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Guru description */}
+                {GURU_LIST.find((g) => g.key === legendGuru)?.desc && (
+                  <span className="text-[9px] font-mono text-muted/60">
+                    {GURU_LIST.find((g) => g.key === legendGuru)?.desc}
+                  </span>
+                )}
+
+                <button
+                  onClick={() => fetchLegend(legendGuru, true)}
+                  disabled={legendLoading}
+                  className="ml-auto px-3 py-1 text-[10px] font-mono text-muted border border-card-border hover:text-foreground transition-colors disabled:opacity-30"
+                >
+                  {legendLoading ? "SCANNING..." : "REFRESH"}
+                </button>
+              </div>
+
+              {/* Section header */}
+              <div className="mb-3 flex items-center gap-2">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  {GURU_LIST.find((g) => g.key === legendGuru)?.label} {lang === "kr" ? "기준 스크리닝" : "Criteria Screen"} — {legendResults.length} {lang === "kr" ? "종목" : "stocks"}
+                </h2>
+              </div>
+
+              {/* Loading — skeleton rows + progress */}
+              {legendLoading && (
+                <div className="space-y-3">
+                  <p className="text-xs font-mono text-muted">
+                    {GURU_LIST.find((g) => g.key === legendGuru)?.label} {lang === "kr" ? "기준 스캐닝 중..." : "criteria scanning..."}
+                    <span className="text-muted/40 ml-2">
+                      {lang === "kr" ? "(최초 1회, 이후 캐시 사용)" : "(first run only, cached after)"}
+                    </span>
+                  </p>
+                  {/* Skeleton rows */}
+                  <div className="space-y-0">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 py-2.5 border-b border-card-border/20">
+                        <div className="h-3 w-16 rounded bg-card-border/30 animate-pulse" />
+                        <div className="h-3 w-28 rounded bg-card-border/20 animate-pulse" />
+                        <div className="ml-auto h-3 w-14 rounded bg-card-border/20 animate-pulse" />
+                        <div className="h-3 w-12 rounded bg-card-border/20 animate-pulse" />
+                        <div className="h-3 w-8 rounded bg-card-border/30 animate-pulse" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Error */}
+              {legendError && !legendLoading && (
+                <div className="py-8 text-center">
+                  <p className="text-[10px] text-loss">{legendError}</p>
+                  <button
+                    onClick={() => fetchLegend(legendGuru, true)}
+                    className="mt-2 rounded bg-accent/20 px-3 py-1 text-[10px] text-accent hover:bg-accent/30"
+                  >
+                    {lang === "kr" ? "다시 시도" : "Retry"}
+                  </button>
+                </div>
+              )}
+
+              {/* Results table */}
+              {!legendLoading && !legendError && legendResults.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-card-border">
+                        <th className={TH}>Symbol</th>
+                        <th className={TH}>Name</th>
+                        <th className={`${TH} text-right`}>Price</th>
+                        <th className={`${TH} text-right`}>Chg%</th>
+                        <th className={`${TH} text-center`}>Score</th>
+                        <th className={TH}>Criteria</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {legendResults.map((r) => (
+                        <tr
+                          key={r.symbol}
+                          onClick={() => setLegendSelected(legendSelected === r.symbol ? null : r.symbol)}
+                          className={`cursor-pointer border-b border-card-border/40 transition-colors ${
+                            legendSelected === r.symbol ? "bg-accent/10" : "hover:bg-card-border/20"
+                          } ${r.score === r.max_score ? "border-l-2 border-l-accent" : "border-l-2 border-l-transparent"}`}
+                        >
+                          <td className={`${TD} pl-2 text-accent font-medium`}>{r.symbol}</td>
+                          <td className={`${TD} text-muted truncate max-w-[140px]`}>{r.name}</td>
+                          <td className={`${TD} text-right tabular-nums`}>
+                            {r.price.toFixed(2)}
+                          </td>
+                          <td className={`${TD} text-right tabular-nums`}><ChgPct v={r.change_pct} /></td>
+                          <td className={`${TD} text-center`}>
+                            <span className={`font-mono font-bold ${r.score === r.max_score ? "text-accent" : "text-muted"}`}>
+                              {r.score}/{r.max_score}
+                            </span>
+                          </td>
+                          <td className={TD}>
+                            <div className="flex flex-wrap gap-1">
+                              {r.criteria.map((c) => (
+                                <span
+                                  key={c.label}
+                                  className={`inline-block rounded px-1.5 py-px text-[9px] ${
+                                    c.passed
+                                      ? "bg-gain/20 text-gain"
+                                      : "bg-card-border/50 text-muted/50"
+                                  }`}
+                                >
+                                  {c.passed ? "\u2713" : "\u2717"} {c.label}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Empty */}
+              {!legendLoading && !legendError && legendResults.length === 0 && (
+                <p className="py-8 text-center text-[10px] text-muted">
+                  {lang === "kr" ? "조건 충족 종목 없음" : "No stocks match criteria"}
+                </p>
+              )}
+
+              {/* Footer */}
+              {legendUpdatedAt && !legendLoading && (
+                <div className="flex items-center justify-between mt-3 pt-2 border-t border-card-border/40">
+                  <div className="flex items-center gap-2">
+                    {legendStats && (
+                      <span className="text-[9px] font-mono text-muted/50">
+                        Scanned {legendStats.scanned} · {legendStats.passed} passed
+                      </span>
+                    )}
+                    {legendCached && (
+                      <span className="text-[9px] font-mono text-amber-500/50">CACHED</span>
+                    )}
+                  </div>
+                  <span className="text-[9px] font-mono text-muted/50">
+                    Updated {new Date(legendUpdatedAt).toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </section>
+
+            {/* Right: Detail panel */}
+            <section className={`${CARD} lg:col-span-2`}>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  Detail
+                </h2>
+              </div>
+
+              {!legendSelected ? (
+                <p className="py-8 text-center text-[10px] text-muted">
+                  {lang === "kr" ? "목록에서 종목을 선택하세요" : "Select a stock from the list"}
+                </p>
+              ) : (() => {
+                const item = legendResults.find((r) => r.symbol === legendSelected);
+                if (!item) return null;
+                const guru = GURU_LIST.find((g) => g.key === legendGuru);
+                return (
+                  <div className="space-y-3">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-bold text-accent">{item.symbol}</span>
+                        <span className="ml-2 text-xs text-muted">{item.name}</span>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium tabular-nums">
+                          {item.price.toFixed(2)}
+                        </p>
+                        <p className="text-[10px] tabular-nums"><ChgPct v={item.change_pct} /></p>
+                      </div>
+                    </div>
+
+                    {/* Score */}
+                    <div className="border-b border-[#1e1e1e] pb-3">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
+                        {guru?.label} SCORE
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-2xl font-mono font-bold ${item.score === item.max_score ? "text-accent" : "text-foreground"}`}>
+                          {item.score}/{item.max_score}
+                        </span>
+                        <div className="flex-1 h-2 overflow-hidden rounded-full bg-[#1e1e1e]">
+                          <div
+                            className="h-full rounded-full bg-accent transition-all"
+                            style={{ width: `${(item.score / item.max_score) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Criteria breakdown */}
+                    <div className="border-b border-[#1e1e1e] pb-3">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
+                        {lang === "kr" ? "왜 이 종목인가" : "WHY THIS STOCK"}
+                      </p>
+                      <div className="space-y-2">
+                        {item.criteria.map((c) => (
+                          <div key={c.label} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs ${c.passed ? "text-gain" : "text-loss"}`}>
+                                {c.passed ? "\u2713" : "\u2717"}
+                              </span>
+                              <span className="text-[11px] text-[#888]">{c.label}</span>
+                            </div>
+                            <span className={`text-[11px] font-mono ${c.passed ? "text-foreground" : "text-muted/50"}`}>
+                              {c.value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Chart analysis link */}
+                    <a
+                      href="/ai-trading"
+                      className="block w-full rounded bg-accent px-4 py-1.5 text-xs font-medium text-white text-center transition-opacity hover:opacity-90"
+                    >
+                      {lang === "kr" ? "AI 차트 분석" : "AI Chart Analysis"}
+                    </a>
+                  </div>
+                );
+              })()}
+            </section>
+          </div>
+        )}
+
         {/* Two-column layout (FOMO only) */}
         {tab === "fomo" && (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
             {/* Left: Ideas list */}
             <section className={`${CARD} lg:col-span-3`}>
-              {/* KR / US toggle */}
-              <div className="mb-3 flex flex-wrap items-center gap-3">
-                <div className="flex gap-px rounded bg-card-border p-px w-fit">
-                  {(["KR", "US"] as MarketFilter[]).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => {
-                        setMarket(m);
-                        setSelected(null);
-                        setAiResult(null);
-                        setSignalFilter("ALL");
-                      }}
-                      className={`px-3 py-1 text-xs font-medium transition-colors ${
-                        market === m
-                          ? "bg-accent text-white"
-                          : "bg-card-bg text-muted hover:text-foreground"
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Signal filter tabs */}
               <div className="mb-3 flex flex-wrap items-center gap-1.5">
                 {SIGNAL_FILTERS.map((sf) => (
@@ -537,49 +1340,138 @@ export default function IdeasPage() {
                       </div>
                     );
                   })()}
-                  {/* Explain button */}
-                  <button
-                    onClick={handleExplain}
-                    disabled={loading}
-                    className="w-full rounded bg-accent px-4 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-                  >
-                    {loading
-                      ? (lang === "kr" ? "분석 중..." : "Analyzing...")
-                      : (lang === "kr" ? "AI 분석" : "Explain move")}
-                  </button>
-
-                  {/* Error */}
-                  {error && (
-                    <div className="rounded border border-loss/30 bg-loss/10 px-3 py-2 text-[10px] text-loss">
-                      {error}
+                  {/* Financials section */}
+                  {detailFinLoading && (
+                    <div className="border-t border-white/10 pt-4 mt-4">
+                      <p className="text-xs animate-pulse" style={{ color: "#555" }}>Loading...</p>
                     </div>
                   )}
-
-                  {/* AI Result */}
-                  {aiResult && (
-                    <div className="space-y-2">
-                      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted">AI Summary</p>
-                      <ul className="space-y-1">
-                        {aiResult.bullets.map((b, i) => (
-                          <li key={i} className="flex items-start gap-1.5 text-xs leading-relaxed">
-                            <span className="mt-1 inline-block h-1 w-1 shrink-0 rounded-full bg-accent" />
-                            {b}
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="rounded border border-card-border/60 bg-background px-3 py-2">
-                        <p className="text-[9px] uppercase tracking-wider text-muted">Risk</p>
-                        <p className="mt-0.5 text-[10px] text-loss">{aiResult.risk}</p>
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] text-muted">
-                        <span>Confidence:</span>
-                        <div className="h-1.5 w-20 overflow-hidden rounded-full bg-card-border">
-                          <div className="h-full rounded-full bg-accent" style={{ width: `${Math.round(aiResult.confidence * 100)}%` }} />
+                  {detailFin && !detailFinLoading && (() => {
+                    const isKR = detailFin.market === "KR";
+                    const unit = isKR ? (lang === "kr" ? "억원" : "KRW 100M") : "$M";
+                    const q = detailFin.quarterly || [];
+                    // Market cap display
+                    const mcap = detailFin.marketCap;
+                    let mcapStr = "—";
+                    if (mcap != null) {
+                      if (isKR) {
+                        const jo = Math.floor(mcap / 10000);
+                        const eok = mcap % 10000;
+                        mcapStr = jo > 0
+                          ? `${jo}조 ${eok.toLocaleString()}억원`
+                          : `${eok.toLocaleString()}억원`;
+                      } else {
+                        mcapStr = mcap >= 1000 ? `$${(mcap / 1000).toFixed(1)}B` : `$${mcap.toLocaleString()}M`;
+                      }
+                    }
+                    const fmtVal = (v: number | null) => {
+                      if (v == null) return "—";
+                      const val = isKR ? v / 1e8 : v;
+                      const abs = Math.abs(val);
+                      const f = abs.toLocaleString(undefined, { maximumFractionDigits: 0 });
+                      return val < 0 ? `(${f})` : f;
+                    };
+                    return (
+                      <div className="border-t border-white/10 pt-4 mt-4 space-y-3">
+                        {/* Market cap */}
+                        <div>
+                          <span className="text-[10px]" style={{ color: "#6b7280" }}>
+                            {lang === "kr" ? "시가총액" : "Market Cap"}
+                          </span>
+                          <p className="text-sm font-mono" style={{ color: "#e8e8e8" }}>{mcapStr}</p>
                         </div>
-                        <span className="tabular-nums">{Math.round(aiResult.confidence * 100)}%</span>
+                        {/* Quarterly table */}
+                        {q.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "#6b7280" }}>
+                              {lang === "kr" ? "FINANCIALS · 최근 4분기" : "FINANCIALS · Last 4Q"}
+                            </p>
+                            <div className="overflow-x-auto rounded" style={{ border: "1px solid #222" }}>
+                              <table className="w-full font-mono text-xs" style={{ background: "#080c12" }}>
+                                <thead>
+                                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
+                                    <th className="py-1.5 pl-2 pr-3 text-left text-[9px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>&nbsp;</th>
+                                    {q.map((qi, i) => (
+                                      <th key={i} className="py-1.5 px-2 text-right text-[9px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>
+                                        {qi.label}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {/* Revenue */}
+                                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(255,255,255,0.03)" }}>
+                                    <td className="py-1 pl-2 pr-3 text-[10px] font-medium" style={{ color: "#e8e8e8" }}>
+                                      {lang === "kr" ? "매출액" : "Revenue"}
+                                    </td>
+                                    {q.map((qi, i) => (
+                                      <td key={i} className="py-1 px-2 text-right tabular-nums" style={{ color: qi.revenue != null && qi.revenue < 0 ? "#f87171" : "#e8e8e8" }}>
+                                        {fmtVal(qi.revenue)}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                  {/* Operating Income */}
+                                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                                    <td className="py-1 pl-2 pr-3 text-[10px]" style={{ color: "#9ca3af" }}>
+                                      {lang === "kr" ? "영업이익" : "Operating Income"}
+                                    </td>
+                                    {q.map((qi, i) => (
+                                      <td key={i} className="py-1 px-2 text-right tabular-nums" style={{ color: qi.operatingIncome != null && qi.operatingIncome < 0 ? "#f87171" : "#9ca3af" }}>
+                                        {fmtVal(qi.operatingIncome)}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                  {/* OP QoQ */}
+                                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                                    <td className="py-1 pl-4 pr-3 text-[9px]" style={{ color: "#555" }}>
+                                      {lang === "kr" ? "영업이익 QoQ" : "OP QoQ"}
+                                    </td>
+                                    {q.map((qi, i) => {
+                                      if (i === 0) return <td key={i} className="py-1 px-2 text-right text-[9px]" style={{ color: "#555" }}>—</td>;
+                                      const cur = qi.operatingIncome;
+                                      const prev = q[i - 1].operatingIncome;
+                                      const qoq = cur != null && prev != null && prev !== 0 ? ((cur - prev) / Math.abs(prev)) * 100 : null;
+                                      return (
+                                        <td key={i} className="py-1 px-2 text-right tabular-nums text-[9px]" style={{ color: qoq == null ? "#555" : qoq >= 0 ? "#4ade80" : "#f87171" }}>
+                                          {qoq != null ? `${qoq >= 0 ? "+" : ""}${qoq.toFixed(1)}%` : "—"}
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                  {/* OPM */}
+                                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                                    <td className="py-1 pl-4 pr-3 text-[9px]" style={{ color: "#555" }}>
+                                      {lang === "kr" ? "영업이익률%" : "OP Margin"}
+                                    </td>
+                                    {q.map((qi, i) => {
+                                      const opm = qi.revenue && qi.operatingIncome ? (qi.operatingIncome / qi.revenue) * 100 : null;
+                                      return (
+                                        <td key={i} className="py-1 px-2 text-right tabular-nums text-[9px]" style={{ color: opm != null && opm < 0 ? "#f87171" : "#555" }}>
+                                          {opm != null ? `${opm.toFixed(1)}%` : "—"}
+                                        </td>
+                                      );
+                                    })}
+                                  </tr>
+                                  {/* Net Income */}
+                                  <tr style={{ background: "rgba(255,255,255,0.03)" }}>
+                                    <td className="py-1 pl-2 pr-3 text-[10px] font-medium" style={{ color: "#e8e8e8" }}>
+                                      {lang === "kr" ? "당기순이익" : "Net Income"}
+                                    </td>
+                                    {q.map((qi, i) => (
+                                      <td key={i} className="py-1 px-2 text-right tabular-nums" style={{ color: qi.netIncome != null && qi.netIncome < 0 ? "#f87171" : "#e8e8e8" }}>
+                                        {fmtVal(qi.netIncome)}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                            <p className="mt-1 text-[9px] text-right" style={{ color: "#555" }}>{unit}</p>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               )}
             </section>

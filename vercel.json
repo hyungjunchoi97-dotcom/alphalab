@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/usd-hegemony",
+      "schedule": "0 1 * * *"
+    }
+  ]
+}

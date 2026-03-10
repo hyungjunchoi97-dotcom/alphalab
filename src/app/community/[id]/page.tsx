@@ -12,29 +12,47 @@ const INPUT =
   "w-full rounded-lg border border-card-border bg-background px-3 py-2 text-xs text-foreground focus:border-accent focus:outline-none";
 
 const CAT_BADGE_COLOR: Record<string, string> = {
+  stock_discussion: "bg-blue-500/20 text-blue-400",
+  macro: "bg-cyan-500/20 text-cyan-400",
+  free: "bg-gray-500/20 text-gray-400",
   stock: "bg-blue-500/20 text-blue-400",
   crypto: "bg-orange-500/20 text-orange-400",
   overseas: "bg-amber-500/20 text-amber-400",
-  macro: "bg-cyan-500/20 text-cyan-400",
   politics: "bg-rose-500/20 text-rose-400",
   discussion: "bg-accent/20 text-accent",
   idea: "bg-yellow-500/20 text-yellow-400",
   question: "bg-purple-500/20 text-purple-400",
   news: "bg-gain/20 text-gain",
-  free: "bg-gray-500/20 text-gray-400",
+};
+
+const SUB_BADGE_COLOR: Record<string, string> = {
+  domestic: "bg-emerald-500/20 text-emerald-400",
+  overseas: "bg-amber-500/20 text-amber-400",
+  crypto: "bg-orange-500/20 text-orange-400",
+  commodity: "bg-yellow-500/20 text-yellow-400",
+  bond: "bg-violet-500/20 text-violet-400",
 };
 
 const CAT_LABEL_MAP: Record<string, MessageKey> = {
+  stock_discussion: "catStockDiscussion",
+  macro: "catMacroNew",
+  free: "catFreeNew",
   stock: "catStock",
   crypto: "catCryptoToken",
   overseas: "catOverseas",
-  macro: "catMacro",
   politics: "catPolitics",
   discussion: "catDiscussion",
   idea: "catIdea",
   question: "catQuestion",
   news: "catNews",
-  free: "catFree",
+};
+
+const SUB_LABEL_MAP: Record<string, MessageKey> = {
+  domestic: "subDomestic",
+  overseas: "subOverseas",
+  crypto: "subCrypto",
+  commodity: "subCommodity",
+  bond: "subBond",
 };
 
 interface Post {
@@ -44,6 +62,7 @@ interface Post {
   title: string;
   content: string;
   category: string;
+  subcategory: string | null;
   symbol: string | null;
   likes: number;
   commentCount: number;
@@ -51,15 +70,27 @@ interface Post {
   created_at: string;
 }
 
-interface Comment {
+interface Reply {
   id: string;
   post_id: string;
   user_id: string;
   author_email: string | null;
   content: string;
-  parent_id: string | null;
+  parent_id: string;
   likes?: number;
   created_at: string;
+}
+
+interface CommentWithReplies {
+  id: string;
+  post_id: string;
+  user_id: string;
+  author_email: string | null;
+  content: string;
+  parent_id: null;
+  likes?: number;
+  created_at: string;
+  replies: Reply[];
 }
 
 function timeAgo(iso: string): string {
@@ -85,7 +116,7 @@ export default function PostDetailPage() {
 
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<CommentWithReplies[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
@@ -148,24 +179,27 @@ export default function PostDetailPage() {
       });
       const json = await res.json();
       if (json.ok) {
-        setComments((prev) => [...prev, json.comment]);
-        if (parentId) { setReplyText(""); setReplyTo(null); }
-        else { setCommentText(""); }
+        if (parentId) {
+          // Append reply to the parent comment
+          setComments((prev) =>
+            prev.map((c) =>
+              c.id === parentId
+                ? { ...c, replies: [...c.replies, json.comment] }
+                : c
+            )
+          );
+          setReplyText("");
+          setReplyTo(null);
+        } else {
+          // Append new top-level comment
+          setComments((prev) => [...prev, { ...json.comment, replies: [] }]);
+          setCommentText("");
+        }
         setPost((prev) => prev ? { ...prev, commentCount: prev.commentCount + 1 } : prev);
       }
     } catch { /* */ }
     finally { setCommentSubmitting(false); }
   };
-
-  // Organize comments into top-level and replies
-  const topComments = comments.filter((c) => !c.parent_id);
-  const replies = comments.filter((c) => c.parent_id);
-  const repliesByParent = new Map<string, Comment[]>();
-  for (const r of replies) {
-    const arr = repliesByParent.get(r.parent_id!) || [];
-    arr.push(r);
-    repliesByParent.set(r.parent_id!, arr);
-  }
 
   if (loading) {
     return (
@@ -192,6 +226,7 @@ export default function PostDetailPage() {
   }
 
   const catLabel = CAT_LABEL_MAP[post.category];
+  const subLabel = post.subcategory ? SUB_LABEL_MAP[post.subcategory] : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -215,6 +250,11 @@ export default function PostDetailPage() {
             <span className={`rounded px-1.5 py-px text-[9px] font-semibold ${CAT_BADGE_COLOR[post.category] || "bg-muted/20 text-muted"}`}>
               {catLabel ? t(catLabel) : post.category}
             </span>
+            {subLabel && (
+              <span className={`rounded px-1.5 py-px text-[9px] font-medium ${SUB_BADGE_COLOR[post.subcategory!] || "bg-muted/10 text-muted"}`}>
+                {t(subLabel)}
+              </span>
+            )}
             {post.symbol && (
               <span className="rounded bg-accent/10 px-1.5 py-px text-[9px] font-medium text-accent">
                 {post.symbol}
@@ -231,7 +271,6 @@ export default function PostDetailPage() {
             <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{post.content}</p>
           )}
 
-          {/* Image */}
           {post.image_url && (
             <div className="mt-4">
               <img
@@ -311,10 +350,10 @@ export default function PostDetailPage() {
         <div className="space-y-2">
           {commentsLoading ? (
             <div className="py-8 text-center text-xs text-muted">Loading...</div>
-          ) : topComments.length === 0 ? (
+          ) : comments.length === 0 ? (
             <p className="py-8 text-center text-xs text-muted">{t("commNoComments")}</p>
           ) : (
-            topComments.map((c) => (
+            comments.map((c) => (
               <div key={c.id}>
                 {/* Top-level comment */}
                 <div className="rounded-xl border border-card-border bg-card-bg p-3">
@@ -325,13 +364,16 @@ export default function PostDetailPage() {
                   </div>
                   <p className="mt-1.5 text-[12px] leading-relaxed text-foreground/90">{c.content}</p>
                   <button
-                    onClick={() => setReplyTo(replyTo === c.id ? null : c.id)}
+                    onClick={() => {
+                      setReplyTo(replyTo === c.id ? null : c.id);
+                      setReplyText("");
+                    }}
                     className="mt-2 text-[10px] text-accent hover:underline"
                   >
                     {lang === "kr" ? "답글" : "Reply"}
                   </button>
 
-                  {/* Reply input */}
+                  {/* Reply input (inline under the comment) */}
                   {replyTo === c.id && (
                     <div className="mt-2 pl-4 border-l-2 border-accent/30">
                       <textarea
@@ -340,6 +382,7 @@ export default function PostDetailPage() {
                         placeholder={lang === "kr" ? "답글을 입력하세요..." : "Write a reply..."}
                         rows={2}
                         className={`${INPUT} resize-y text-[11px]`}
+                        autoFocus
                       />
                       <div className="mt-1.5 flex justify-end gap-2">
                         <button onClick={() => { setReplyTo(null); setReplyText(""); }} className="text-[10px] text-muted hover:text-foreground">
@@ -357,17 +400,22 @@ export default function PostDetailPage() {
                   )}
                 </div>
 
-                {/* Nested replies */}
-                {repliesByParent.get(c.id)?.map((reply) => (
-                  <div key={reply.id} className="ml-6 mt-1.5 rounded-xl border border-card-border/60 bg-card-bg/60 p-3">
-                    <div className="flex items-center gap-1.5 text-[10px] text-muted">
-                      <span className="font-medium text-foreground/70">{reply.author_email?.split("@")[0] || "anon"}</span>
-                      <span>&middot;</span>
-                      <span>{timeAgo(reply.created_at)}</span>
-                    </div>
-                    <p className="mt-1 text-[11px] leading-relaxed text-foreground/80">{reply.content}</p>
+                {/* Nested replies (indented, depth 1 only) */}
+                {c.replies.length > 0 && (
+                  <div className="pl-8 mt-1.5 space-y-1.5 border-l border-white/10">
+                    {c.replies.map((reply) => (
+                      <div key={reply.id} className="rounded-xl border border-card-border/60 bg-card-bg/60 p-3">
+                        <div className="flex items-center gap-1.5 text-[10px] text-muted">
+                          <span className="font-medium text-foreground/70">{reply.author_email?.split("@")[0] || "anon"}</span>
+                          <span>&middot;</span>
+                          <span>{timeAgo(reply.created_at)}</span>
+                        </div>
+                        <p className="mt-1 text-[11px] leading-relaxed text-foreground/80">{reply.content}</p>
+                        {/* No "답글" button on replies — depth 1 max */}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             ))
           )}

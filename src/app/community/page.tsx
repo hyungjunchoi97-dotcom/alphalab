@@ -10,58 +10,60 @@ import type { MessageKey } from "@/lib/i18n";
 
 // ── Constants ──────────────────────────────────────────────────
 
-type PostCategory = "all" | "stock" | "crypto" | "overseas" | "macro" | "politics" | "question" | "free";
+type MainCategory = "all" | "stock_discussion" | "macro" | "free";
+type Subcategory = "all" | "domestic" | "overseas" | "crypto" | "commodity" | "bond";
 type SortMode = "hot" | "new" | "top" | "rising";
 
-const CATEGORIES: PostCategory[] = ["all", "stock", "crypto", "overseas", "macro", "politics", "question", "free"];
+const MAIN_CATEGORIES: MainCategory[] = ["all", "stock_discussion", "macro", "free"];
 
-const CAT_LABEL: Record<PostCategory, MessageKey> = {
+const MAIN_CAT_LABEL: Record<MainCategory, MessageKey> = {
   all: "catAll",
-  stock: "catStock",
-  crypto: "catCryptoToken",
-  overseas: "catOverseas",
-  macro: "catMacro",
-  politics: "catPolitics",
-  question: "catQuestion",
-  free: "catFree",
+  stock_discussion: "catStockDiscussion",
+  macro: "catMacroNew",
+  free: "catFreeNew",
 };
 
-const CREATE_CAT_LABEL: Record<string, MessageKey> = {
-  stock: "catStock",
-  crypto: "catCryptoToken",
-  overseas: "catOverseas",
-  macro: "catMacro",
-  politics: "catPolitics",
-  discussion: "catDiscussion",
-  idea: "catIdea",
-  question: "catQuestion",
-  news: "catNews",
-  free: "catFree",
+const SUBCATEGORIES: Subcategory[] = ["all", "domestic", "overseas", "crypto", "commodity", "bond"];
+
+const SUB_LABEL: Record<Subcategory, MessageKey> = {
+  all: "subAll",
+  domestic: "subDomestic",
+  overseas: "subOverseas",
+  crypto: "subCrypto",
+  commodity: "subCommodity",
+  bond: "subBond",
 };
 
-const CREATE_CATEGORIES = ["stock", "crypto", "overseas", "macro", "politics", "discussion", "idea", "question", "news", "free"] as const;
+// Create categories for editor: stock_discussion, macro, free
+const CREATE_CATEGORIES: MainCategory[] = ["stock_discussion", "macro", "free"];
 
 const CAT_BADGE_COLOR: Record<string, string> = {
+  stock_discussion: "bg-blue-500/20 text-blue-400",
+  macro: "bg-cyan-500/20 text-cyan-400",
+  free: "bg-gray-500/20 text-gray-400",
+  // legacy
   stock: "bg-blue-500/20 text-blue-400",
   crypto: "bg-orange-500/20 text-orange-400",
   overseas: "bg-amber-500/20 text-amber-400",
-  macro: "bg-cyan-500/20 text-cyan-400",
   politics: "bg-rose-500/20 text-rose-400",
   discussion: "bg-accent/20 text-accent",
   idea: "bg-yellow-500/20 text-yellow-400",
   question: "bg-purple-500/20 text-purple-400",
   news: "bg-gain/20 text-gain",
-  free: "bg-gray-500/20 text-gray-400",
+};
+
+const SUB_BADGE_COLOR: Record<string, string> = {
+  domestic: "bg-emerald-500/20 text-emerald-400",
+  overseas: "bg-amber-500/20 text-amber-400",
+  crypto: "bg-orange-500/20 text-orange-400",
+  commodity: "bg-yellow-500/20 text-yellow-400",
+  bond: "bg-violet-500/20 text-violet-400",
 };
 
 const CAT_SIDEBAR_ICON: Record<string, string> = {
   all: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
-  stock: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
-  crypto: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-  overseas: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  stock_discussion: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
   macro: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
-  politics: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4",
-  question: "M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
   free: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
 };
 
@@ -76,6 +78,7 @@ interface Post {
   title: string;
   content: string;
   category: string;
+  subcategory: string | null;
   symbol: string | null;
   likes: number;
   commentCount: number;
@@ -120,8 +123,23 @@ function sortPosts(posts: Post[], mode: SortMode): Post[] {
   }
 }
 
-function getCatLabel(cat: string): MessageKey {
-  return (CREATE_CAT_LABEL[cat] || CAT_LABEL[cat as PostCategory] || "catOther") as MessageKey;
+// Map legacy categories to new ones for display
+function mapCategory(cat: string): string {
+  if (["stock", "crypto", "overseas"].includes(cat)) return "stock_discussion";
+  if (["politics", "discussion", "idea", "question", "news"].includes(cat)) return "free";
+  return cat;
+}
+
+function getCatDisplayLabel(cat: string, t: (k: MessageKey) => string): string {
+  const mapped = mapCategory(cat);
+  const label = MAIN_CAT_LABEL[mapped as MainCategory];
+  return label ? t(label) : cat;
+}
+
+function getSubDisplayLabel(sub: string | null, t: (k: MessageKey) => string): string | null {
+  if (!sub) return null;
+  const label = SUB_LABEL[sub as Subcategory];
+  return label ? t(label) : sub;
 }
 
 // ── Editor Overlay ─────────────────────────────────────────────
@@ -134,10 +152,12 @@ function EditorOverlay({
   onPublished: () => void;
 }) {
   const { session } = useAuth();
+  const { lang } = useLang();
   const requireAuth = useRequireAuth();
 
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("stock");
+  const [category, setCategory] = useState<MainCategory>("stock_discussion");
+  const [subcategory, setSubcategory] = useState<Subcategory>("domestic");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveTime, setSaveTime] = useState<string | null>(null);
@@ -145,7 +165,6 @@ function EditorOverlay({
   const editorRef = useRef<HTMLDivElement>(null);
   const hasContentRef = useRef(false);
 
-  // Track if editor has content for exit confirmation
   useEffect(() => {
     const check = () => {
       hasContentRef.current = !!(title.trim() || editorRef.current?.innerText?.trim());
@@ -160,7 +179,8 @@ function EditorOverlay({
       if (raw) {
         const draft = JSON.parse(raw);
         if (draft.title) setTitle(draft.title);
-        if (draft.category) setCategory(draft.category);
+        if (draft.category && CREATE_CATEGORIES.includes(draft.category)) setCategory(draft.category);
+        if (draft.subcategory) setSubcategory(draft.subcategory);
         if (draft.content && editorRef.current) {
           editorRef.current.innerHTML = draft.content;
         }
@@ -168,14 +188,12 @@ function EditorOverlay({
     } catch { /* */ }
   }, []);
 
-  // Clear error
   useEffect(() => {
     if (!error) return;
     const t = setTimeout(() => setError(null), 4000);
     return () => clearTimeout(t);
   }, [error]);
 
-  // ESC key
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") handleExit();
@@ -187,7 +205,7 @@ function EditorOverlay({
   const handleExit = () => {
     const content = editorRef.current?.innerText?.trim() || "";
     if (title.trim() || content) {
-      if (!window.confirm("작성 중인 글이 있습니다. 나가시겠습니까?")) return;
+      if (!window.confirm(lang === "kr" ? "작성 중인 글이 있습니다. 나가시겠습니까?" : "You have unsaved changes. Leave?")) return;
     }
     onClose();
   };
@@ -196,7 +214,7 @@ function EditorOverlay({
     const content = editorRef.current?.innerHTML || "";
     localStorage.setItem(
       DRAFT_KEY,
-      JSON.stringify({ title, content, category })
+      JSON.stringify({ title, content, category, subcategory })
     );
     setSaveTime(
       new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
@@ -206,10 +224,15 @@ function EditorOverlay({
   const handlePublish = () => {
     requireAuth(async () => {
       if (!title.trim() || !session?.access_token) return;
+
+      if (category === "stock_discussion" && subcategory === "all") {
+        setError(lang === "kr" ? "종목토론방은 하위 카테고리를 선택해야 합니다" : "Subcategory required for Stock Discussion");
+        return;
+      }
+
       setSubmitting(true);
       setError(null);
 
-      const htmlContent = editorRef.current?.innerHTML || "";
       const textContent = editorRef.current?.innerText || "";
 
       try {
@@ -223,6 +246,7 @@ function EditorOverlay({
             title: title.trim(),
             content: textContent.trim(),
             category,
+            subcategory: category === "stock_discussion" ? subcategory : null,
             symbol: null,
             image_url: null,
           }),
@@ -232,10 +256,10 @@ function EditorOverlay({
           localStorage.removeItem(DRAFT_KEY);
           onPublished();
         } else {
-          setError(json.error || "게시 실패");
+          setError(json.error || (lang === "kr" ? "게시 실패" : "Failed to publish"));
         }
       } catch {
-        setError("네트워크 오류");
+        setError(lang === "kr" ? "네트워크 오류" : "Network error");
       } finally {
         setSubmitting(false);
       }
@@ -253,7 +277,6 @@ function EditorOverlay({
         className="flex flex-col rounded border border-[#1a1a1a] bg-[#050505] shadow-2xl overflow-hidden"
         style={{ width: "90vw", height: "85vh", maxWidth: "1000px" }}
       >
-        {/* Error toast */}
         {error && (
           <div className="absolute top-4 right-4 z-10 rounded border border-[#f87171]/30 bg-[#1a0808] px-4 py-2 shadow-lg">
             <p className="text-[11px] font-mono text-[#f87171]">{error}</p>
@@ -265,7 +288,7 @@ function EditorOverlay({
           <div className="flex items-center gap-3">
             {saveTime && (
               <span className="text-[10px] font-mono text-[#444]">
-                임시저장됨 {saveTime}
+                {lang === "kr" ? `임시저장됨 ${saveTime}` : `Draft saved ${saveTime}`}
               </span>
             )}
           </div>
@@ -274,20 +297,20 @@ function EditorOverlay({
               onClick={handleExit}
               className="px-3 py-1.5 text-[11px] font-mono text-[#555] hover:text-white transition-colors"
             >
-              나가기
+              {lang === "kr" ? "나가기" : "Close"}
             </button>
             <button
               onClick={handleSaveDraft}
               className="px-3 py-1.5 text-[11px] font-mono text-[#555] border border-[#1a1a1a] rounded hover:text-white hover:border-[#333] transition-colors"
             >
-              임시저장
+              {lang === "kr" ? "임시저장" : "Save Draft"}
             </button>
             <button
               onClick={handlePublish}
               disabled={!title.trim() || submitting}
               className="px-5 py-1.5 text-[11px] font-mono font-bold bg-[#f59e0b] text-black rounded hover:opacity-90 transition-opacity disabled:opacity-30"
             >
-              {submitting ? "..." : "게시"}
+              {submitting ? "..." : (lang === "kr" ? "게시" : "Publish")}
             </button>
           </div>
         </div>
@@ -297,32 +320,56 @@ function EditorOverlay({
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="제목을 입력하세요"
+            placeholder={lang === "kr" ? "제목을 입력하세요" : "Enter title"}
             className="w-full bg-transparent text-2xl font-bold text-white placeholder-[#333] outline-none"
             autoFocus
           />
         </div>
 
-        {/* Category select */}
-        <div className="px-5 pb-3 shrink-0">
+        {/* Category + subcategory selects */}
+        <div className="px-5 pb-3 shrink-0 flex items-center gap-2">
           <select
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value as MainCategory;
+              setCategory(val);
+              if (val !== "stock_discussion") setSubcategory("all");
+              else setSubcategory("domestic");
+            }}
             className="bg-[#0a0a0a] border border-[#1a1a1a] rounded px-2.5 py-1.5 text-[11px] font-mono text-[#888] outline-none focus:border-[#333] appearance-none cursor-pointer"
           >
             {CREATE_CATEGORIES.map((c) => (
               <option key={c} value={c}>
-                {CATEGORIES.includes(c as PostCategory)
-                  ? c.charAt(0).toUpperCase() + c.slice(1)
-                  : c.charAt(0).toUpperCase() + c.slice(1)}
+                {c === "stock_discussion"
+                  ? (lang === "kr" ? "종목 토론방" : "Stock Discussion")
+                  : c === "macro"
+                  ? (lang === "kr" ? "매크로" : "Macro")
+                  : (lang === "kr" ? "자유" : "Free")}
               </option>
             ))}
           </select>
+
+          {category === "stock_discussion" && (
+            <select
+              value={subcategory}
+              onChange={(e) => setSubcategory(e.target.value as Subcategory)}
+              className="bg-[#0a0a0a] border border-[#1a1a1a] rounded px-2.5 py-1.5 text-[11px] font-mono text-[#888] outline-none focus:border-[#333] appearance-none cursor-pointer"
+            >
+              {SUBCATEGORIES.filter((s) => s !== "all").map((s) => (
+                <option key={s} value={s}>
+                  {s === "domestic" ? (lang === "kr" ? "국내주식" : "Domestic")
+                    : s === "overseas" ? (lang === "kr" ? "해외주식" : "Overseas")
+                    : s === "crypto" ? (lang === "kr" ? "크립토" : "Crypto")
+                    : s === "commodity" ? (lang === "kr" ? "원자재" : "Commodity")
+                    : (lang === "kr" ? "채권" : "Bond")}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Toolbar */}
         <div className="flex items-center gap-px px-5 py-1.5 border-y border-[#1a1a1a] shrink-0">
-          {/* Font size */}
           <select
             onChange={(e) => {
               execCmd("fontSize", e.target.value);
@@ -342,7 +389,6 @@ function EditorOverlay({
 
           <div className="w-px h-5 bg-[#1a1a1a] mx-1.5" />
 
-          {/* Font family */}
           <select
             onChange={(e) => {
               execCmd("fontName", e.target.value);
@@ -366,7 +412,7 @@ function EditorOverlay({
             suppressContentEditableWarning
             className="min-h-full p-5 text-[14px] text-[#ccc] leading-relaxed outline-none"
             style={{ caretColor: "#f59e0b" }}
-            data-placeholder="내용을 입력하세요..."
+            data-placeholder={lang === "kr" ? "내용을 입력하세요..." : "Write your content..."}
             onInput={() => {
               hasContentRef.current = !!(title.trim() || editorRef.current?.innerText?.trim());
             }}
@@ -374,7 +420,6 @@ function EditorOverlay({
         </div>
       </div>
 
-      {/* Placeholder style */}
       <style jsx global>{`
         [data-placeholder]:empty::before {
           content: attr(data-placeholder);
@@ -422,25 +467,28 @@ export default function CommunityPage() {
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState<PostCategory>("all");
+  const [category, setCategory] = useState<MainCategory>("all");
+  const [subcategory, setSubcategory] = useState<Subcategory>("all");
   const [sortMode, setSortMode] = useState<SortMode>("hot");
   const [showEditor, setShowEditor] = useState(false);
-
-  // Liked posts
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
     try {
-      const url = category === "all"
-        ? "/api/community/posts"
-        : `/api/community/posts?category=${category}`;
+      const params = new URLSearchParams();
+      if (category !== "all") params.set("category", category);
+      if (category === "stock_discussion" && subcategory !== "all") {
+        params.set("subcategory", subcategory);
+      }
+      const qs = params.toString();
+      const url = `/api/community/posts${qs ? `?${qs}` : ""}`;
       const res = await fetch(url);
       const json = await res.json();
       if (json.ok) setPosts(json.posts);
     } catch { /* */ }
     finally { setLoading(false); }
-  }, [category]);
+  }, [category, subcategory]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
@@ -472,8 +520,6 @@ export default function CommunityPage() {
   };
 
   const sorted = sortPosts(posts, sortMode);
-
-  // Top posts for sidebar widget
   const topPosts = [...posts].sort((a, b) => b.likes - a.likes).slice(0, 5);
 
   return (
@@ -481,17 +527,19 @@ export default function CommunityPage() {
       <AppHeader active="community" />
 
       <main className="mx-auto max-w-[1200px] px-4 py-5">
-        {/* Main 3-column layout */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[200px_1fr_260px]">
           {/* Left sidebar: categories */}
           <aside className="hidden lg:block space-y-1">
             <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted px-2">
               {lang === "kr" ? "카테고리" : "Categories"}
             </h3>
-            {CATEGORIES.map((cat) => (
+            {MAIN_CATEGORIES.map((cat) => (
               <button
                 key={cat}
-                onClick={() => setCategory(cat)}
+                onClick={() => {
+                  setCategory(cat);
+                  setSubcategory("all");
+                }}
                 className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs transition-colors ${
                   category === cat
                     ? "bg-accent/10 text-accent font-medium"
@@ -501,9 +549,28 @@ export default function CommunityPage() {
                 <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d={CAT_SIDEBAR_ICON[cat] || CAT_SIDEBAR_ICON.all} />
                 </svg>
-                {t(CAT_LABEL[cat])}
+                {t(MAIN_CAT_LABEL[cat])}
               </button>
             ))}
+
+            {/* Subcategory filters (only when stock_discussion selected) */}
+            {category === "stock_discussion" && (
+              <div className="ml-6 mt-1 space-y-0.5 border-l border-card-border pl-2">
+                {SUBCATEGORIES.map((sub) => (
+                  <button
+                    key={sub}
+                    onClick={() => setSubcategory(sub)}
+                    className={`block w-full rounded px-2 py-1.5 text-left text-[11px] transition-colors ${
+                      subcategory === sub
+                        ? "text-accent font-medium"
+                        : "text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {t(SUB_LABEL[sub])}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="mt-4 border-t border-card-border pt-3">
               <button
@@ -522,17 +589,20 @@ export default function CommunityPage() {
           <div className="space-y-3">
             {/* Mobile category + new post */}
             <div className="flex flex-wrap items-center gap-2 lg:hidden">
-              {CATEGORIES.map((cat) => (
+              {MAIN_CATEGORIES.map((cat) => (
                 <button
                   key={cat}
-                  onClick={() => setCategory(cat)}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
+                  onClick={() => {
+                    setCategory(cat);
+                    setSubcategory("all");
+                  }}
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
                     category === cat
                       ? "bg-accent text-white"
                       : "bg-card-bg border border-card-border text-muted"
                   }`}
                 >
-                  {t(CAT_LABEL[cat])}
+                  {t(MAIN_CAT_LABEL[cat])}
                 </button>
               ))}
               <button
@@ -542,6 +612,25 @@ export default function CommunityPage() {
                 {t("newPost")}
               </button>
             </div>
+
+            {/* Mobile subcategory tabs */}
+            {category === "stock_discussion" && (
+              <div className="flex gap-1 overflow-x-auto pb-1 lg:hidden">
+                {SUBCATEGORIES.map((sub) => (
+                  <button
+                    key={sub}
+                    onClick={() => setSubcategory(sub)}
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium transition-all ${
+                      subcategory === sub
+                        ? "bg-blue-500/20 text-blue-400"
+                        : "bg-card-bg border border-card-border text-muted"
+                    }`}
+                  >
+                    {t(SUB_LABEL[sub])}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Sort tabs */}
             <div className="flex gap-px rounded-lg bg-card-border p-0.5 w-fit">
@@ -584,7 +673,6 @@ export default function CommunityPage() {
 
           {/* Right sidebar: popular + rules */}
           <aside className="hidden lg:block space-y-4">
-            {/* Popular posts */}
             <div className="rounded-xl border border-card-border bg-card-bg p-3">
               <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
                 {lang === "kr" ? "인기 포스트" : "Popular Posts"}
@@ -613,7 +701,6 @@ export default function CommunityPage() {
               </div>
             </div>
 
-            {/* Community rules */}
             <div className="rounded-xl border border-card-border bg-card-bg p-3">
               <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
                 {lang === "kr" ? "커뮤니티 규칙" : "Community Rules"}
@@ -630,7 +717,6 @@ export default function CommunityPage() {
         </div>
       </main>
 
-      {/* Editor overlay */}
       {showEditor && (
         <EditorOverlay
           onClose={() => setShowEditor(false)}
@@ -659,8 +745,6 @@ function PostCard({
   onClick: () => void;
   t: (key: MessageKey) => string;
 }) {
-  const catLabel = getCatLabel(post.category);
-
   return (
     <div
       onClick={onClick}
@@ -685,9 +769,14 @@ function PostCard({
       <div className="flex-1 p-3 min-w-0">
         {/* Meta */}
         <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted">
-          <span className={`rounded px-1.5 py-px text-[9px] font-semibold ${CAT_BADGE_COLOR[post.category] || "bg-muted/20 text-muted"}`}>
-            {t(catLabel)}
+          <span className={`rounded px-1.5 py-px text-[9px] font-semibold ${CAT_BADGE_COLOR[post.category] || CAT_BADGE_COLOR[mapCategory(post.category)] || "bg-muted/20 text-muted"}`}>
+            {getCatDisplayLabel(post.category, t)}
           </span>
+          {post.subcategory && (
+            <span className={`rounded px-1.5 py-px text-[9px] font-medium ${SUB_BADGE_COLOR[post.subcategory] || "bg-muted/10 text-muted"}`}>
+              {getSubDisplayLabel(post.subcategory, t)}
+            </span>
+          )}
           {post.symbol && (
             <span className="rounded bg-accent/10 px-1.5 py-px text-[9px] font-medium text-accent">
               {post.symbol}

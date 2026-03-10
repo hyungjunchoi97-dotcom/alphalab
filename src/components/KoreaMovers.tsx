@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLang } from "@/lib/LangContext";
 
 interface MoverItem {
@@ -89,24 +89,27 @@ export default function KoreaMovers() {
   const [losers, setLosers] = useState<MoverItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [asOf, setAsOf] = useState<string>("");
-  const [fetchedAt, setFetchedAt] = useState<string>("");
   const [source, setSource] = useState<string>("");
   const [totalGainers, setTotalGainers] = useState(0);
   const [totalLosers, setTotalLosers] = useState(0);
   const [showCount, setShowCount] = useState(60);
 
   const [stale, setStale] = useState(false);
+  const [isMarketOpen, setIsMarketOpen] = useState(false);
+  const hasDataRef = useRef(false);
 
   const fetchMovers = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
     try {
       const res = await fetch("/api/krx/movers");
       const json = await res.json();
+      console.log("[KoreaMovers] API response:", { ok: json.ok, source: json.source, asOf: json.asOf, gainers: json.topGainers?.length, losers: json.topLosers?.length });
       if (json.ok || json.topGainers) {
         setGainers(json.topGainers || []);
         setLosers(json.topLosers || []);
         setTotalGainers(json.totalGainers || 0);
         setTotalLosers(json.totalLosers || 0);
+        hasDataRef.current = (json.topGainers?.length || 0) > 0;
 
         if (json.asOf) {
           const y = json.asOf.slice(0, 4);
@@ -114,30 +117,29 @@ export default function KoreaMovers() {
           const d = json.asOf.slice(6, 8);
           setAsOf(`${y}.${m}.${d}`);
         }
-        if (json.fetchedAtISO) setFetchedAt(json.fetchedAtISO);
         setSource(json.source || "");
         setStale(json.source === "stale-cache");
+        setIsMarketOpen(!!json.isMarketOpen);
       } else {
-        // API returned error — keep existing data if any
-        if (gainers.length > 0) setStale(true);
+        if (hasDataRef.current) setStale(true);
       }
     } catch {
-      // Network failure — keep existing data if any
-      if (gainers.length > 0) setStale(true);
+      if (hasDataRef.current) setStale(true);
     } finally {
       setLoading(false);
     }
-  }, [gainers.length]);
+  }, []);
 
   useEffect(() => {
     fetchMovers();
   }, [fetchMovers]);
 
-  // Auto-refresh every 60 seconds
+  // Auto-refresh: every 60s during market hours, every 10min after close
   useEffect(() => {
-    const id = setInterval(() => fetchMovers(true), 60_000);
+    const interval = isMarketOpen ? 60_000 : 10 * 60_000;
+    const id = setInterval(() => fetchMovers(true), interval);
     return () => clearInterval(id);
-  }, [fetchMovers]);
+  }, [fetchMovers, isMarketOpen]);
 
   if (loading) {
     return (
@@ -211,19 +213,20 @@ export default function KoreaMovers() {
       <div className="mt-2 flex items-center justify-end gap-2 text-[10px] text-muted">
         {asOf && (
           <span>
-            {lang === "kr" ? `기준: ${asOf}` : `As of: ${asOf}`}
-          </span>
-        )}
-        {fetchedAt && (
-          <span className="tabular-nums">
-            {lang === "kr" ? "업데이트" : "Updated"}: {new Date(fetchedAt).toLocaleString(lang === "kr" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+            {lang === "kr"
+              ? isMarketOpen
+                ? "기준: 실시간 (15분 지연)"
+                : `기준: ${asOf} 종가`
+              : isMarketOpen
+                ? "Real-time (15min delay)"
+                : `As of: ${asOf} closing`}
           </span>
         )}
         {source === "mock" && (
           <span className="text-yellow-500">(sample data)</span>
         )}
         {stale && (
-          <span className="text-yellow-500">(캐시)</span>
+          <span className="text-yellow-500">{lang === "kr" ? "(캐시)" : "(cached)"}</span>
         )}
       </div>
     </div>

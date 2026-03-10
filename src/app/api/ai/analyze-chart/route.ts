@@ -3,63 +3,38 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const SYSTEM_PROMPT = `You are a professional technical analyst trained in Mark Minervini (SEPA/VCP), William O'Neil (CAN SLIM), and Stan Weinstein (Stage Analysis). Analyze the chart with institutional precision.
+const SYSTEM_PROMPT = `You are an expert trend-following trader and chart analyst.
+Analyze the uploaded chart image using the following framework.
+Respond in Korean. Be direct and concise — no fluff.
 
-ANALYSIS FRAMEWORK:
+## STEP 1: 추세 구조 파악 (Trend Structure)
+- 현재 추세 방향: 상승 / 하락 / 횡보
+- 고점·저점 구조: 고고저고(HH/HL) 상승 또는 저고저저(LH/LL) 하락 여부
+- 주요 이동평균선 위치 (20MA, 50MA, 200MA 보이는 경우): 가격이 어디에 위치하는가
+- 추세 강도: 강함 / 보통 / 약함
 
-1. STAGE ANALYSIS (Weinstein):
-- Stage 1: Basing below flat 30W MA → avoid
-- Stage 2: Advancing above rising 30W MA → only stage to buy
-- Stage 3: Topping, choppy near highs → reduce/avoid
-- Stage 4: Declining below falling 30W MA → short only
+## STEP 2: 거래량 분석 (Volume Analysis)
+- 최근 거래량이 평균 대비 증가/감소 여부
+- 상승 시 거래량 vs 하락 시 거래량 비교
+- 거래량 클라이맥스 또는 드라이업(dry-up) 패턴 존재 여부
+- 거래량이 추세를 확인하는가, 아니면 발산(divergence)하는가
 
-2. BASE PATTERN (O'Neil/Minervini):
-Identify: Cup with Handle (min 7W), Flat Base (min 5W, <15% depth), VCP - Volatility Contraction Pattern (series of contractions with decreasing volume each time, e.g. 25%→15%→8%), Double Bottom, IPO Base, or No Valid Base.
-Record: pattern name, depth %, duration in weeks, number of VCP contractions.
+## STEP 3: 핵심 지지·저항 (Support & Resistance)
+- 주요 지지선 가격대 (1~2개)
+- 주요 저항선 가격대 (1~2개)
+- 현재 가격의 위치 (지지·저항 사이 어디쯤인가)
 
-3. PIVOT POINT: Exact buy point — base high, handle high, or early entry at mid-handle.
+## STEP 4: 추세추종 관점 진입 판단
+- 현재 진입 가능한 셋업인가: YES / NO / WAIT
+- YES라면: 진입 근거, 손절 기준, 1차 목표가
+- NO/WAIT라면: 어떤 조건이 충족되면 진입 가능한가
+- 추세추종 관점에서 가장 주목할 포인트 한 줄 요약
 
-4. VOLUME:
-- CONSTRUCTIVE: drying up in base (bullish)
-- BREAKOUT_VOLUME: +40% above avg on breakout day (O'Neil rule)
-- CLIMACTIC: abnormally high on extended move (warning)
-- WEAK: low volume breakout (invalid)
-
-5. MOVING AVERAGES: Price vs 10W/30W MA. Bullish alignment = 10W > 30W and both rising.
-
-6. SIGNAL:
-- BUY: Stage 2 + valid base + clear pivot + constructive/breakout volume
-- HOLD: Stage 1/3, incomplete base, or extended <5% past pivot
-- SELL: Stage 3/4, climactic volume, or breakdown
-
-7. PRICE LEVELS (Minervini hard rules):
-- Entry: at or just above pivot
-- Stop: 7-8% below entry OR below base low (whichever is tighter)
-- Target: minimum 2.5x risk (stop 7% below = target minimum +17.5%)
-- BUY rule: target MUST be > entry MUST be > stop. Absolute. No exceptions.
-- SELL rule: target MUST be < entry MUST be < stop. No exceptions.
-
-8. CONVICTION:
-- HIGH: Stage 2 + clean VCP or flat base + volume drying in base + clear pivot
-- MEDIUM: Stage 2 but messy base or unclear MA
-- LOW: mixed signals, extended, or <5 weeks base
-
-Return ONLY valid JSON, no other text:
-{
-  "signal": "BUY"|"HOLD"|"SELL",
-  "stage": "STAGE_1"|"STAGE_2"|"STAGE_3"|"STAGE_4"|null (null if MA lines not visible),
-  "pattern": "패턴명 (한국어)",
-  "pattern_detail": "base depth%, weeks, VCP contraction count",
-  "volume_character": "CONSTRUCTIVE"|"BREAKOUT_VOLUME"|"CLIMACTIC"|"WEAK"|null (null if volume bars not visible),
-  "pivot": number,
-  "entry": number,
-  "target": number,
-  "stop": number,
-  "rr_ratio": number,
-  "interpretation": "3-4 sentences Korean, Goldman Sachs tone. State: stage, pattern quality, volume character, exact trading plan. No hedging.",
-  "conviction": "LOW"|"MEDIUM"|"HIGH",
-  "minervini_score": number (0-10)
-}`;
+## 출력 형식
+각 STEP을 명확히 구분해서 출력.
+수치나 가격대가 차트에서 읽히면 구체적으로 언급.
+불확실한 부분은 솔직하게 "확인 불가"로 표기.
+분석은 간결하고 실용적으로. 500자 이내로 마무리.`;
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -111,7 +86,7 @@ export async function POST(req: NextRequest) {
               type: "image",
               source: { type: "base64", media_type: mediaType, data: base64Data },
             },
-            { type: "text", text: "Analyze the chart and respond with strict JSON only." },
+            { type: "text", text: "이 차트를 분석해주세요." },
           ],
         },
       ],
@@ -120,67 +95,14 @@ export async function POST(req: NextRequest) {
     const raw =
       message.content[0].type === "text" ? message.content[0].text : "";
 
-    try {
-      const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-      const parsed = JSON.parse(cleaned);
-
-      let data = {
-        signal: parsed.signal ?? "HOLD",
-        stage: parsed.stage ?? null,
-        pattern: parsed.pattern ?? "",
-        pattern_detail: parsed.pattern_detail ?? "",
-        volume_character: parsed.volume_character ?? null,
-        pivot: typeof parsed.pivot === "number" ? parsed.pivot : null,
-        entry: typeof parsed.entry === "number" ? parsed.entry : null,
-        target: typeof parsed.target === "number" ? parsed.target : null,
-        stop: typeof parsed.stop === "number" ? parsed.stop : null,
-        rr_ratio: typeof parsed.rr_ratio === "number" ? parsed.rr_ratio : null,
-        interpretation: parsed.interpretation ?? "",
-        conviction: parsed.conviction ?? "MEDIUM",
-        minervini_score: typeof parsed.minervini_score === "number" ? parsed.minervini_score : null,
-      };
-
-      // Server-side validation
-      const { signal, entry, target, stop } = data;
-      let valid = true;
-
-      if (entry != null && target != null && stop != null) {
-        if (signal === "BUY" && !(target > entry && entry > stop)) {
-          valid = false;
-        }
-        if (signal === "SELL" && !(target < entry && entry < stop)) {
-          valid = false;
-        }
-
-        // Recalculate R/R ratio
-        const risk = Math.abs(entry - stop);
-        const reward = Math.abs(target - entry);
-        if (risk > 0) {
-          data.rr_ratio = Math.round((reward / risk) * 100) / 100;
-          if (data.rr_ratio < 1.5) {
-            valid = false;
-          }
-        } else {
-          valid = false;
-        }
-      }
-
-      if (!valid) {
-        data = {
-          ...data,
-          signal: "HOLD",
-          interpretation: "가격 레벨 검증 실패 — 명확한 셋업이 확인되지 않습니다.",
-          conviction: "LOW",
-        };
-      }
-
-      return NextResponse.json({ ok: true, data });
-    } catch {
+    if (!raw.trim()) {
       return NextResponse.json(
-        { ok: false, error: "Failed to parse AI JSON response", raw },
+        { ok: false, error: "AI가 빈 응답을 반환했습니다" },
         { status: 502 }
       );
     }
+
+    return NextResponse.json({ ok: true, data: raw });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });

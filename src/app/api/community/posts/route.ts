@@ -4,10 +4,11 @@ import { supabase } from "@/lib/supabaseClient";
 
 export const runtime = "nodejs";
 
-// ── GET: list posts (optional ?category=) ────────────────────
+// ── GET: list posts (optional ?category= &subcategory=) ──────
 export async function GET(req: NextRequest) {
   try {
     const category = req.nextUrl.searchParams.get("category");
+    const subcategory = req.nextUrl.searchParams.get("subcategory");
 
     let query = supabaseAdmin
       .from("posts")
@@ -17,6 +18,9 @@ export async function GET(req: NextRequest) {
 
     if (category && category !== "all") {
       query = query.eq("category", category);
+    }
+    if (subcategory && subcategory !== "all") {
+      query = query.eq("subcategory", subcategory);
     }
 
     const { data, error } = await query;
@@ -61,6 +65,7 @@ export async function GET(req: NextRequest) {
       title: string;
       content: string;
       category: string;
+      subcategory: string | null;
       symbol: string | null;
       created_at: string;
     }
@@ -96,14 +101,26 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { title, content, category, symbol } = body;
+    const { title, content, category, symbol, subcategory } = body;
 
     if (!title?.trim()) {
       return NextResponse.json({ ok: false, error: "Title required" }, { status: 400 });
     }
 
-    const validCategories = ["stock", "crypto", "overseas", "macro", "politics", "discussion", "idea", "question", "news", "free"];
-    const cat = validCategories.includes(category) ? category : "discussion";
+    const validCategories = [
+      "stock_discussion", "macro", "free",
+      // legacy
+      "stock", "crypto", "overseas", "politics", "discussion", "idea", "question", "news",
+    ];
+    const cat = validCategories.includes(category) ? category : "free";
+
+    const validSubcategories = ["domestic", "overseas", "crypto", "commodity", "bond"];
+    const sub = subcategory && validSubcategories.includes(subcategory) ? subcategory : null;
+
+    // subcategory required for stock_discussion
+    if (cat === "stock_discussion" && !sub) {
+      return NextResponse.json({ ok: false, error: "Subcategory required for stock discussion" }, { status: 400 });
+    }
 
     const { data, error } = await supabaseAdmin.from("posts").insert({
       user_id: user.id,
@@ -111,6 +128,7 @@ export async function POST(req: NextRequest) {
       title: title.trim(),
       content: (content || "").trim(),
       category: cat,
+      subcategory: cat === "stock_discussion" ? sub : null,
       symbol: symbol?.trim() || null,
       image_url: body.image_url || null,
     }).select().single();

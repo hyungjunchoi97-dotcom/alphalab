@@ -33,7 +33,7 @@ interface MoverItem {
   tradingValue: number;
 }
 
-// ── In-memory cache (TTL = 5 min) ──────────────────────────
+// ── KST market-hours-aware cache ────────────────────────────
 
 interface CacheEntry {
   data: { topValue: MoverItem[]; topGainers: MoverItem[]; topLosers: MoverItem[]; totalGainers: number; totalLosers: number };
@@ -42,12 +42,39 @@ interface CacheEntry {
   fetchedAtISO: string;
 }
 
-const CACHE_TTL = 5 * 60 * 1000;
 let cached: CacheEntry | null = null;
+
+function getKstNow(): Date {
+  return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+}
+
+function isKstMarketOpen(): boolean {
+  const kst = getKstNow();
+  const day = kst.getDay();
+  if (day === 0 || day === 6) return false; // weekend
+  const h = kst.getHours();
+  const m = kst.getMinutes();
+  const mins = h * 60 + m;
+  return mins >= 540 && mins <= 930; // 09:00 ~ 15:30
+}
+
+function getCacheTTL(): number {
+  if (isKstMarketOpen()) return 5 * 60 * 1000; // 5 minutes during market hours
+  // After close: cache until next 09:00 KST
+  const kst = getKstNow();
+  const next9am = new Date(kst);
+  next9am.setHours(9, 0, 0, 0);
+  if (kst.getHours() >= 9) next9am.setDate(next9am.getDate() + 1);
+  // Skip weekends
+  const day = next9am.getDay();
+  if (day === 0) next9am.setDate(next9am.getDate() + 1);
+  else if (day === 6) next9am.setDate(next9am.getDate() + 2);
+  return Math.max(next9am.getTime() - kst.getTime(), 60 * 60 * 1000); // at least 1 hour
+}
 
 export function getCacheState(): "empty" | "fresh" | "stale" {
   if (!cached) return "empty";
-  return Date.now() - cached.cachedAt < CACHE_TTL ? "fresh" : "stale";
+  return Date.now() - cached.cachedAt < getCacheTTL() ? "fresh" : "stale";
 }
 
 export function getLastFetchAt(): string | undefined {
@@ -78,10 +105,14 @@ export function getBusinessDate(): string {
   const day = kst.getUTCDay();
   const hour = kst.getUTCHours();
 
+  // Weekend → previous Friday
   if (day === 0) kst.setUTCDate(kst.getUTCDate() - 2);
   else if (day === 6) kst.setUTCDate(kst.getUTCDate() - 1);
-  else if (hour < 16) kst.setUTCDate(kst.getUTCDate() - 1);
+  // Weekday before 9 AM KST → previous business day (market not open yet)
+  else if (hour < 9) kst.setUTCDate(kst.getUTCDate() - 1);
+  // Weekday 9 AM+ KST → use today (market open or already closed)
 
+  // Ensure adjusted date is not weekend
   const adjusted = kst.getUTCDay();
   if (adjusted === 0) kst.setUTCDate(kst.getUTCDate() - 2);
   else if (adjusted === 6) kst.setUTCDate(kst.getUTCDate() - 1);
@@ -447,15 +478,19 @@ export async function GET(req: NextRequest) {
 
   const now = new Date().toISOString();
   const asOfDefault = getBusinessDate();
+  const marketOpen = isKstMarketOpen();
+  const cacheTTL = getCacheTTL();
+  console.log("[KRX movers] businessDate:", asOfDefault, "now:", now, "marketOpen:", marketOpen, "cacheTTL:", Math.round(cacheTTL / 60000), "min");
 
   try {
-    if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
+    if (cached && Date.now() - cached.cachedAt < cacheTTL) {
       return NextResponse.json({
         ok: true,
         ...cached.data,
         source: "cache",
         asOf: cached.asOf,
         fetchedAtISO: cached.fetchedAtISO,
+        isMarketOpen: marketOpen,
       });
     }
 
@@ -488,6 +523,7 @@ export async function GET(req: NextRequest) {
       asOf: result.asOf,
       fetchedAtISO,
     };
+    const cacheSeconds = marketOpen ? 120 : 1800;
     return NextResponse.json({
       ok: true,
       ...cached.data,
@@ -495,8 +531,9 @@ export async function GET(req: NextRequest) {
       asOf: result.asOf,
       fetchedAtISO,
       message: result.message,
+      isMarketOpen: marketOpen,
     }, {
-      headers: { "Cache-Control": "s-maxage=120, stale-while-revalidate=300" },
+      headers: { "Cache-Control": `s-maxage=${cacheSeconds}, stale-while-revalidate=${cacheSeconds * 2}` },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
@@ -509,11 +546,12 @@ export async function GET(req: NextRequest) {
         asOf: cached.asOf,
         fetchedAtISO: now,
         message,
+        isMarketOpen: marketOpen,
       });
     }
 
     return NextResponse.json(
-      { ok: false, topGainers: [], topLosers: [], topValue: [], totalGainers: 0, totalLosers: 0, source: "error", asOf: asOfDefault, fetchedAtISO: now, message },
+      { ok: false, topGainers: [], topLosers: [], topValue: [], totalGainers: 0, totalLosers: 0, source: "error", asOf: asOfDefault, fetchedAtISO: now, message, isMarketOpen: marketOpen },
       { status: 500 }
     );
   }

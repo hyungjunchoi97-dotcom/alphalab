@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 export const runtime = "nodejs";
 
-// ── GET: list comments for a post ─────────────────────────────
+// ── GET: list comments for a post (nested) ──────────────────
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -26,7 +26,26 @@ export async function GET(
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, comments: data || [] });
+    const all = data || [];
+
+    // Separate top-level and replies
+    const topLevel = all.filter((c: { parent_id: string | null }) => !c.parent_id);
+    const replyMap = new Map<string, typeof all>();
+    for (const c of all) {
+      if (c.parent_id) {
+        const arr = replyMap.get(c.parent_id) || [];
+        arr.push(c);
+        replyMap.set(c.parent_id, arr);
+      }
+    }
+
+    // Attach replies to each top-level comment
+    const nested = topLevel.map((c: { id: string }) => ({
+      ...c,
+      replies: replyMap.get(c.id) || [],
+    }));
+
+    return NextResponse.json({ ok: true, comments: nested });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
@@ -60,6 +79,22 @@ export async function POST(
 
     if (!content?.trim()) {
       return NextResponse.json({ ok: false, error: "Content required" }, { status: 400 });
+    }
+
+    // If parent_id is provided, verify it's a top-level comment (depth 1 only)
+    if (parent_id) {
+      const { data: parent } = await supabaseAdmin
+        .from("post_comments")
+        .select("parent_id")
+        .eq("id", parent_id)
+        .single();
+
+      if (parent?.parent_id) {
+        return NextResponse.json(
+          { ok: false, error: "Cannot reply to a reply (max depth 1)" },
+          { status: 400 }
+        );
+      }
     }
 
     const insertData: Record<string, unknown> = {

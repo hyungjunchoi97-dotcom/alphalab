@@ -82,24 +82,3 @@ body {
   animation: blink-cursor 0.8s step-end infinite;
 }
 
-/* AppHeader responsive nav */
-.desktop-nav {
-  display: none;
-}
-.mobile-hamburger {
-  display: flex;
-}
-.mobile-dropdown {
-  display: block;
-}
-@media (min-width: 768px) {
-  .desktop-nav {
-    display: flex;
-  }
-  .mobile-hamburger {
-    display: none;
-  }
-  .mobile-dropdown {
-    display: none;
-  }
-}

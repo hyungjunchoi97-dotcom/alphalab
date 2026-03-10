@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { Inter, Geist_Mono, Noto_Sans_KR } from "next/font/google";
+import { Inter, Geist_Mono, Noto_Sans_KR, Rajdhani, JetBrains_Mono } from "next/font/google";
 import { LangProvider } from "@/lib/LangContext";
 import { AuthProvider } from "@/context/AuthContext";
 import AuthModal from "@/components/AuthModal";
-import TopTickerBar from "@/components/TopTickerBar";
 import "./globals.css";
 
 const inter = Inter({
@@ -21,6 +20,18 @@ const notoSansKR = Noto_Sans_KR({
   variable: "--font-noto-sans-kr",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+});
+
+const rajdhani = Rajdhani({
+  variable: "--font-rajdhani",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains",
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
@@ -52,12 +63,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${geistMono.variable} ${notoSansKR.variable} antialiased`}
+        className={`${inter.variable} ${geistMono.variable} ${notoSansKR.variable} ${rajdhani.variable} ${jetbrainsMono.variable} antialiased`}
       >
         <AuthProvider>
           <LangProvider>
-            <TopTickerBar />
-            {children}
+            <div className="md:ml-56">{children}</div>
             <AuthModal />
           </LangProvider>
         </AuthProvider>

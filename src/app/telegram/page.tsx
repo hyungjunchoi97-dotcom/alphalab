@@ -17,14 +17,7 @@ interface TelegramMessage {
 interface Channel {
   username: string;
   title: string;
-  category?: string;
 }
-
-const CATEGORIES = [
-  { key: "kr_invest", label: "한국 투자", labelEn: "KR Investment" },
-  { key: "kr_news", label: "한국 뉴스", labelEn: "KR News" },
-  { key: "global", label: "글로벌", labelEn: "Global" },
-];
 
 const REFRESH_INTERVAL = 3 * 60 * 1000; // 3 minutes
 
@@ -155,15 +148,36 @@ export default function TelegramPage() {
   const [countdown, setCountdown] = useState(REFRESH_INTERVAL / 1000);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Pagination state per channel
+  const [oldestIds, setOldestIds] = useState<Record<string, number | null>>({});
+  const [hasMoreMap, setHasMoreMap] = useState<Record<string, boolean>>({});
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const fetchFeed = useCallback(async () => {
     try {
       const res = await fetch("/api/telegram/feed");
       const json = await res.json();
       if (json.ok) {
-        setAllMessages(json.messages || []);
+        const msgs: TelegramMessage[] = json.messages || [];
+        setAllMessages(msgs);
         if (json.channels) setChannels(json.channels);
         setLastUpdate(Date.now());
         setCountdown(REFRESH_INTERVAL / 1000);
+
+        // Compute initial oldestId per channel
+        const ids: Record<string, number | null> = {};
+        const more: Record<string, boolean> = {};
+        for (const m of msgs) {
+          if (ids[m.channel] === undefined || (m.id < (ids[m.channel] ?? Infinity))) {
+            ids[m.channel] = m.id;
+          }
+        }
+        // Assume more pages exist initially
+        for (const ch of (json.channels || [])) {
+          more[ch.username] = true;
+        }
+        setOldestIds(ids);
+        setHasMoreMap(more);
       }
     } catch {
       // silent
@@ -171,6 +185,117 @@ export default function TelegramPage() {
       setLoading(false);
     }
   }, []);
+
+  const loadOlderMessages = useCallback(async (channel: string) => {
+    const before = oldestIds[channel];
+    if (!before || loadingMore) return;
+
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/telegram/feed?channel=${channel}&before=${before}`);
+      const json = await res.json();
+      if (json.ok) {
+        const older: TelegramMessage[] = json.messages || [];
+        if (older.length === 0 || older.length < 15) {
+          setHasMoreMap((prev) => ({ ...prev, [channel]: false }));
+        }
+        if (older.length > 0) {
+          setAllMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => `${m.channel}-${m.id}`));
+            const newMsgs = older.filter((m) => !existingIds.has(`${m.channel}-${m.id}`));
+            return [...prev, ...newMsgs].sort((a, b) => b.date - a.date);
+          });
+          const newOldest = Math.min(...older.map((m) => m.id));
+          setOldestIds((prev) => ({ ...prev, [channel]: newOldest }));
+        }
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [oldestIds, loadingMore]);
+
+  // Load older messages for ALL channels (전체보기 tab)
+  const loadOlderAllChannels = useCallback(async () => {
+    if (loadingMore) return;
+    const targets = channels.filter((ch) => hasMoreMap[ch.username] && oldestIds[ch.username]);
+    if (targets.length === 0) return;
+
+    setLoadingMore(true);
+    try {
+      const results = await Promise.allSettled(
+        targets.map(async (ch) => {
+          const before = oldestIds[ch.username];
+          if (!before) return { channel: ch.username, messages: [] as TelegramMessage[], count: 0 };
+          const res = await fetch(`/api/telegram/feed?channel=${ch.username}&before=${before}`);
+          const json = await res.json();
+          const msgs: TelegramMessage[] = json.ok ? json.messages || [] : [];
+          return { channel: ch.username, messages: msgs, count: msgs.length };
+        })
+      );
+
+      const newMoreMap: Record<string, boolean> = {};
+      const newOldestIds: Record<string, number> = {};
+      let allOlder: TelegramMessage[] = [];
+
+      for (const r of results) {
+        if (r.status !== "fulfilled") continue;
+        const { channel: ch, messages: msgs, count } = r.value;
+        if (count === 0 || count < 15) {
+          newMoreMap[ch] = false;
+        }
+        if (msgs.length > 0) {
+          allOlder = [...allOlder, ...msgs];
+          newOldestIds[ch] = Math.min(...msgs.map((m) => m.id));
+        }
+      }
+
+      if (allOlder.length > 0) {
+        setAllMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => `${m.channel}-${m.id}`));
+          const newMsgs = allOlder.filter((m) => !existingIds.has(`${m.channel}-${m.id}`));
+          return [...prev, ...newMsgs].sort((a, b) => b.date - a.date);
+        });
+      }
+
+      setHasMoreMap((prev) => ({ ...prev, ...newMoreMap }));
+      setOldestIds((prev) => ({ ...prev, ...newOldestIds }));
+    } catch {
+      // silent
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [channels, hasMoreMap, oldestIds, loadingMore]);
+
+  // Whether "all channels" still has more to load
+  const hasMoreAll = useMemo(() => {
+    return channels.some((ch) => hasMoreMap[ch.username] && oldestIds[ch.username]);
+  }, [channels, hasMoreMap, oldestIds]);
+
+  // IntersectionObserver for auto-loading in individual channel tabs
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // Track whether sentinel-based fetch should fire (set after render)
+  const canFetchMoreRef = useRef(false);
+
+  useEffect(() => {
+    if (!activeChannel) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry.isIntersecting && canFetchMoreRef.current && !loadingMore) {
+          loadOlderMessages(activeChannel);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [activeChannel, loadingMore, loadOlderMessages]);
 
   // Auto-refresh every 3 minutes
   useEffect(() => {
@@ -203,6 +328,9 @@ export default function TelegramPage() {
 
   const displayMessages = filteredMessages.slice(0, visibleCount);
   const hasMore = visibleCount < filteredMessages.length;
+
+  // Keep ref in sync so the IntersectionObserver callback can read it
+  canFetchMoreRef.current = !!(activeChannel && !hasMore && hasMoreMap[activeChannel] && !loadingMore);
 
   const channelCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -279,46 +407,32 @@ export default function TelegramPage() {
                 </span>
               </button>
 
-              {CATEGORIES.map((cat) => {
-                const catChannels = channels.filter((ch) => ch.category === cat.key);
-                if (catChannels.length === 0) return null;
-                return (
-                  <div key={cat.key} className="mt-4">
-                    <h3
-                      className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-widest"
-                      style={{ color: "#555555" }}
+              <div className="mt-2 space-y-0.5">
+                {channels.map((ch) => {
+                  const isActive = activeChannel === ch.username;
+                  const color = CHANNEL_COLORS[ch.username];
+                  const isEmpty = emptyChannels.has(ch.username);
+                  return (
+                    <button
+                      key={ch.username}
+                      onClick={() => setActiveChannel(ch.username)}
+                      className="w-full rounded-lg px-3 py-2 text-left text-[12px] transition-all"
+                      style={{
+                        background: isActive ? "rgba(96,165,250,0.08)" : "transparent",
+                        color: isActive ? (color?.text || "#60a5fa") : isEmpty ? "#444" : "#777777",
+                        borderLeft: isActive ? `2px solid ${color?.text || "#60a5fa"}` : "2px solid transparent",
+                      }}
                     >
-                      {lang === "kr" ? cat.label : cat.labelEn}
-                    </h3>
-                    <div className="space-y-0.5">
-                      {catChannels.map((ch) => {
-                        const isActive = activeChannel === ch.username;
-                        const color = CHANNEL_COLORS[ch.username];
-                        const isEmpty = emptyChannels.has(ch.username);
-                        return (
-                          <button
-                            key={ch.username}
-                            onClick={() => setActiveChannel(ch.username)}
-                            className="w-full rounded-lg px-3 py-2 text-left text-[12px] transition-all"
-                            style={{
-                              background: isActive ? "rgba(96,165,250,0.08)" : "transparent",
-                              color: isActive ? (color?.text || "#60a5fa") : isEmpty ? "#444" : "#777777",
-                              borderLeft: isActive ? `2px solid ${color?.text || "#60a5fa"}` : "2px solid transparent",
-                            }}
-                          >
-                            <span className="flex items-center justify-between">
-                              <span className={isEmpty ? "line-through opacity-50" : ""}>{ch.title}</span>
-                              <span style={{ fontSize: "10px", color: isEmpty ? "#333" : "#444" }}>
-                                {channelCounts.get(ch.username) || 0}
-                              </span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+                      <span className="flex items-center justify-between">
+                        <span className={isEmpty ? "line-through opacity-50" : ""}>{ch.title}</span>
+                        <span style={{ fontSize: "10px", color: isEmpty ? "#333" : "#444" }}>
+                          {channelCounts.get(ch.username) || 0}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </aside>
 
@@ -337,23 +451,20 @@ export default function TelegramPage() {
               >
                 {lang === "kr" ? "전체" : "All"}
               </button>
-              {CATEGORIES.map((cat) => {
-                const catChannels = channels.filter((ch) => ch.category === cat.key);
-                return catChannels.map((ch) => (
-                  <button
-                    key={ch.username}
-                    onClick={() => setActiveChannel(ch.username)}
-                    className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors"
-                    style={{
-                      background: activeChannel === ch.username ? "#60a5fa" : "#1a1a1a",
-                      color: activeChannel === ch.username ? "#000" : "#888",
-                      border: "1px solid #222222",
-                    }}
-                  >
-                    {ch.title}
-                  </button>
-                ));
-              })}
+              {channels.map((ch) => (
+                <button
+                  key={ch.username}
+                  onClick={() => setActiveChannel(ch.username)}
+                  className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors"
+                  style={{
+                    background: activeChannel === ch.username ? "#60a5fa" : "#1a1a1a",
+                    color: activeChannel === ch.username ? "#000" : "#888",
+                    border: "1px solid #222222",
+                  }}
+                >
+                  {ch.title}
+                </button>
+              ))}
             </div>
 
             {/* Feed header */}
@@ -466,6 +577,39 @@ export default function TelegramPage() {
                     ? `더 보기 (${filteredMessages.length - visibleCount}개 남음)`
                     : `Load more (${filteredMessages.length - visibleCount} remaining)`}
                 </button>
+              )}
+
+              {/* Individual channel: auto-load via IntersectionObserver */}
+              {activeChannel && !hasMore && hasMoreMap[activeChannel] && (
+                <>
+                  {loadingMore && (
+                    <div className="text-[11px] text-gray-600 text-center py-4 animate-pulse">
+                      Loading...
+                    </div>
+                  )}
+                  <div ref={sentinelRef} className="h-1" />
+                </>
+              )}
+
+              {/* All channels: manual "이전 메시지 보기" button */}
+              {!activeChannel && !hasMore && hasMoreAll && (
+                <button
+                  onClick={loadOlderAllChannels}
+                  disabled={loadingMore}
+                  className="w-full py-4 text-center text-[12px] font-medium transition-colors hover:bg-white/5 disabled:opacity-40"
+                  style={{ color: "#60a5fa", borderTop: "1px solid #222222" }}
+                >
+                  {loadingMore
+                    ? (lang === "kr" ? "불러오는 중..." : "Loading...")
+                    : (lang === "kr" ? "이전 메시지 보기" : "Load older messages")}
+                </button>
+              )}
+
+              {/* End of feed indicator */}
+              {!hasMore && ((activeChannel && !hasMoreMap[activeChannel]) || (!activeChannel && !hasMoreAll)) && filteredMessages.length > 0 && (
+                <div className="py-4 text-center text-[11px]" style={{ color: "#333" }}>
+                  {lang === "kr" ? "모든 메시지를 불러왔습니다" : "All messages loaded"}
+                </div>
               )}
             </div>
           </div>
