@@ -4,13 +4,31 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useLang } from "@/lib/LangContext";
 import { messages } from "@/lib/i18n";
 import AppHeader from "@/components/AppHeader";
-import AiAnalysisPanel from "@/components/AiAnalysisPanel";
 
 interface QuarterData {
   label: string;
+  // P&L
   revenue: number | null;
+  grossProfit: number | null;
   operatingIncome: number | null;
   netIncome: number | null;
+  ebitda: number | null;
+  eps: number | null;
+  grossMargin: number | null;
+  operatingMargin: number | null;
+  netMargin: number | null;
+  // B/S
+  totalAssets: number | null;
+  totalLiabilities: number | null;
+  totalEquity: number | null;
+  cash: number | null;
+  totalDebt: number | null;
+  netDebt: number | null;
+  // C/F
+  operatingCF: number | null;
+  capex: number | null;
+  fcf: number | null;
+  dividendsPaid: number | null;
 }
 
 interface FinResponse {
@@ -29,20 +47,38 @@ interface TickerResult {
   exchange: string;
 }
 
+type TabKey = "pl" | "bs" | "cf";
+
+interface RowDef {
+  label: string;
+  key: keyof QuarterData;
+  isMargin?: boolean;
+  isBold?: boolean;
+  indent?: boolean;
+}
+
 // ── Formatters ──────────────────────────────────────────────
 
 function fmtNum(v: number | null, isKR: boolean): string {
   if (v == null) return "—";
-  // KR: already in KRW from DART, convert to 억원
-  const val = isKR ? v / 1e8 : v; // US: already in $M from API
+  const val = isKR ? v / 1e8 : v;
   const abs = Math.abs(val);
   const formatted = abs.toLocaleString(undefined, { maximumFractionDigits: 0 });
   return val < 0 ? `(${formatted})` : formatted;
 }
 
-function fmtMarketCap(v: number | null, isKR: boolean): string {
+function fmtPct(v: number | null): string {
   if (v == null) return "—";
-  // Already converted: KR=억원, US=$M
+  return `${v.toFixed(1)}%`;
+}
+
+function fmtEps(v: number | null): string {
+  if (v == null) return "—";
+  return v.toFixed(2);
+}
+
+function fmtMarketCap(v: number | null): string {
+  if (v == null) return "—";
   return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
@@ -61,6 +97,7 @@ export default function FinancialsPage() {
   const [finData, setFinData] = useState<FinResponse | null>(null);
   const [finLoading, setFinLoading] = useState(false);
   const [finError, setFinError] = useState("");
+  const [activeTab, setActiveTab] = useState<TabKey>("pl");
 
   // Search dropdown
   const [searchResults, setSearchResults] = useState<TickerResult[]>([]);
@@ -130,11 +167,65 @@ export default function FinancialsPage() {
   const unit = isKR ? t.finUnit : "$M";
   const quarterly = finData?.quarterly || [];
 
-  const ROWS: { label: string; key: keyof QuarterData }[] = [
-    { label: t.finRevenue, key: "revenue" },
-    { label: t.finOperatingIncome, key: "operatingIncome" },
-    { label: t.finNetIncome, key: "netIncome" },
+  // ── Row definitions per tab ──────────────────────────────
+
+  const PL_ROWS: RowDef[] = [
+    { label: "Revenue", key: "revenue", isBold: true },
+    { label: "Gross Profit", key: "grossProfit" },
+    { label: "Gross Margin", key: "grossMargin", isMargin: true, indent: true },
+    { label: "Operating Income", key: "operatingIncome" },
+    { label: "OPM", key: "operatingMargin", isMargin: true, indent: true },
+    { label: "Net Income", key: "netIncome", isBold: true },
+    { label: "NPM", key: "netMargin", isMargin: true, indent: true },
+    { label: "EBITDA", key: "ebitda" },
+    { label: "EPS (Diluted)", key: "eps" },
   ];
+
+  const BS_ROWS: RowDef[] = [
+    { label: "Total Assets", key: "totalAssets", isBold: true },
+    { label: "Total Liabilities", key: "totalLiabilities" },
+    { label: "Total Equity", key: "totalEquity", isBold: true },
+    { label: "Cash & Equivalents", key: "cash" },
+    { label: "Total Debt", key: "totalDebt" },
+    { label: "Net Debt", key: "netDebt" },
+  ];
+
+  const CF_ROWS: RowDef[] = [
+    { label: "Operating Cash Flow", key: "operatingCF", isBold: true },
+    { label: "Capital Expenditure", key: "capex" },
+    { label: "Free Cash Flow", key: "fcf", isBold: true },
+    { label: "Dividends Paid", key: "dividendsPaid" },
+  ];
+
+  const TABS: { key: TabKey; label: string; rows: RowDef[] }[] = [
+    { key: "pl", label: "P&L", rows: PL_ROWS },
+    { key: "bs", label: "B/S", rows: BS_ROWS },
+    { key: "cf", label: "C/F", rows: CF_ROWS },
+  ];
+
+  const currentRows = TABS.find((tb) => tb.key === activeTab)?.rows || PL_ROWS;
+
+  // ── Render cell value ────────────────────────────────────
+
+  function renderCell(q: QuarterData, row: RowDef): { text: string; color: string } {
+    const val = q[row.key] as number | null;
+    if (row.isMargin) {
+      return {
+        text: fmtPct(val),
+        color: val == null ? "#4b5563" : val < 0 ? "#f87171" : "#4ade80",
+      };
+    }
+    if (row.key === "eps") {
+      return {
+        text: fmtEps(val),
+        color: val != null && val < 0 ? "#f87171" : row.isBold ? "#e8e8e8" : "#9ca3af",
+      };
+    }
+    return {
+      text: fmtNum(val, !!isKR),
+      color: val != null && val < 0 ? "#f87171" : row.isBold ? "#e8e8e8" : "#9ca3af",
+    };
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -242,141 +333,99 @@ export default function FinancialsPage() {
               )}
               {finData.marketCap != null && (
                 <div className="text-[11px] font-mono" style={{ color: "#6b7280" }}>
-                  {lang === "kr" ? "시가총액" : "Mkt Cap"}: {fmtMarketCap(finData.marketCap, !!isKR)} {unit}
+                  {lang === "kr" ? "시가총액" : "Mkt Cap"}: {fmtMarketCap(finData.marketCap)} {unit}
                 </div>
               )}
             </div>
 
-            {/* Quarterly Income Statement Table */}
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#6b7280" }}>
-                  {t.finQuarterly} {t.finIS}
-                </span>
+            {/* Tab bar */}
+            <div className="flex gap-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+              {TABS.map((tb) => (
+                <button
+                  key={tb.key}
+                  onClick={() => setActiveTab(tb.key)}
+                  className="px-4 py-1.5 text-[11px] font-bold font-mono tracking-wider transition-colors"
+                  style={{
+                    color: activeTab === tb.key ? "#fbbf24" : "#6b7280",
+                    borderBottom: activeTab === tb.key ? "2px solid #fbbf24" : "2px solid transparent",
+                    background: activeTab === tb.key ? "rgba(251,191,36,0.04)" : "transparent",
+                  }}
+                >
+                  {tb.label}
+                </button>
+              ))}
+              <div className="ml-auto flex items-center">
                 <span className="text-[9px] font-mono" style={{ color: "#555" }}>
                   {unit}
                 </span>
               </div>
+            </div>
 
-              {quarterly.length === 0 ? (
-                <div className="py-8 text-center text-[11px]" style={{ color: "#555" }}>{t.finNoData}</div>
-              ) : (
-                <div className="overflow-x-auto rounded-lg" style={{ border: "1px solid #222" }}>
-                  <table className="w-full font-mono text-[11px]" style={{ background: "#080c12" }}>
-                    <thead>
-                      <tr style={{ background: "#0d1117", borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
+            {/* Table */}
+            {quarterly.length === 0 ? (
+              <div className="py-8 text-center text-[11px]" style={{ color: "#555" }}>{t.finNoData}</div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg" style={{ border: "1px solid #222" }}>
+                <table className="w-full font-mono text-xs" style={{ background: "#080c12" }}>
+                  <thead>
+                    <tr style={{ background: "#0d1117", borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
+                      <th
+                        className="sticky left-0 z-10 py-2 pl-3 pr-4 text-left text-[10px] font-medium uppercase tracking-wider"
+                        style={{ background: "#0d1117", color: "#6b7280", width: "192px", minWidth: "192px" }}
+                      >
+                        &nbsp;
+                      </th>
+                      {quarterly.map((q, i) => (
                         <th
-                          className="sticky left-0 z-10 py-2 pl-3 pr-4 text-left text-[10px] font-medium uppercase tracking-wider"
-                          style={{ background: "#0d1117", color: "#6b7280", width: "180px", minWidth: "180px" }}
+                          key={i}
+                          className="py-2 px-3 text-right text-[10px] font-medium uppercase tracking-wider"
+                          style={{ color: "#6b7280", minWidth: "110px" }}
                         >
-                          &nbsp;
+                          {q.label}
                         </th>
-                        {quarterly.map((q, i) => (
-                          <th
-                            key={i}
-                            className="py-2 px-3 text-right text-[10px] font-medium uppercase tracking-wider"
-                            style={{ color: "#6b7280", minWidth: "100px" }}
-                          >
-                            {q.label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ROWS.map((row) => (
-                        <tr
-                          key={row.key}
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentRows.map((row) => (
+                      <tr
+                        key={row.key}
+                        className="transition-colors hover:bg-white/[0.02]"
+                        style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                      >
+                        <td
+                          className="sticky left-0 z-10 py-1.5 pl-3 pr-4 text-left whitespace-nowrap"
                           style={{
-                            borderBottom: "1px solid rgba(255,255,255,0.04)",
-                            background: row.key === "revenue" || row.key === "netIncome" ? "rgba(255,255,255,0.03)" : "transparent",
+                            background: "#0d1117",
+                            color: row.isBold ? "#e8e8e8" : "#9ca3af",
+                            fontWeight: row.isBold ? 500 : 400,
+                            paddingLeft: row.indent ? "28px" : "12px",
+                            fontSize: row.isMargin ? "10px" : "11px",
                           }}
                         >
-                          <td
-                            className="sticky left-0 z-10 py-1.5 pl-3 pr-4 text-left whitespace-nowrap font-medium"
-                            style={{
-                              background: "#080c12",
-                              color: row.key === "revenue" || row.key === "netIncome" ? "#e8e8e8" : "#9ca3af",
-                            }}
-                          >
-                            {row.label}
-                          </td>
-                          {quarterly.map((q, ci) => {
-                            const val = q[row.key] as number | null;
-                            return (
-                              <td
-                                key={ci}
-                                className="py-1.5 px-3 text-right tabular-nums"
-                                style={{
-                                  color: val != null && val < 0 ? "#f87171"
-                                    : row.key === "revenue" || row.key === "netIncome" ? "#e8e8e8" : "#9ca3af",
-                                }}
-                              >
-                                {fmtNum(val, !!isKR)}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                      {/* OPM row */}
-                      <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <td
-                          className="sticky left-0 z-10 py-1.5 pl-3 pr-4 text-left whitespace-nowrap"
-                          style={{ background: "#080c12", color: "#6b7280", paddingLeft: "28px", fontSize: "10px" }}
-                        >
-                          OPM
+                          {row.label}
                         </td>
                         {quarterly.map((q, ci) => {
-                          const opm = q.revenue && q.operatingIncome ? (q.operatingIncome / q.revenue) * 100 : null;
+                          const { text, color } = renderCell(q, row);
                           return (
                             <td
                               key={ci}
                               className="py-1.5 px-3 text-right tabular-nums"
-                              style={{ fontSize: "10px", color: opm != null && opm < 0 ? "#f87171" : "#6b7280" }}
+                              style={{
+                                color,
+                                fontSize: row.isMargin ? "10px" : "11px",
+                              }}
                             >
-                              {opm != null ? `${opm.toFixed(1)}%` : "—"}
+                              {text}
                             </td>
                           );
                         })}
                       </tr>
-                      {/* NPM row */}
-                      <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <td
-                          className="sticky left-0 z-10 py-1.5 pl-3 pr-4 text-left whitespace-nowrap"
-                          style={{ background: "#080c12", color: "#6b7280", paddingLeft: "28px", fontSize: "10px" }}
-                        >
-                          NPM
-                        </td>
-                        {quarterly.map((q, ci) => {
-                          const npm = q.revenue && q.netIncome ? (q.netIncome / q.revenue) * 100 : null;
-                          return (
-                            <td
-                              key={ci}
-                              className="py-1.5 px-3 text-right tabular-nums"
-                              style={{ fontSize: "10px", color: npm != null && npm < 0 ? "#f87171" : "#6b7280" }}
-                            >
-                              {npm != null ? `${npm.toFixed(1)}%` : "—"}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* AI Analysis */}
-            <div className="mt-4 rounded-lg p-4" style={{ background: "#0d1117", border: "1px solid #222" }}>
-              <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#6b7280" }}>
-                AI ANALYSIS
-              </h3>
-              <AiAnalysisPanel
-                ticker={finData.ticker}
-                market={finData.market}
-                financialData={finData}
-                lang={lang}
-              />
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
 
