@@ -158,11 +158,12 @@ async function fetchUS(ticker: string, period: string) {
   const fmpPeriod = period === "annual" ? "annual" : "quarter";
   const limit = period === "annual" ? 5 : 8;
 
-  const [isData, bsData, cfData, profileData] = await Promise.all([
+  const [isData, bsData, cfData, profileData, ptData] = await Promise.all([
     fetchJson(`${FMP_BASE}/income-statement?symbol=${ticker}&period=${fmpPeriod}&limit=${limit}&apikey=${FMP_KEY}`),
     fetchJson(`${FMP_BASE}/balance-sheet-statement?symbol=${ticker}&period=${fmpPeriod}&limit=${limit}&apikey=${FMP_KEY}`),
     fetchJson(`${FMP_BASE}/cash-flow-statement?symbol=${ticker}&period=${fmpPeriod}&limit=${limit}&apikey=${FMP_KEY}`),
     fetchJson(`${FMP_BASE}/profile?symbol=${ticker}&apikey=${FMP_KEY}`),
+    fetchJson(`${FMP_BASE}/price-target-consensus?symbol=${ticker}&apikey=${FMP_KEY}`),
   ]);
 
   console.log('[FMP IS RAW]', JSON.stringify(isData).slice(0, 500));
@@ -303,11 +304,20 @@ async function fetchUS(ticker: string, period: string) {
   const marketCap = rawMktCap ? Math.round(rawMktCap / 1e6) : null;
   const price = profile?.price ?? null;
 
+  const pt = Array.isArray(ptData) ? ptData[0] : ptData;
+  const priceTarget = pt ? {
+    consensus: pt.targetConsensus ?? null,
+    high: pt.targetHigh ?? null,
+    low: pt.targetLow ?? null,
+    median: pt.targetMedian ?? null,
+  } : null;
+
   return {
     market: "US" as const,
     ticker,
     marketCap,
     price,
+    priceTarget,
     quarterly: rows,
   };
 }

@@ -9,11 +9,19 @@ import { BarChart, Bar, XAxis, Cell, LabelList, ResponsiveContainer } from "rech
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface QuarterData { [key: string]: any }
 
+interface PriceTarget {
+  consensus: number | null;
+  high: number | null;
+  low: number | null;
+  median: number | null;
+}
+
 interface FinResponse {
   market: "KR" | "US";
   ticker: string;
   marketCap: number | null;
   price: number | null;
+  priceTarget?: PriceTarget | null;
   quarterly: QuarterData[];
 }
 
@@ -409,6 +417,71 @@ export default function FinancialsPage() {
                 </div>
               )}
             </div>
+
+            {/* Price Target */}
+            {finData.priceTarget && finData.price != null && (() => {
+              const pt = finData.priceTarget;
+              const price = finData.price!;
+              const consensus = pt.consensus;
+              const high = pt.high;
+              const low = pt.low;
+              const median = pt.median;
+              if (consensus == null || high == null || low == null) return null;
+              const upside = Math.round(((consensus - price) / price) * 1000) / 10;
+              const range = high - low;
+              const pricePct = range > 0 ? Math.max(0, Math.min(100, ((price - low) / range) * 100)) : 50;
+
+              return (
+                <div
+                  className="flex flex-wrap gap-6 items-center rounded p-3"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                >
+                  {/* Left: consensus */}
+                  <div className="shrink-0">
+                    <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "#6b7280" }}>Wall St. Consensus</div>
+                    <div className="text-base font-mono font-medium" style={{ color: "#e8e8e8" }}>
+                      ${consensus.toFixed(2)}
+                    </div>
+                    <div className="text-xs font-mono" style={{ color: upside >= 0 ? "#4ade80" : "#f87171" }}>
+                      {upside >= 0 ? "+" : ""}{upside.toFixed(1)}%
+                    </div>
+                  </div>
+
+                  {/* Center: bar visualization */}
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="relative h-6 flex items-center">
+                      {/* Track */}
+                      <div className="absolute inset-x-0 h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.06)" }} />
+                      {/* Filled range */}
+                      <div
+                        className="absolute h-1.5 rounded-full"
+                        style={{ left: 0, width: `${pricePct}%`, background: "rgba(251,191,36,0.2)" }}
+                      />
+                      {/* Current price marker */}
+                      <div
+                        className="absolute w-0.5 h-4 rounded-full"
+                        style={{ left: `${pricePct}%`, background: "#f59e0b", transform: "translateX(-50%)" }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className="text-[9px] font-mono" style={{ color: "#6b7280" }}>${low.toFixed(0)}</span>
+                      <span className="text-[9px] font-mono" style={{ color: "#f59e0b" }}>Current ${price.toFixed(2)}</span>
+                      <span className="text-[9px] font-mono" style={{ color: "#6b7280" }}>${high.toFixed(0)}</span>
+                    </div>
+                  </div>
+
+                  {/* Right: targets */}
+                  <div className="shrink-0 text-right space-y-0.5">
+                    <div className="text-xs font-mono" style={{ color: "#9ca3af" }}>High: <span style={{ color: "#e8e8e8" }}>${high.toFixed(0)}</span></div>
+                    {median != null && (
+                      <div className="text-xs font-mono" style={{ color: "#9ca3af" }}>Median: <span style={{ color: "#e8e8e8" }}>${median.toFixed(0)}</span></div>
+                    )}
+                    <div className="text-xs font-mono" style={{ color: "#9ca3af" }}>Low: <span style={{ color: "#e8e8e8" }}>${low.toFixed(0)}</span></div>
+                    <div className="text-[9px] mt-1" style={{ color: "#4b5563" }}>Source: Wall Street Analyst Consensus</div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Tab bar */}
             <div className="flex gap-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
