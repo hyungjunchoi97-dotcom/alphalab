@@ -158,12 +158,14 @@ async function fetchUS(ticker: string, period: string) {
   const fmpPeriod = period === "annual" ? "annual" : "quarter";
   const limit = period === "annual" ? 5 : 8;
 
-  const [isData, bsData, cfData, profileData, ptData] = await Promise.all([
+  const [isData, bsData, cfData, profileData, ptData, kmData, ratioData] = await Promise.all([
     fetchJson(`${FMP_BASE}/income-statement?symbol=${ticker}&period=${fmpPeriod}&limit=${limit}&apikey=${FMP_KEY}`),
     fetchJson(`${FMP_BASE}/balance-sheet-statement?symbol=${ticker}&period=${fmpPeriod}&limit=${limit}&apikey=${FMP_KEY}`),
     fetchJson(`${FMP_BASE}/cash-flow-statement?symbol=${ticker}&period=${fmpPeriod}&limit=${limit}&apikey=${FMP_KEY}`),
     fetchJson(`${FMP_BASE}/profile?symbol=${ticker}&apikey=${FMP_KEY}`),
     fetchJson(`${FMP_BASE}/price-target-consensus?symbol=${ticker}&apikey=${FMP_KEY}`),
+    fetchJson(`${FMP_BASE}/key-metrics?symbol=${ticker}&period=annual&limit=10&apikey=${FMP_KEY}`),
+    fetchJson(`${FMP_BASE}/ratios?symbol=${ticker}&period=annual&limit=10&apikey=${FMP_KEY}`),
   ]);
 
   console.log('[FMP IS RAW]', JSON.stringify(isData).slice(0, 500));
@@ -312,6 +314,35 @@ async function fetchUS(ticker: string, period: string) {
     median: pt.targetMedian ?? null,
   } : null;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const r2 = (v: any) => v != null ? Math.round(v * 100) / 100 : null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const keyMetrics = safeArr(kmData).map((k: any) => ({
+    label: `${k.fiscalYear ?? k.calendarYear}`,
+    roe: r2(k.returnOnEquity != null ? k.returnOnEquity * 100 : null),
+    roic: r2(k.roic != null ? k.roic * 100 : null),
+    roa: r2(k.returnOnAssets != null ? k.returnOnAssets * 100 : null),
+    fcfYield: r2(k.freeCashFlowYield != null ? k.freeCashFlowYield * 100 : null),
+    eps: r2(k.earningsYield != null ? k.earningsYield * 100 : null),
+    revenuePerShare: r2(k.revenuePerShare),
+    netIncomePerShare: r2(k.netIncomePerShare),
+    interestCoverage: r2(k.interestCoverage),
+    netDebtToEbitda: r2(k.netDebtToEBITDA),
+  })).reverse();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const valuation = safeArr(ratioData).map((v: any) => ({
+    label: `${v.fiscalYear ?? v.calendarYear}`,
+    pe: r2(v.priceEarningsRatio),
+    pb: r2(v.priceToBookRatio),
+    evEbitda: r2(v.enterpriseValueOverEBITDA),
+    ps: r2(v.priceToSalesRatio),
+    evRevenue: r2(v.enterpriseValueMultiple ?? v.evToRevenue),
+    peg: r2(v.priceEarningsToGrowthRatio),
+    dividendYield: r2(v.dividendYield != null ? v.dividendYield * 100 : null),
+  })).reverse();
+
   return {
     market: "US" as const,
     ticker,
@@ -319,6 +350,8 @@ async function fetchUS(ticker: string, period: string) {
     price,
     priceTarget,
     quarterly: rows,
+    keyMetrics,
+    valuation,
   };
 }
 
