@@ -132,6 +132,9 @@ async function fetchUS(ticker: string) {
     fetchJson(`${FMP_BASE}/profile/${ticker}?apikey=${FMP_KEY}`),
   ]);
 
+  console.log('[FMP IS RAW]', JSON.stringify(isData).slice(0, 500));
+  console.log('[FMP PROFILE RAW]', JSON.stringify(profileData).slice(0, 500));
+
   const statements = Array.isArray(isData) ? isData : [];
   const profile = Array.isArray(profileData) ? profileData[0] : profileData;
 
