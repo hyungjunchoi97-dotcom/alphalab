@@ -632,7 +632,7 @@ export default function FinancialsPage() {
                           dataKey="capex"
                           position="top"
                           style={{ fill: "#9ca3af", fontSize: 9, fontFamily: "monospace" }}
-                          formatter={(v: number | null) => v != null ? (isKR ? Math.round(v / 1e8).toLocaleString() : v.toLocaleString()) : ""}
+                          formatter={(v: unknown) => { const n = v as number | null; return n != null ? (isKR ? Math.round(n / 1e8).toLocaleString() : n.toLocaleString()) : ""; }}
                         />
                         {quarterly.map((q, i) => (
                           <Cell key={i} fill={(q.capex as number) >= 0 ? "#f59e0b" : "#f87171"} />
