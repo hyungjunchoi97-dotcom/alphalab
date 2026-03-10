@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useLang } from "@/lib/LangContext";
 import { messages } from "@/lib/i18n";
 import AppHeader from "@/components/AppHeader";
-import { BarChart, Bar, XAxis, Cell, LabelList, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, LabelList, ResponsiveContainer } from "recharts";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface QuarterData { [key: string]: any }
@@ -256,7 +256,7 @@ export default function FinancialsPage() {
 
   // ── Render cell value ────────────────────────────────────
 
-  function renderCell(q: QuarterData, row: RowDef): { text: string; color: string } {
+  function renderCell(q: QuarterData, row: RowDef): { text: string; color: string; fontWeight?: number } {
     const val = q[row.key] as number | null;
     if (row.isMargin) {
       return {
@@ -267,13 +267,13 @@ export default function FinancialsPage() {
     if (row.isRatio) {
       return {
         text: row.key === "debtToEquity" ? fmtPct(val) : fmtRatio(val),
-        color: val == null ? "#4b5563" : "#9ca3af",
+        color: val == null ? "#4b5563" : "#f3f4f6",
       };
     }
     if (row.key === "eps") {
       return {
         text: fmtEps(val),
-        color: val != null && val < 0 ? "#f87171" : "#9ca3af",
+        color: val != null && val < 0 ? "#f87171" : "#f3f4f6",
       };
     }
     if (row.isRed) {
@@ -282,9 +282,11 @@ export default function FinancialsPage() {
         color: "#f87171",
       };
     }
+    const neg = val != null && val < 0;
     return {
       text: fmtNum(val, !!isKR),
-      color: val != null && val < 0 ? "#f87171" : row.isBold ? "#e8e8e8" : "#9ca3af",
+      color: neg ? "#f87171" : row.isBold ? "#ffffff" : "#f3f4f6",
+      fontWeight: row.isBold ? 600 : undefined,
     };
   }
 
@@ -548,8 +550,8 @@ export default function FinancialsPage() {
                       {quarterly.map((q, i) => (
                         <th
                           key={i}
-                          className="py-2 px-3 text-right text-[10px] font-medium uppercase tracking-wider"
-                          style={{ color: "#6b7280", minWidth: "110px" }}
+                          className="py-2 px-4 text-right text-[10px] font-medium uppercase tracking-wider"
+                          style={{ color: "#6b7280", minWidth: "120px" }}
                         >
                           {q.label}
                         </th>
@@ -588,23 +590,24 @@ export default function FinancialsPage() {
                             style={{
                               background: "#0d1117",
                               color: row.isTotal ? "#ffffff" : row.isBold ? "#e8e8e8" : "#9ca3af",
-                              fontWeight: row.isBold || row.isTotal ? 500 : 400,
+                              fontWeight: row.isBold || row.isTotal ? 600 : 400,
                               paddingLeft: row.indent ? "28px" : "12px",
-                              fontSize: row.isMargin || row.isRatio ? "10px" : "11px",
+                              fontSize: row.isMargin || row.isRatio ? "11px" : "12px",
                             }}
                           >
                             {row.label}
                           </td>
                           {quarterly.map((q, ci) => {
-                            const { text, color } = renderCell(q, row);
+                            const { text, color, fontWeight } = renderCell(q, row);
                             return (
                               <td
                                 key={ci}
-                                className="py-1.5 px-3 text-right tabular-nums"
+                                className="py-1.5 px-4 text-right tabular-nums"
                                 style={{
                                   color: row.isTotal ? "#ffffff" : color,
-                                  fontWeight: row.isTotal ? 500 : undefined,
-                                  fontSize: row.isMargin || row.isRatio ? "10px" : "11px",
+                                  fontWeight: row.isTotal ? 600 : fontWeight,
+                                  fontSize: row.isMargin || row.isRatio ? "11px" : "13px",
+                                  letterSpacing: "0.01em",
                                 }}
                               >
                                 {text}
@@ -625,18 +628,15 @@ export default function FinancialsPage() {
                 <div className="text-[10px] mb-2" style={{ color: "#6b7280" }}>Capital Expenditure</div>
                 <div style={{ width: "100%", height: 160 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={quarterly.map((q) => ({ label: q.label, capex: q.capex as number | null }))} barCategoryGap="20%">
+                    <BarChart data={quarterly.map((q) => ({ label: q.label, capex: q.capex != null ? Math.abs(q.capex as number) : null }))} barCategoryGap="20%">
                       <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 9, fontFamily: "monospace" }} axisLine={false} tickLine={false} />
-                      <Bar dataKey="capex" radius={[2, 2, 0, 0]}>
+                      <Bar dataKey="capex" radius={[2, 2, 0, 0]} fill="#f59e0b">
                         <LabelList
                           dataKey="capex"
                           position="top"
                           style={{ fill: "#9ca3af", fontSize: 9, fontFamily: "monospace" }}
                           formatter={(v: unknown) => { const n = v as number | null; return n != null ? (isKR ? Math.round(n / 1e8).toLocaleString() : n.toLocaleString()) : ""; }}
                         />
-                        {quarterly.map((q, i) => (
-                          <Cell key={i} fill={(q.capex as number) >= 0 ? "#f59e0b" : "#f87171"} />
-                        ))}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
