@@ -128,8 +128,8 @@ async function fetchKR(ticker: string) {
 
 async function fetchUS(ticker: string) {
   const [isData, profileData] = await Promise.all([
-    fetchJson(`${FMP_BASE}/income-statement/${ticker}?period=quarter&limit=4&apikey=${FMP_KEY}`),
-    fetchJson(`${FMP_BASE}/profile/${ticker}?apikey=${FMP_KEY}`),
+    fetchJson(`${FMP_BASE}/income-statement?symbol=${ticker}&period=quarter&limit=4&apikey=${FMP_KEY}`),
+    fetchJson(`${FMP_BASE}/profile?symbol=${ticker}&apikey=${FMP_KEY}`),
   ]);
 
   console.log('[FMP IS RAW]', JSON.stringify(isData).slice(0, 500));
