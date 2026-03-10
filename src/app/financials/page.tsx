@@ -5,31 +5,8 @@ import { useLang } from "@/lib/LangContext";
 import { messages } from "@/lib/i18n";
 import AppHeader from "@/components/AppHeader";
 
-interface QuarterData {
-  label: string;
-  // P&L
-  revenue: number | null;
-  grossProfit: number | null;
-  operatingIncome: number | null;
-  netIncome: number | null;
-  ebitda: number | null;
-  eps: number | null;
-  grossMargin: number | null;
-  operatingMargin: number | null;
-  netMargin: number | null;
-  // B/S
-  totalAssets: number | null;
-  totalLiabilities: number | null;
-  totalEquity: number | null;
-  cash: number | null;
-  totalDebt: number | null;
-  netDebt: number | null;
-  // C/F
-  operatingCF: number | null;
-  capex: number | null;
-  fcf: number | null;
-  dividendsPaid: number | null;
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+interface QuarterData { [key: string]: any }
 
 interface FinResponse {
   market: "KR" | "US";
@@ -48,13 +25,16 @@ interface TickerResult {
 }
 
 type TabKey = "pl" | "bs" | "cf";
+type PeriodKey = "quarterly" | "annual";
 
 interface RowDef {
   label: string;
-  key: keyof QuarterData;
+  key: string;
   isMargin?: boolean;
+  isRatio?: boolean;
   isBold?: boolean;
   indent?: boolean;
+  isRed?: boolean;
 }
 
 // ── Formatters ──────────────────────────────────────────────
@@ -73,6 +53,11 @@ function fmtPct(v: number | null): string {
 }
 
 function fmtEps(v: number | null): string {
+  if (v == null) return "—";
+  return v.toFixed(2);
+}
+
+function fmtRatio(v: number | null): string {
   if (v == null) return "—";
   return v.toFixed(2);
 }
@@ -98,6 +83,10 @@ export default function FinancialsPage() {
   const [finLoading, setFinLoading] = useState(false);
   const [finError, setFinError] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("pl");
+  const [period, setPeriod] = useState<PeriodKey>("quarterly");
+
+  // Track selected ticker/market for re-fetch on period change
+  const selectedRef = useRef<{ ticker: string; market: string } | null>(null);
 
   // Search dropdown
   const [searchResults, setSearchResults] = useState<TickerResult[]>([]);
@@ -139,13 +128,13 @@ export default function FinancialsPage() {
     }, 300);
   };
 
-  const fetchFinancials = useCallback(async (tk: string, mk: string) => {
+  const fetchFinancials = useCallback(async (tk: string, mk: string, pd: PeriodKey) => {
     if (!tk.trim()) return;
     setFinLoading(true);
     setFinError("");
     setFinData(null);
     try {
-      const res = await fetch(`/api/financials?ticker=${encodeURIComponent(tk.trim())}&market=${mk}`);
+      const res = await fetch(`/api/financials?ticker=${encodeURIComponent(tk.trim())}&market=${mk}&period=${pd}`);
       const json = await res.json();
       if (json.ok) setFinData(json.data);
       else setFinError(json.error || "Error");
@@ -160,21 +149,36 @@ export default function FinancialsPage() {
     setQuery(`${r.ticker} — ${r.name}`);
     setShowDropdown(false);
     setSearchResults([]);
-    fetchFinancials(r.ticker, r.market);
+    selectedRef.current = { ticker: r.ticker, market: r.market };
+    fetchFinancials(r.ticker, r.market, period);
+  };
+
+  const handlePeriodChange = (pd: PeriodKey) => {
+    setPeriod(pd);
+    if (selectedRef.current) {
+      fetchFinancials(selectedRef.current.ticker, selectedRef.current.market, pd);
+    }
   };
 
   const isKR = finData?.market === "KR";
   const unit = isKR ? t.finUnit : "$M";
   const quarterly = finData?.quarterly || [];
+  const growthLabel = period === "annual" ? "YoY %" : "QoQ %";
 
   // ── Row definitions per tab ──────────────────────────────
 
   const PL_ROWS: RowDef[] = [
     { label: "Revenue", key: "revenue", isBold: true },
-    { label: "Gross Profit", key: "grossProfit" },
+    { label: growthLabel, key: "revenueGrowth", isMargin: true, indent: true },
+    { label: "Cost of Revenue", key: "costOfRevenue", indent: true },
+    { label: "Gross Profit", key: "grossProfit", isBold: true },
     { label: "Gross Margin", key: "grossMargin", isMargin: true, indent: true },
-    { label: "Operating Income", key: "operatingIncome" },
+    { label: "R&D Expense", key: "rdExpense", indent: true },
+    { label: "SG&A", key: "sgaExpense", indent: true },
+    { label: "Operating Income", key: "operatingIncome", isBold: true },
     { label: "OPM", key: "operatingMargin", isMargin: true, indent: true },
+    { label: "Interest Expense", key: "interestExpense", indent: true },
+    { label: "Income Tax", key: "incomeTaxExpense", indent: true },
     { label: "Net Income", key: "netIncome", isBold: true },
     { label: "NPM", key: "netMargin", isMargin: true, indent: true },
     { label: "EBITDA", key: "ebitda" },
@@ -183,17 +187,28 @@ export default function FinancialsPage() {
 
   const BS_ROWS: RowDef[] = [
     { label: "Total Assets", key: "totalAssets", isBold: true },
-    { label: "Total Liabilities", key: "totalLiabilities" },
+    { label: "Cash & Equivalents", key: "cash", indent: true },
+    { label: "Short-term Investments", key: "shortTermInvestments", indent: true },
+    { label: "Long-term Investments", key: "longTermInvestments", indent: true },
+    { label: "Goodwill", key: "goodwill", indent: true },
+    { label: "Intangible Assets", key: "intangibleAssets", indent: true },
+    { label: "Total Liabilities", key: "totalLiabilities", isBold: true },
+    { label: "Short-term Debt", key: "shortTermDebt", indent: true },
+    { label: "Long-term Debt", key: "longTermDebt", indent: true },
     { label: "Total Equity", key: "totalEquity", isBold: true },
-    { label: "Cash & Equivalents", key: "cash" },
-    { label: "Total Debt", key: "totalDebt" },
     { label: "Net Debt", key: "netDebt" },
+    { label: "Debt/Equity", key: "debtToEquity", isRatio: true },
+    { label: "Current Ratio", key: "currentRatio", isRatio: true },
   ];
 
   const CF_ROWS: RowDef[] = [
     { label: "Operating Cash Flow", key: "operatingCF", isBold: true },
-    { label: "Capital Expenditure", key: "capex" },
+    { label: "Stock-Based Comp", key: "sbc", indent: true },
+    { label: "Chg in Working Capital", key: "changeInWorkingCapital", indent: true },
+    { label: "Capital Expenditure", key: "capex", isRed: true },
     { label: "Free Cash Flow", key: "fcf", isBold: true },
+    { label: "Investing CF", key: "investingCF" },
+    { label: "Financing CF", key: "financingCF" },
     { label: "Dividends Paid", key: "dividendsPaid" },
   ];
 
@@ -215,10 +230,22 @@ export default function FinancialsPage() {
         color: val == null ? "#4b5563" : val < 0 ? "#f87171" : "#4ade80",
       };
     }
+    if (row.isRatio) {
+      return {
+        text: row.key === "debtToEquity" ? fmtPct(val) : fmtRatio(val),
+        color: val == null ? "#4b5563" : "#9ca3af",
+      };
+    }
     if (row.key === "eps") {
       return {
         text: fmtEps(val),
-        color: val != null && val < 0 ? "#f87171" : row.isBold ? "#e8e8e8" : "#9ca3af",
+        color: val != null && val < 0 ? "#f87171" : "#9ca3af",
+      };
+    }
+    if (row.isRed) {
+      return {
+        text: fmtNum(val, !!isKR),
+        color: "#f87171",
       };
     }
     return {
@@ -237,62 +264,81 @@ export default function FinancialsPage() {
           {t.finFinancials}
         </h1>
 
-        {/* Search */}
-        <div ref={dropdownRef} className="relative w-full max-w-lg">
-          <input
-            value={query}
-            onChange={(e) => handleQueryChange(e.target.value)}
-            onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
-            placeholder={lang === "kr" ? "회사명(영문) 또는 종목코드 (예: Samsung, AAPL, 005930.KS)" : "Company name or ticker (e.g. Samsung, AAPL, 005930.KS)"}
-            className="w-full rounded border px-3 py-2 text-sm font-mono outline-none transition-colors focus:border-amber-400/50"
-            style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)", color: "#e8e8e8" }}
-          />
-          <p className="text-[11px] mt-1" style={{ color: "#6b7280" }}>
-            {lang === "kr"
-              ? "한국 주식: 영문명 또는 종목코드 입력 (예: 005930.KS, 000660.KS)"
-              : "Korean stocks: enter English name or code (e.g. 005930.KS, 000660.KS)"}
-          </p>
-          {showDropdown && (
-            <div
-              className="absolute z-50 mt-1 w-full overflow-hidden rounded"
-              style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.1)" }}
-            >
-              {searchLoading ? (
-                <div className="px-3 py-3 text-[11px] animate-pulse" style={{ color: "#6b7280" }}>
-                  {lang === "kr" ? "검색중..." : "Searching..."}
-                </div>
-              ) : searchResults.length === 0 ? (
-                <div className="px-3 py-3 text-[11px]" style={{ color: "#4b5563" }}>
-                  {lang === "kr" ? "결과 없음" : "No results found"}
-                </div>
-              ) : (
-                searchResults.map((r) => (
-                  <button
-                    key={`${r.market}-${r.ticker}`}
-                    onClick={() => selectResult(r)}
-                    className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-white/5"
-                  >
-                    <div>
-                      <span className="text-sm" style={{ color: "#e8e8e8" }}>{r.name}</span>
-                      <span className="ml-2 text-[10px]" style={{ color: "#6b7280" }}>{r.exchange}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[11px]" style={{ color: "#fbbf24" }}>{r.ticker}</span>
-                      <span
-                        className="rounded px-1.5 py-0.5 text-[9px] font-bold"
-                        style={{
-                          background: r.market === "KR" ? "rgba(96,165,250,0.12)" : "rgba(251,191,36,0.12)",
-                          color: r.market === "KR" ? "#60a5fa" : "#fbbf24",
-                        }}
-                      >
-                        {r.market}
-                      </span>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
+        {/* Search + Period toggle */}
+        <div className="flex flex-wrap items-start gap-4">
+          <div ref={dropdownRef} className="relative w-full max-w-lg">
+            <input
+              value={query}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
+              placeholder={lang === "kr" ? "회사명(영문) 또는 종목코드 (예: Samsung, AAPL, 005930.KS)" : "Company name or ticker (e.g. Samsung, AAPL, 005930.KS)"}
+              className="w-full rounded border px-3 py-2 text-sm font-mono outline-none transition-colors focus:border-amber-400/50"
+              style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)", color: "#e8e8e8" }}
+            />
+            <p className="text-[11px] mt-1" style={{ color: "#6b7280" }}>
+              {lang === "kr"
+                ? "한국 주식: 영문명 또는 종목코드 입력 (예: 005930.KS, 000660.KS)"
+                : "Korean stocks: enter English name or code (e.g. 005930.KS, 000660.KS)"}
+            </p>
+            {showDropdown && (
+              <div
+                className="absolute z-50 mt-1 w-full overflow-hidden rounded"
+                style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.1)" }}
+              >
+                {searchLoading ? (
+                  <div className="px-3 py-3 text-[11px] animate-pulse" style={{ color: "#6b7280" }}>
+                    {lang === "kr" ? "검색중..." : "Searching..."}
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="px-3 py-3 text-[11px]" style={{ color: "#4b5563" }}>
+                    {lang === "kr" ? "결과 없음" : "No results found"}
+                  </div>
+                ) : (
+                  searchResults.map((r) => (
+                    <button
+                      key={`${r.market}-${r.ticker}`}
+                      onClick={() => selectResult(r)}
+                      className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-white/5"
+                    >
+                      <div>
+                        <span className="text-sm" style={{ color: "#e8e8e8" }}>{r.name}</span>
+                        <span className="ml-2 text-[10px]" style={{ color: "#6b7280" }}>{r.exchange}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px]" style={{ color: "#fbbf24" }}>{r.ticker}</span>
+                        <span
+                          className="rounded px-1.5 py-0.5 text-[9px] font-bold"
+                          style={{
+                            background: r.market === "KR" ? "rgba(96,165,250,0.12)" : "rgba(251,191,36,0.12)",
+                            color: r.market === "KR" ? "#60a5fa" : "#fbbf24",
+                          }}
+                        >
+                          {r.market}
+                        </span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Period toggle */}
+          <div className="flex rounded overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.1)" }}>
+            {(["annual", "quarterly"] as PeriodKey[]).map((pd) => (
+              <button
+                key={pd}
+                onClick={() => handlePeriodChange(pd)}
+                className="px-3 py-1.5 text-[10px] font-bold font-mono uppercase tracking-wider transition-colors"
+                style={{
+                  color: period === pd ? "#fbbf24" : "#6b7280",
+                  background: period === pd ? "rgba(251,191,36,0.08)" : "transparent",
+                }}
+              >
+                {pd === "annual" ? "Annual" : "Quarterly"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Loading */}
@@ -400,7 +446,7 @@ export default function FinancialsPage() {
                             color: row.isBold ? "#e8e8e8" : "#9ca3af",
                             fontWeight: row.isBold ? 500 : 400,
                             paddingLeft: row.indent ? "28px" : "12px",
-                            fontSize: row.isMargin ? "10px" : "11px",
+                            fontSize: row.isMargin || row.isRatio ? "10px" : "11px",
                           }}
                         >
                           {row.label}
@@ -413,7 +459,7 @@ export default function FinancialsPage() {
                               className="py-1.5 px-3 text-right tabular-nums"
                               style={{
                                 color,
-                                fontSize: row.isMargin ? "10px" : "11px",
+                                fontSize: row.isMargin || row.isRatio ? "10px" : "11px",
                               }}
                             >
                               {text}

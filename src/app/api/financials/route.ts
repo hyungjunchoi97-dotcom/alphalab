@@ -20,6 +20,11 @@ function parseDartAmount(v?: string): number | null {
   return Number(v.replace(/,/g, "")) || null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function safeArr(data: any): any[] {
+  return Array.isArray(data) ? data : [];
+}
+
 // ── DART (KR) ───────────────────────────────────────────────
 
 async function resolveCorpCode(ticker: string): Promise<string | null> {
@@ -72,10 +77,41 @@ function extractIS(items: DartItem[]) {
   return { revenue, operatingIncome, netIncome };
 }
 
-async function fetchKR(ticker: string) {
+async function fetchKR(ticker: string, period: string) {
   const corpCode = await resolveCorpCode(ticker);
   if (!corpCode) throw new Error(`Corp code not found for ${ticker}`);
 
+  const suffix = ticker.length === 6 ? `${ticker}.KS` : ticker;
+
+  if (period === "annual") {
+    // Annual: 사업보고서(11011) for last 5 years
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 5 }, (_, i) => currentYear - 1 - i).reverse();
+    const [y1, y2, y3, y4, y5, profileJson] = await Promise.all([
+      fetchDartIS(corpCode, years[0], "11011"),
+      fetchDartIS(corpCode, years[1], "11011"),
+      fetchDartIS(corpCode, years[2], "11011"),
+      fetchDartIS(corpCode, years[3], "11011"),
+      fetchDartIS(corpCode, years[4], "11011"),
+      fetchJson(`${FMP_BASE}/quote/${suffix}?apikey=${FMP_KEY}`),
+    ]);
+
+    const results = [y1, y2, y3, y4, y5].map((items, i) => {
+      const ex = extractIS(items);
+      return { label: `${years[i]}`, ...ex };
+    });
+
+    const quote = Array.isArray(profileJson) ? profileJson[0] : profileJson;
+    return {
+      market: "KR" as const,
+      ticker,
+      marketCap: quote?.marketCap ? Math.round(quote.marketCap / 1e8) : null,
+      price: quote?.price ?? null,
+      quarterly: results,
+    };
+  }
+
+  // Quarterly: 4 reports for 2024
   const quarters = [
     { year: 2024, code: "11013", label: "2024 1Q" },
     { year: 2024, code: "11012", label: "2024 2Q" },
@@ -83,7 +119,6 @@ async function fetchKR(ticker: string) {
     { year: 2024, code: "11011", label: "2024 4Q" },
   ];
 
-  const suffix = ticker.length === 6 ? `${ticker}.KS` : ticker;
   const [q1Items, q2Items, q3Items, q4Items, profileJson] = await Promise.all([
     fetchDartIS(corpCode, quarters[0].year, quarters[0].code),
     fetchDartIS(corpCode, quarters[1].year, quarters[1].code),
@@ -107,30 +142,26 @@ async function fetchKR(ticker: string) {
   ];
 
   const quote = Array.isArray(profileJson) ? profileJson[0] : profileJson;
-  const marketCap = quote?.marketCap ? Math.round(quote.marketCap / 1e8) : null;
-  const price = quote?.price ?? null;
 
   return {
     market: "KR" as const,
     ticker,
-    marketCap,
-    price,
+    marketCap: quote?.marketCap ? Math.round(quote.marketCap / 1e8) : null,
+    price: quote?.price ?? null,
     quarterly,
   };
 }
 
 // ── FMP (US) ────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function safeArr(data: any): any[] {
-  return Array.isArray(data) ? data : [];
-}
+async function fetchUS(ticker: string, period: string) {
+  const fmpPeriod = period === "annual" ? "annual" : "quarter";
+  const limit = period === "annual" ? 5 : 8;
 
-async function fetchUS(ticker: string) {
   const [isData, bsData, cfData, profileData] = await Promise.all([
-    fetchJson(`${FMP_BASE}/income-statement?symbol=${ticker}&period=quarter&limit=4&apikey=${FMP_KEY}`),
-    fetchJson(`${FMP_BASE}/balance-sheet-statement?symbol=${ticker}&period=quarter&limit=4&apikey=${FMP_KEY}`),
-    fetchJson(`${FMP_BASE}/cash-flow-statement?symbol=${ticker}&period=quarter&limit=4&apikey=${FMP_KEY}`),
+    fetchJson(`${FMP_BASE}/income-statement?symbol=${ticker}&period=${fmpPeriod}&limit=${limit}&apikey=${FMP_KEY}`),
+    fetchJson(`${FMP_BASE}/balance-sheet-statement?symbol=${ticker}&period=${fmpPeriod}&limit=${limit}&apikey=${FMP_KEY}`),
+    fetchJson(`${FMP_BASE}/cash-flow-statement?symbol=${ticker}&period=${fmpPeriod}&limit=${limit}&apikey=${FMP_KEY}`),
     fetchJson(`${FMP_BASE}/profile?symbol=${ticker}&apikey=${FMP_KEY}`),
   ]);
 
@@ -149,7 +180,7 @@ async function fetchUS(ticker: string) {
     num != null && den != null && den !== 0 ? Math.round((num / den) * 10000) / 100 : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const quarterly = isArr.map((s: any, idx: number) => {
+  const rows = isArr.map((s: any, idx: number) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bs: any = bsArr[idx] || {};
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,33 +192,67 @@ async function fetchUS(ticker: string) {
     const netIncome = m(s.netIncome);
     const ebitda = m(s.ebitda);
     const eps = s.epsDiluted ?? s.eps ?? null;
+    const totalEquityVal = m(bs.totalStockholdersEquity ?? bs.totalEquity);
+    const totalDebtVal = m(bs.totalDebt);
 
     return {
-      label: `${s.fiscalYear ?? s.calendarYear} ${s.period}`,
+      label: period === "annual"
+        ? `${s.fiscalYear ?? s.calendarYear}`
+        : `${s.fiscalYear ?? s.calendarYear} ${s.period}`,
       // P&L
       revenue,
+      costOfRevenue: m(s.costOfRevenue),
       grossProfit,
+      grossMargin: pct(grossProfit, revenue),
+      rdExpense: m(s.researchAndDevelopmentExpenses),
+      sgaExpense: m(s.sellingGeneralAndAdministrativeExpenses),
       operatingIncome,
+      operatingMargin: pct(operatingIncome, revenue),
+      interestExpense: m(s.interestExpense),
+      incomeTaxExpense: m(s.incomeTaxExpense),
       netIncome,
+      netMargin: pct(netIncome, revenue),
       ebitda,
       eps: eps != null ? Math.round(eps * 100) / 100 : null,
-      grossMargin: pct(grossProfit, revenue),
-      operatingMargin: pct(operatingIncome, revenue),
-      netMargin: pct(netIncome, revenue),
+      revenueGrowth: null as number | null, // computed after reverse
       // B/S
       totalAssets: m(bs.totalAssets),
-      totalLiabilities: m(bs.totalLiabilities),
-      totalEquity: m(bs.totalStockholdersEquity ?? bs.totalEquity),
       cash: m(bs.cashAndCashEquivalents),
-      totalDebt: m(bs.totalDebt),
+      shortTermInvestments: m(bs.shortTermInvestments),
+      longTermInvestments: m(bs.longTermInvestments),
+      goodwill: m(bs.goodwill),
+      intangibleAssets: m(bs.intangibleAssets),
+      totalLiabilities: m(bs.totalLiabilities),
+      shortTermDebt: m(bs.shortTermDebt),
+      longTermDebt: m(bs.longTermDebt),
+      totalEquity: totalEquityVal,
+      totalDebt: totalDebtVal,
       netDebt: m(bs.netDebt),
+      debtToEquity: totalEquityVal && totalDebtVal != null && totalEquityVal !== 0
+        ? Math.round((totalDebtVal / totalEquityVal) * 10000) / 100 : null,
+      currentRatio: bs.totalCurrentAssets && bs.totalCurrentLiabilities && bs.totalCurrentLiabilities !== 0
+        ? Math.round((bs.totalCurrentAssets / bs.totalCurrentLiabilities) * 100) / 100 : null,
       // C/F
       operatingCF: m(cf.operatingCashFlow),
+      sbc: m(cf.stockBasedCompensation),
+      changeInWorkingCapital: m(cf.changeInWorkingCapital),
       capex: m(cf.capitalExpenditure),
       fcf: m(cf.freeCashFlow),
+      investingCF: m(cf.netCashUsedForInvestingActivities),
+      financingCF: m(cf.netCashUsedProvidedByFinancingActivities),
       dividendsPaid: m(cf.dividendsPaid),
     };
-  }).reverse();
+  }).reverse(); // oldest first
+
+  // Compute revenue growth (QoQ or YoY)
+  for (let i = 0; i < rows.length; i++) {
+    if (i === 0) continue;
+    const prev = rows[i - 1].revenue;
+    const cur = rows[i].revenue;
+    if (prev != null && cur != null && prev !== 0) {
+      rows[i].revenueGrowth = Math.round(((cur - prev) / Math.abs(prev)) * 10000) / 100;
+    }
+  }
 
   const rawMktCap = profile?.marketCap ?? profile?.mktCap;
   const marketCap = rawMktCap ? Math.round(rawMktCap / 1e6) : null;
@@ -198,7 +263,7 @@ async function fetchUS(ticker: string) {
     ticker,
     marketCap,
     price,
-    quarterly,
+    quarterly: rows,
   };
 }
 
@@ -209,12 +274,13 @@ export async function GET(req: NextRequest) {
     const rawTicker = req.nextUrl.searchParams.get("ticker") || "";
     const ticker = rawTicker.replace(/\.(KS|KQ)$/i, "");
     const market = (req.nextUrl.searchParams.get("market") || "US").toUpperCase();
+    const period = req.nextUrl.searchParams.get("period") === "annual" ? "annual" : "quarterly";
 
     if (!ticker) {
       return NextResponse.json({ ok: false, error: "ticker required" }, { status: 400 });
     }
 
-    const data = market === "KR" ? await fetchKR(ticker) : await fetchUS(ticker);
+    const data = market === "KR" ? await fetchKR(ticker, period) : await fetchUS(ticker, period);
 
     return NextResponse.json({ ok: true, data });
   } catch (err) {
