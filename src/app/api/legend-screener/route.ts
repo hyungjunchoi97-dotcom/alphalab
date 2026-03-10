@@ -23,18 +23,25 @@ const SP100 = [
 ];
 
 // ── Types ──────────────────────────────────────────────────────
-interface LegendResult {
+interface ScreenerResult {
   symbol: string;
   name: string;
-  market: "US";
   price: number;
   change_pct: number;
-  score: number;
-  max_score: number;
-  criteria: { label: string; value: string; passed: boolean }[];
+  per: number | null;
+  epsYoY: number | null;
+  epsQoQ: number | null;
+  revYoY: number | null;
+  distFromHigh: number | null;
 }
 
-type GuruKey = "buffett" | "oneil" | "lynch" | "druckenmiller";
+interface Filters {
+  per?: number;
+  epsYoY?: number;
+  epsQoQ?: number;
+  revYoY?: number;
+  nearHigh?: number;
+}
 
 // ── FMP helper ─────────────────────────────────────────────────
 async function fmpGet<T>(path: string): Promise<T | null> {
@@ -49,74 +56,47 @@ async function fmpGet<T>(path: string): Promise<T | null> {
 }
 
 // ── Per-symbol data fetch ──────────────────────────────────────
+interface KeyMetric { returnOnEquity?: number }
+interface RatioItem { netProfitMargin?: number; debtToEquityRatio?: number; priceToEarningsRatio?: number }
+interface IncomeStmt { revenue?: number; eps?: number }
+interface QuoteItem { symbol?: string; price?: number; changesPercentage?: number; name?: string; yearHigh?: number }
+
 interface StockData {
   symbol: string;
-  // key-metrics
-  roe?: number;
-  npm?: number;
-  de?: number;
-  pe?: number;
-  // quote
+  name: string;
   price: number;
   changePct: number;
-  name: string;
-  // income-statement derived
-  epsYoY?: number;
-  revYoY?: number;
-}
-
-interface KeyMetric {
-  returnOnEquity?: number;
-}
-
-interface RatioItem {
-  netProfitMargin?: number;
-  debtToEquityRatio?: number;
-  priceToEarningsRatio?: number;
-}
-
-interface IncomeStmt {
-  revenue?: number;
-  eps?: number;
-}
-
-interface QuoteItem {
-  symbol?: string;
-  price?: number;
-  changesPercentage?: number;
-  name?: string;
+  per: number | null;
+  epsYoY: number | null;
+  epsQoQ: number | null;
+  revYoY: number | null;
+  distFromHigh: number | null;
 }
 
 async function fetchStockData(symbol: string): Promise<StockData | null> {
-  const [metrics, ratios, income, quote] = await Promise.all([
-    fmpGet<KeyMetric[]>(`/key-metrics?symbol=${symbol}&period=annual&limit=1`),
+  const [ratios, incomeAnn, incomeQ, quote] = await Promise.all([
     fmpGet<RatioItem[]>(`/ratios?symbol=${symbol}&period=annual&limit=1`),
     fmpGet<IncomeStmt[]>(`/income-statement?symbol=${symbol}&period=annual&limit=2`),
+    fmpGet<IncomeStmt[]>(`/income-statement?symbol=${symbol}&period=quarter&limit=2`),
     fmpGet<QuoteItem[]>(`/quote?symbol=${symbol}`),
   ]);
 
   const q = Array.isArray(quote) ? quote[0] : null;
-  if (symbol === "AAPL") console.log("[DEBUG AAPL]", JSON.stringify({m: metrics?.[0]?.returnOnEquity, r: ratios?.[0]?.netProfitMargin, q: q?.price}));
   if (!q?.price) return null;
 
-  const m = Array.isArray(metrics) ? metrics[0] : null;
   const r = Array.isArray(ratios) ? ratios[0] : null;
-  const incArr = Array.isArray(income) ? income : [];
+  const annArr = Array.isArray(incomeAnn) ? incomeAnn : [];
+  const qArr = Array.isArray(incomeQ) ? incomeQ : [];
 
-  // DEBUG: AAPL only
-  if (symbol === "AAPL") {
-    console.log("[DEBUG AAPL] key-metrics:", JSON.stringify(m));
-    console.log("[DEBUG AAPL] ratios:", JSON.stringify(r));
-    console.log("[DEBUG AAPL] income-statement:", JSON.stringify(incArr));
-    console.log("[DEBUG AAPL] quote:", JSON.stringify(q));
-  }
+  // P/E from ratios
+  const per = r?.priceToEarningsRatio ?? null;
 
-  // YoY growth: income[0] = latest, income[1] = previous year
-  let epsYoY: number | undefined;
-  let revYoY: number | undefined;
-  if (incArr.length >= 2) {
-    const cur = incArr[0];
-    const prev = incArr[1];
+  // Annual YoY: incomeAnn[0] = latest, incomeAnn[1] = previous
+  let epsYoY: number | null = null;
+  let revYoY: number | null = null;
+  if (annArr.length >= 2) {
+    const cur = annArr[0];
+    const prev = annArr[1];
     if (prev.eps && prev.eps > 0 && cur.eps != null) {
       epsYoY = ((cur.eps - prev.eps) / Math.abs(prev.eps)) * 100;
     }
@@ -125,64 +105,45 @@ async function fetchStockData(symbol: string): Promise<StockData | null> {
     }
   }
 
+  // Quarterly QoQ EPS
+  let epsQoQ: number | null = null;
+  if (qArr.length >= 2) {
+    const cur = qArr[0];
+    const prev = qArr[1];
+    if (prev.eps && prev.eps > 0 && cur.eps != null) {
+      epsQoQ = ((cur.eps - prev.eps) / Math.abs(prev.eps)) * 100;
+    }
+  }
+
+  // Distance from 52-week high
+  const yearHigh = q.yearHigh ?? 0;
+  const distFromHigh = yearHigh > 0 ? ((yearHigh - q.price) / yearHigh) * 100 : null;
+
   return {
     symbol,
-    roe: m?.returnOnEquity,
-    npm: r?.netProfitMargin,
-    de: r?.debtToEquityRatio,
-    pe: r?.priceToEarningsRatio,
+    name: q.name || symbol,
     price: q.price,
     changePct: q.changesPercentage ?? 0,
-    name: q.name || symbol,
-    epsYoY,
-    revYoY,
+    per,
+    epsYoY: epsYoY != null ? Math.round(epsYoY * 10) / 10 : null,
+    epsQoQ: epsQoQ != null ? Math.round(epsQoQ * 10) / 10 : null,
+    revYoY: revYoY != null ? Math.round(revYoY * 10) / 10 : null,
+    distFromHigh: distFromHigh != null ? Math.round(distFromHigh * 10) / 10 : null,
   };
 }
 
-// ── Criteria builders ──────────────────────────────────────────
-const pct = (v: number | undefined) => (v != null ? v * 100 : null);
-const fmtPct = (v: number | null) => (v != null ? `${v.toFixed(1)}%` : "N/A");
-
-function buildCriteria(guru: GuruKey, d: StockData): LegendResult["criteria"] {
-  const roe = pct(d.roe);
-  const npm = pct(d.npm);
-  const de = d.de;
-  const pe = d.pe;
-  const revG = d.revYoY;
-  const epsG = d.epsYoY;
-
-  switch (guru) {
-    case "buffett":
-      return [
-        { label: "ROE > 15%", value: fmtPct(roe), passed: roe != null && roe > 15 },
-        { label: "NPM > 10%", value: fmtPct(npm), passed: npm != null && npm > 10 },
-        { label: "D/E < 2.0", value: de != null ? de.toFixed(2) : "N/A", passed: de != null && de < 2.0 },
-        { label: "EPS YoY Growth", value: fmtPct(epsG ?? null), passed: epsG != null && epsG > 0 },
-      ];
-    case "oneil":
-      return [
-        { label: "EPS YoY > 25%", value: fmtPct(epsG ?? null), passed: epsG != null && epsG > 25 },
-        { label: "Rev YoY > 20%", value: fmtPct(revG ?? null), passed: revG != null && revG > 20 },
-        { label: "Price > $15", value: `$${d.price.toFixed(2)}`, passed: d.price > 15 },
-      ];
-    case "lynch":
-      return [
-        { label: "P/E 5–20", value: pe != null ? pe.toFixed(1) : "N/A", passed: pe != null && pe > 5 && pe < 20 },
-        { label: "Rev YoY > 10%", value: fmtPct(revG ?? null), passed: revG != null && revG > 10 },
-        { label: "D/E < 1", value: de != null ? de.toFixed(2) : "N/A", passed: de != null && de < 1 },
-      ];
-    case "druckenmiller":
-      return [
-        { label: "Rev YoY > 20%", value: fmtPct(revG ?? null), passed: revG != null && revG > 20 },
-        { label: "EPS YoY > 15%", value: fmtPct(epsG ?? null), passed: epsG != null && epsG > 15 },
-        { label: "ROE > 10%", value: fmtPct(roe), passed: roe != null && roe > 10 },
-      ];
-  }
+// ── Filter + Screen ────────────────────────────────────────────
+function matchFilters(d: StockData, f: Filters): boolean {
+  if (f.per != null && (d.per == null || d.per > f.per || d.per <= 0)) return false;
+  if (f.epsYoY != null && (d.epsYoY == null || d.epsYoY < f.epsYoY)) return false;
+  if (f.epsQoQ != null && (d.epsQoQ == null || d.epsQoQ < f.epsQoQ)) return false;
+  if (f.revYoY != null && (d.revYoY == null || d.revYoY < f.revYoY)) return false;
+  if (f.nearHigh != null && (d.distFromHigh == null || d.distFromHigh > f.nearHigh)) return false;
+  return true;
 }
 
-// ── Screen runner ──────────────────────────────────────────────
-async function runScreen(guru: GuruKey): Promise<LegendResult[]> {
-  const results: LegendResult[] = [];
+async function runScreen(filters: Filters): Promise<ScreenerResult[]> {
+  const results: ScreenerResult[] = [];
   const BATCH = 10;
 
   for (let i = 0; i < SP100.length; i += BATCH) {
@@ -192,44 +153,65 @@ async function runScreen(guru: GuruKey): Promise<LegendResult[]> {
 
     for (const d of batchData) {
       if (!d) continue;
-      const criteria = buildCriteria(guru, d);
-      const score = criteria.filter((c) => c.passed).length;
-      const minScore = guru === "buffett" ? 3 : 2;
-      if (score < minScore) continue;
+      if (!matchFilters(d, filters)) continue;
       results.push({
         symbol: d.symbol,
         name: d.name,
-        market: "US",
         price: d.price,
         change_pct: d.changePct,
-        score,
-        max_score: criteria.length,
-        criteria,
+        per: d.per != null ? Math.round(d.per * 10) / 10 : null,
+        epsYoY: d.epsYoY,
+        epsQoQ: d.epsQoQ,
+        revYoY: d.revYoY,
+        distFromHigh: d.distFromHigh,
       });
     }
   }
 
-  return results.sort((a, b) => b.score - a.score || b.change_pct - a.change_pct);
+  return results.sort((a, b) => (b.change_pct ?? 0) - (a.change_pct ?? 0));
 }
 
 // ── In-memory fallback cache ───────────────────────────────────
-const memCache = new Map<string, { results: LegendResult[]; at: number }>();
+const memCache = new Map<string, { results: ScreenerResult[]; at: number }>();
 
 // ── GET handler ────────────────────────────────────────────────
+function buildCacheKey(f: Filters): string {
+  const parts = ["screener"];
+  if (f.per != null) parts.push(`per${f.per}`);
+  if (f.epsYoY != null) parts.push(`epsYoY${f.epsYoY}`);
+  if (f.epsQoQ != null) parts.push(`epsQoQ${f.epsQoQ}`);
+  if (f.revYoY != null) parts.push(`revYoY${f.revYoY}`);
+  if (f.nearHigh != null) parts.push(`nearHigh${f.nearHigh}`);
+  return parts.join("_");
+}
 
 export async function GET(request: NextRequest) {
   if (!FMP_KEY) {
     return NextResponse.json({ ok: false, error: "FMP_API_KEY not configured" }, { status: 500 });
   }
 
-  const guru = (request.nextUrl.searchParams.get("guru") || "buffett") as GuruKey;
-  const refresh = request.nextUrl.searchParams.get("refresh") === "true";
+  const sp = request.nextUrl.searchParams;
+  const refresh = sp.get("refresh") === "true";
 
-  if (!["buffett", "oneil", "lynch", "druckenmiller"].includes(guru)) {
-    return NextResponse.json({ ok: false, error: "Invalid guru" }, { status: 400 });
+  const filters: Filters = {};
+  const perVal = sp.get("per");
+  const epsYoYVal = sp.get("epsYoY");
+  const epsQoQVal = sp.get("epsQoQ");
+  const revYoYVal = sp.get("revYoY");
+  const nearHighVal = sp.get("nearHigh");
+
+  if (perVal) filters.per = Number(perVal);
+  if (epsYoYVal) filters.epsYoY = Number(epsYoYVal);
+  if (epsQoQVal) filters.epsQoQ = Number(epsQoQVal);
+  if (revYoYVal) filters.revYoY = Number(revYoYVal);
+  if (nearHighVal) filters.nearHigh = Number(nearHighVal);
+
+  // Must have at least one filter
+  if (Object.keys(filters).length === 0) {
+    return NextResponse.json({ ok: false, error: "At least one filter required (per, epsYoY, epsQoQ, revYoY, nearHigh)" }, { status: 400 });
   }
 
-  const cacheKey = `legend_${guru}_US`;
+  const cacheKey = buildCacheKey(filters);
 
   // Check cache (Supabase first, then in-memory fallback)
   if (!refresh) {
@@ -250,12 +232,10 @@ export async function GET(request: NextRequest) {
             results: data.results,
             cached: true,
             updated_at: data.created_at,
-            stats: { scanned: SP100.length, passed: Array.isArray(data.results) ? data.results.length : 0 },
           });
         }
       }
     } catch {
-      // Supabase cache miss — try in-memory
       const mem = memCache.get(cacheKey);
       if (mem && (Date.now() - mem.at) < CACHE_TTL_HOURS * 60 * 60 * 1000) {
         return NextResponse.json({
@@ -263,16 +243,15 @@ export async function GET(request: NextRequest) {
           results: mem.results,
           cached: true,
           updated_at: new Date(mem.at).toISOString(),
-          stats: { scanned: SP100.length, passed: mem.results.length },
         });
       }
     }
   }
 
   try {
-    const results = await runScreen(guru);
+    const results = await runScreen(filters);
 
-    // Save to cache (Supabase + in-memory fallback)
+    // Save to cache
     memCache.set(cacheKey, { results, at: Date.now() });
     try {
       await supabaseAdmin.from("legend_screener_cache").delete().eq("cache_key", cacheKey);
@@ -282,7 +261,7 @@ export async function GET(request: NextRequest) {
         created_at: new Date().toISOString(),
       });
     } catch (err) {
-      console.error("[legend-screener] Cache write error (using in-memory fallback):", err);
+      console.error("[legend-screener] Cache write error:", err);
     }
 
     return NextResponse.json({
@@ -290,12 +269,11 @@ export async function GET(request: NextRequest) {
       results,
       cached: false,
       updated_at: new Date().toISOString(),
-      stats: { scanned: SP100.length, passed: results.length },
     });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

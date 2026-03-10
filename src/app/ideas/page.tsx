@@ -100,25 +100,34 @@ function TooltipIcon({ text }: { text: string }) {
 }
 
 // ── Legend Screener types ────────────────────────────────────
-interface LegendResult {
+interface ScreenerItem {
   symbol: string;
   name: string;
-  market: "KR" | "US";
   price: number;
   change_pct: number;
-  score: number;
-  max_score: number;
-  criteria: { label: string; value: string; passed: boolean }[];
+  per: number | null;
+  epsYoY: number | null;
+  epsQoQ: number | null;
+  revYoY: number | null;
+  distFromHigh: number | null;
 }
 
-type GuruKey = "buffett" | "oneil" | "lynch" | "druckenmiller" | "minervini";
+interface ScreenerFilters {
+  per?: number;
+  epsYoY?: number;
+  epsQoQ?: number;
+  revYoY?: number;
+  nearHigh?: number;
+}
 
-const GURU_LIST: { key: GuruKey; label: string; desc?: string }[] = [
-  { key: "buffett", label: "버핏" },
-  { key: "oneil", label: "오닐" },
-  { key: "lynch", label: "피터린치" },
-  { key: "druckenmiller", label: "드러켄밀러" },
-  { key: "minervini", label: "미너비니", desc: "Weinstein Stage 2 · VCP 패턴" },
+type FilterKey = keyof ScreenerFilters;
+
+const FILTER_CARDS: { key: FilterKey; label: string; labelKr: string; options: { label: string; value: number }[] }[] = [
+  { key: "per", label: "PER", labelKr: "PER", options: [{ label: "< 10", value: 10 }, { label: "< 20", value: 20 }, { label: "< 30", value: 30 }] },
+  { key: "epsYoY", label: "EPS YoY", labelKr: "EPS YoY", options: [{ label: "10%+", value: 10 }, { label: "25%+", value: 25 }, { label: "50%+", value: 50 }] },
+  { key: "epsQoQ", label: "EPS QoQ", labelKr: "EPS QoQ", options: [{ label: "10%+", value: 10 }, { label: "25%+", value: 25 }, { label: "50%+", value: 50 }] },
+  { key: "revYoY", label: "Rev YoY", labelKr: "매출 YoY", options: [{ label: "10%+", value: 10 }, { label: "25%+", value: 25 }, { label: "50%+", value: 50 }] },
+  { key: "nearHigh", label: "52W High", labelKr: "52주 신고가", options: [{ label: "20%", value: 20 }, { label: "10%", value: 10 }, { label: "5%", value: 5 }] },
 ];
 
 // ── Per-tab tables ──────────────────────────────────────────
@@ -679,14 +688,13 @@ export default function IdeasPage() {
   // Signal filter
   const [signalFilter, setSignalFilter] = useState<SignalFilter>("ALL");
 
-  // Legend screener state
-  const [legendGuru, setLegendGuru] = useState<GuruKey>("buffett");
-  const [legendResults, setLegendResults] = useState<LegendResult[]>([]);
-  const [legendLoading, setLegendLoading] = useState(false);
-  const [legendError, setLegendError] = useState<string | null>(null);
-  const [legendUpdatedAt, setLegendUpdatedAt] = useState<string | null>(null);
-  const [legendCached, setLegendCached] = useState(false);
-  const [legendStats, setLegendStats] = useState<{ scanned: number; passed: number } | null>(null);
+  // Legend screener state (filter-based)
+  const [scrFilters, setScrFilters] = useState<ScreenerFilters>({});
+  const [scrResults, setScrResults] = useState<ScreenerItem[]>([]);
+  const [scrLoading, setScrLoading] = useState(false);
+  const [scrError, setScrError] = useState<string | null>(null);
+  const [scrUpdatedAt, setScrUpdatedAt] = useState<string | null>(null);
+  const [scrCached, setScrCached] = useState(false);
   const [legendSelected, setLegendSelected] = useState<string | null>(null);
 
   // Data
@@ -716,58 +724,32 @@ export default function IdeasPage() {
     }
   }, []);
 
-  const fetchLegend = useCallback(async (guru: GuruKey, refresh = false) => {
-    setLegendLoading(true);
-    setLegendError(null);
+  const fetchScreenerFiltered = useCallback(async (filters: ScreenerFilters, refresh = false) => {
+    // Need at least one filter
+    if (Object.keys(filters).length === 0) return;
+    setScrLoading(true);
+    setScrError(null);
     try {
-      if (guru === "minervini") {
-        // Fetch from SEPA screener API and convert to LegendResult
-        const res = await fetch(`/api/ai/sepa-screener?market=US${refresh ? "&refresh=true" : ""}`);
-        const json = await res.json();
-        if (json.ok) {
-          // Convert SepaResult[] → LegendResult[]
-          const converted: LegendResult[] = (json.results || []).map((r: { symbol: string; name: string; market: "KR" | "US"; price: number; change_pct: number; score: number; base_depth_pct: number; weeks_in_base: number; volume_ratio: number; dist_from_52w_high_pct: number; ma_alignment: boolean }) => {
-            const criteria: LegendResult["criteria"] = [
-              { label: "Stage 2", value: "Yes", passed: true },
-              { label: "MA Alignment", value: r.ma_alignment ? "Yes" : "No", passed: r.ma_alignment },
-              { label: "Near 52W High", value: `-${r.dist_from_52w_high_pct}%`, passed: r.dist_from_52w_high_pct <= 10 },
-              { label: "VCP", value: `${r.volume_ratio.toFixed(2)}x`, passed: r.volume_ratio < 0.8 },
-              { label: "Tight Base", value: `${r.base_depth_pct}%`, passed: r.base_depth_pct <= 10 },
-            ];
-            return {
-              symbol: r.symbol,
-              name: r.name,
-              market: r.market,
-              price: r.price,
-              change_pct: r.change_pct,
-              score: criteria.filter((c) => c.passed).length,
-              max_score: 5,
-              criteria,
-            };
-          });
-          setLegendResults(converted.sort((a: LegendResult, b: LegendResult) => b.score - a.score));
-          setLegendUpdatedAt(json.updated_at);
-          setLegendCached(json.cached ?? false);
-          setLegendStats(json.stats ? { scanned: json.stats.total_scanned || 0, passed: converted.length } : null);
-        } else {
-          setLegendError(json.error || "Failed to fetch minervini screener");
-        }
+      const params = new URLSearchParams();
+      if (filters.per != null) params.set("per", String(filters.per));
+      if (filters.epsYoY != null) params.set("epsYoY", String(filters.epsYoY));
+      if (filters.epsQoQ != null) params.set("epsQoQ", String(filters.epsQoQ));
+      if (filters.revYoY != null) params.set("revYoY", String(filters.revYoY));
+      if (filters.nearHigh != null) params.set("nearHigh", String(filters.nearHigh));
+      if (refresh) params.set("refresh", "true");
+      const res = await fetch(`/api/legend-screener?${params.toString()}`);
+      const json = await res.json();
+      if (json.ok) {
+        setScrResults(json.results || []);
+        setScrUpdatedAt(json.updated_at);
+        setScrCached(json.cached ?? false);
       } else {
-        const res = await fetch(`/api/legend-screener?guru=${guru}&market=US${refresh ? "&refresh=true" : ""}`);
-        const json = await res.json();
-        if (json.ok) {
-          setLegendResults(json.results);
-          setLegendUpdatedAt(json.updated_at);
-          setLegendCached(json.cached ?? false);
-          setLegendStats(json.stats ?? null);
-        } else {
-          setLegendError(json.error || "Failed to fetch legend screener");
-        }
+        setScrError(json.error || "Failed to fetch screener");
       }
     } catch (err) {
-      setLegendError(err instanceof Error ? err.message : "Network error");
+      setScrError(err instanceof Error ? err.message : "Network error");
     } finally {
-      setLegendLoading(false);
+      setScrLoading(false);
     }
   }, []);
 
@@ -775,11 +757,13 @@ export default function IdeasPage() {
     fetchScreener();
   }, [fetchScreener]);
 
+  // Auto-fetch when filters change
   useEffect(() => {
-    if (tab === "legend" && legendResults.length === 0 && !legendLoading) {
-      fetchLegend(legendGuru);
+    if (tab === "legend" && Object.keys(scrFilters).length > 0) {
+      fetchScreenerFiltered(scrFilters);
     }
-  }, [tab, legendResults.length, legendLoading, legendGuru, fetchLegend]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, scrFilters]);
 
   // Reset show count when switching tabs
   useEffect(() => {
@@ -890,88 +874,95 @@ export default function IdeasPage() {
         {/* Financials tab */}
         {tab === "financials" && <FinancialsTab lang={lang} />}
 
-        {/* Legend Screener tab */}
+        {/* Legend Screener tab — filter-based */}
         {tab === "legend" && (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
-            {/* Left: List */}
+            {/* Left: Filters + List */}
             <section className={`${CARD} lg:col-span-3`}>
-              {/* Guru selector */}
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <div className="flex gap-px rounded bg-card-border p-px w-fit">
-                  {GURU_LIST.map((g) => (
-                    <button
-                      key={g.key}
-                      onClick={() => {
-                        setLegendGuru(g.key);
-                        setLegendResults([]);
-                        setLegendSelected(null);
-                        fetchLegend(g.key);
-                      }}
-                      className={`px-3 py-1 text-xs font-medium transition-colors ${
-                        legendGuru === g.key
-                          ? "bg-accent text-white"
-                          : "bg-card-bg text-muted hover:text-foreground"
-                      }`}
-                    >
-                      {g.label}
-                    </button>
-                  ))}
+              {/* Filter cards */}
+              <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                {FILTER_CARDS.map((fc) => (
+                  <div key={fc.key} className="rounded border border-card-border/60 bg-[#0d1117] p-2.5">
+                    <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-muted/70">
+                      {lang === "kr" ? fc.labelKr : fc.label}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {fc.options.map((opt) => {
+                        const isActive = scrFilters[fc.key] === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            onClick={() => {
+                              setScrFilters((prev) => {
+                                const next = { ...prev };
+                                if (isActive) {
+                                  delete next[fc.key];
+                                } else {
+                                  next[fc.key] = opt.value;
+                                }
+                                return next;
+                              });
+                              setLegendSelected(null);
+                            }}
+                            className={`rounded px-2 py-0.5 text-[10px] font-mono font-medium transition-colors ${
+                              isActive
+                                ? "bg-accent text-white"
+                                : "bg-card-border/40 text-muted hover:text-foreground hover:bg-card-border/70"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Active filters summary + refresh */}
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                  <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                    {lang === "kr" ? "스크리너 결과" : "Screener Results"} — {scrResults.length} {lang === "kr" ? "종목" : "stocks"}
+                  </h2>
                 </div>
-
-                {/* Guru description */}
-                {GURU_LIST.find((g) => g.key === legendGuru)?.desc && (
-                  <span className="text-[9px] font-mono text-muted/60">
-                    {GURU_LIST.find((g) => g.key === legendGuru)?.desc}
-                  </span>
-                )}
-
                 <button
-                  onClick={() => fetchLegend(legendGuru, true)}
-                  disabled={legendLoading}
-                  className="ml-auto px-3 py-1 text-[10px] font-mono text-muted border border-card-border hover:text-foreground transition-colors disabled:opacity-30"
+                  onClick={() => fetchScreenerFiltered(scrFilters, true)}
+                  disabled={scrLoading || Object.keys(scrFilters).length === 0}
+                  className="px-3 py-1 text-[10px] font-mono text-muted border border-card-border hover:text-foreground transition-colors disabled:opacity-30"
                 >
-                  {legendLoading ? "SCANNING..." : "REFRESH"}
+                  {scrLoading ? "SCANNING..." : "REFRESH"}
                 </button>
               </div>
 
-              {/* Section header */}
-              <div className="mb-3 flex items-center gap-2">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                  {GURU_LIST.find((g) => g.key === legendGuru)?.label} {lang === "kr" ? "기준 스크리닝" : "Criteria Screen"} — {legendResults.length} {lang === "kr" ? "종목" : "stocks"}
-                </h2>
-              </div>
+              {/* No filter selected */}
+              {Object.keys(scrFilters).length === 0 && !scrLoading && (
+                <p className="py-8 text-center text-[10px] text-muted">
+                  {lang === "kr" ? "필터를 1개 이상 선택하세요" : "Select at least one filter above"}
+                </p>
+              )}
 
-              {/* Loading — skeleton rows + progress */}
-              {legendLoading && (
-                <div className="space-y-3">
-                  <p className="text-xs font-mono text-muted">
-                    {GURU_LIST.find((g) => g.key === legendGuru)?.label} {lang === "kr" ? "기준 스캐닝 중..." : "criteria scanning..."}
-                    <span className="text-muted/40 ml-2">
-                      {lang === "kr" ? "(최초 1회, 이후 캐시 사용)" : "(first run only, cached after)"}
-                    </span>
-                  </p>
-                  {/* Skeleton rows */}
-                  <div className="space-y-0">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="flex items-center gap-3 py-2.5 border-b border-card-border/20">
-                        <div className="h-3 w-16 rounded bg-card-border/30 animate-pulse" />
-                        <div className="h-3 w-28 rounded bg-card-border/20 animate-pulse" />
-                        <div className="ml-auto h-3 w-14 rounded bg-card-border/20 animate-pulse" />
-                        <div className="h-3 w-12 rounded bg-card-border/20 animate-pulse" />
-                        <div className="h-3 w-8 rounded bg-card-border/30 animate-pulse" />
-                      </div>
-                    ))}
-                  </div>
+              {/* Loading */}
+              {scrLoading && (
+                <div className="space-y-0">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 py-2.5 border-b border-card-border/20">
+                      <div className="h-3 w-16 rounded bg-card-border/30 animate-pulse" />
+                      <div className="h-3 w-28 rounded bg-card-border/20 animate-pulse" />
+                      <div className="ml-auto h-3 w-14 rounded bg-card-border/20 animate-pulse" />
+                      <div className="h-3 w-12 rounded bg-card-border/20 animate-pulse" />
+                    </div>
+                  ))}
                 </div>
               )}
 
               {/* Error */}
-              {legendError && !legendLoading && (
+              {scrError && !scrLoading && (
                 <div className="py-8 text-center">
-                  <p className="text-[10px] text-loss">{legendError}</p>
+                  <p className="text-[10px] text-loss">{scrError}</p>
                   <button
-                    onClick={() => fetchLegend(legendGuru, true)}
+                    onClick={() => fetchScreenerFiltered(scrFilters, true)}
                     className="mt-2 rounded bg-accent/20 px-3 py-1 text-[10px] text-accent hover:bg-accent/30"
                   >
                     {lang === "kr" ? "다시 시도" : "Retry"}
@@ -980,7 +971,7 @@ export default function IdeasPage() {
               )}
 
               {/* Results table */}
-              {!legendLoading && !legendError && legendResults.length > 0 && (
+              {!scrLoading && !scrError && scrResults.length > 0 && Object.keys(scrFilters).length > 0 && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
@@ -989,45 +980,38 @@ export default function IdeasPage() {
                         <th className={TH}>Name</th>
                         <th className={`${TH} text-right`}>Price</th>
                         <th className={`${TH} text-right`}>Chg%</th>
-                        <th className={`${TH} text-center`}>Score</th>
-                        <th className={TH}>Criteria</th>
+                        <th className={`${TH} text-right`}>PER</th>
+                        <th className={`${TH} text-right`}>EPS YoY</th>
+                        <th className={`${TH} text-right`}>EPS QoQ</th>
+                        <th className={`${TH} text-right`}>Rev YoY</th>
+                        <th className={`${TH} text-right`}>{lang === "kr" ? "신고가대비" : "vs High"}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {legendResults.map((r) => (
+                      {scrResults.map((r) => (
                         <tr
                           key={r.symbol}
                           onClick={() => setLegendSelected(legendSelected === r.symbol ? null : r.symbol)}
                           className={`cursor-pointer border-b border-card-border/40 transition-colors ${
                             legendSelected === r.symbol ? "bg-accent/10" : "hover:bg-card-border/20"
-                          } ${r.score === r.max_score ? "border-l-2 border-l-accent" : "border-l-2 border-l-transparent"}`}
+                          }`}
                         >
                           <td className={`${TD} pl-2 text-accent font-medium`}>{r.symbol}</td>
-                          <td className={`${TD} text-muted truncate max-w-[140px]`}>{r.name}</td>
-                          <td className={`${TD} text-right tabular-nums`}>
-                            {r.price.toFixed(2)}
-                          </td>
+                          <td className={`${TD} text-muted truncate max-w-[120px]`}>{r.name}</td>
+                          <td className={`${TD} text-right tabular-nums`}>{r.price.toFixed(2)}</td>
                           <td className={`${TD} text-right tabular-nums`}><ChgPct v={r.change_pct} /></td>
-                          <td className={`${TD} text-center`}>
-                            <span className={`font-mono font-bold ${r.score === r.max_score ? "text-accent" : "text-muted"}`}>
-                              {r.score}/{r.max_score}
-                            </span>
+                          <td className={`${TD} text-right tabular-nums text-muted`}>{r.per != null ? r.per.toFixed(1) : "—"}</td>
+                          <td className={`${TD} text-right tabular-nums ${r.epsYoY != null && r.epsYoY > 0 ? "text-gain" : "text-muted"}`}>
+                            {r.epsYoY != null ? `${r.epsYoY > 0 ? "+" : ""}${r.epsYoY.toFixed(1)}%` : "—"}
                           </td>
-                          <td className={TD}>
-                            <div className="flex flex-wrap gap-1">
-                              {r.criteria.map((c) => (
-                                <span
-                                  key={c.label}
-                                  className={`inline-block rounded px-1.5 py-px text-[9px] ${
-                                    c.passed
-                                      ? "bg-gain/20 text-gain"
-                                      : "bg-card-border/50 text-muted/50"
-                                  }`}
-                                >
-                                  {c.passed ? "\u2713" : "\u2717"} {c.label}
-                                </span>
-                              ))}
-                            </div>
+                          <td className={`${TD} text-right tabular-nums ${r.epsQoQ != null && r.epsQoQ > 0 ? "text-gain" : "text-muted"}`}>
+                            {r.epsQoQ != null ? `${r.epsQoQ > 0 ? "+" : ""}${r.epsQoQ.toFixed(1)}%` : "—"}
+                          </td>
+                          <td className={`${TD} text-right tabular-nums ${r.revYoY != null && r.revYoY > 0 ? "text-gain" : "text-muted"}`}>
+                            {r.revYoY != null ? `${r.revYoY > 0 ? "+" : ""}${r.revYoY.toFixed(1)}%` : "—"}
+                          </td>
+                          <td className={`${TD} text-right tabular-nums text-muted`}>
+                            {r.distFromHigh != null ? `-${r.distFromHigh.toFixed(1)}%` : "—"}
                           </td>
                         </tr>
                       ))}
@@ -1036,28 +1020,26 @@ export default function IdeasPage() {
                 </div>
               )}
 
-              {/* Empty */}
-              {!legendLoading && !legendError && legendResults.length === 0 && (
+              {/* Empty results */}
+              {!scrLoading && !scrError && scrResults.length === 0 && Object.keys(scrFilters).length > 0 && (
                 <p className="py-8 text-center text-[10px] text-muted">
                   {lang === "kr" ? "조건 충족 종목 없음" : "No stocks match criteria"}
                 </p>
               )}
 
               {/* Footer */}
-              {legendUpdatedAt && !legendLoading && (
+              {scrUpdatedAt && !scrLoading && (
                 <div className="flex items-center justify-between mt-3 pt-2 border-t border-card-border/40">
                   <div className="flex items-center gap-2">
-                    {legendStats && (
-                      <span className="text-[9px] font-mono text-muted/50">
-                        Scanned {legendStats.scanned} · {legendStats.passed} passed
-                      </span>
-                    )}
-                    {legendCached && (
+                    <span className="text-[9px] font-mono text-muted/50">
+                      S&P 100 · {scrResults.length} passed
+                    </span>
+                    {scrCached && (
                       <span className="text-[9px] font-mono text-amber-500/50">CACHED</span>
                     )}
                   </div>
                   <span className="text-[9px] font-mono text-muted/50">
-                    Updated {new Date(legendUpdatedAt).toLocaleString()}
+                    Updated {new Date(scrUpdatedAt).toLocaleString()}
                   </span>
                 </div>
               )}
@@ -1077,9 +1059,8 @@ export default function IdeasPage() {
                   {lang === "kr" ? "목록에서 종목을 선택하세요" : "Select a stock from the list"}
                 </p>
               ) : (() => {
-                const item = legendResults.find((r) => r.symbol === legendSelected);
+                const item = scrResults.find((r) => r.symbol === legendSelected);
                 if (!item) return null;
-                const guru = GURU_LIST.find((g) => g.key === legendGuru);
                 return (
                   <div className="space-y-3">
                     {/* Header */}
@@ -1089,48 +1070,27 @@ export default function IdeasPage() {
                         <span className="ml-2 text-xs text-muted">{item.name}</span>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium tabular-nums">
-                          {item.price.toFixed(2)}
-                        </p>
+                        <p className="text-sm font-medium tabular-nums">{item.price.toFixed(2)}</p>
                         <p className="text-[10px] tabular-nums"><ChgPct v={item.change_pct} /></p>
                       </div>
                     </div>
 
-                    {/* Score */}
+                    {/* Metrics */}
                     <div className="border-b border-[#1e1e1e] pb-3">
                       <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
-                        {guru?.label} SCORE
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <span className={`text-2xl font-mono font-bold ${item.score === item.max_score ? "text-accent" : "text-foreground"}`}>
-                          {item.score}/{item.max_score}
-                        </span>
-                        <div className="flex-1 h-2 overflow-hidden rounded-full bg-[#1e1e1e]">
-                          <div
-                            className="h-full rounded-full bg-accent transition-all"
-                            style={{ width: `${(item.score / item.max_score) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Criteria breakdown */}
-                    <div className="border-b border-[#1e1e1e] pb-3">
-                      <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
-                        {lang === "kr" ? "왜 이 종목인가" : "WHY THIS STOCK"}
+                        FUNDAMENTALS
                       </p>
                       <div className="space-y-2">
-                        {item.criteria.map((c) => (
-                          <div key={c.label} className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className={`text-xs ${c.passed ? "text-gain" : "text-loss"}`}>
-                                {c.passed ? "\u2713" : "\u2717"}
-                              </span>
-                              <span className="text-[11px] text-[#888]">{c.label}</span>
-                            </div>
-                            <span className={`text-[11px] font-mono ${c.passed ? "text-foreground" : "text-muted/50"}`}>
-                              {c.value}
-                            </span>
+                        {([
+                          ["PER", item.per != null ? item.per.toFixed(1) : "—"],
+                          ["EPS YoY", item.epsYoY != null ? `${item.epsYoY > 0 ? "+" : ""}${item.epsYoY.toFixed(1)}%` : "—"],
+                          ["EPS QoQ", item.epsQoQ != null ? `${item.epsQoQ > 0 ? "+" : ""}${item.epsQoQ.toFixed(1)}%` : "—"],
+                          ["Rev YoY", item.revYoY != null ? `${item.revYoY > 0 ? "+" : ""}${item.revYoY.toFixed(1)}%` : "—"],
+                          [lang === "kr" ? "52주 신고가 대비" : "vs 52W High", item.distFromHigh != null ? `-${item.distFromHigh.toFixed(1)}%` : "—"],
+                        ] as const).map(([label, val]) => (
+                          <div key={label} className="flex items-center justify-between">
+                            <span className="text-[11px] text-[#888]">{label}</span>
+                            <span className="text-[11px] font-mono text-foreground">{val}</span>
                           </div>
                         ))}
                       </div>
