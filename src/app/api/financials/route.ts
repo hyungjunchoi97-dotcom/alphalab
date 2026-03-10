@@ -141,17 +141,19 @@ async function fetchUS(ticker: string) {
   const quarterly = statements.map((s: {
     period: string;
     calendarYear: string;
+    fiscalYear?: string;
     revenue: number;
     operatingIncome: number;
     netIncome: number;
   }) => ({
-    label: `${s.calendarYear} ${s.period}`,
+    label: `${s.fiscalYear ?? s.calendarYear} ${s.period}`,
     revenue: s.revenue ? Math.round(s.revenue / 1e6) : null,
     operatingIncome: s.operatingIncome ? Math.round(s.operatingIncome / 1e6) : null,
     netIncome: s.netIncome ? Math.round(s.netIncome / 1e6) : null,
   })).reverse(); // oldest first
 
-  const marketCap = profile?.mktCap ? Math.round(profile.mktCap / 1e6) : null; // $M
+  const rawMktCap = profile?.marketCap ?? profile?.mktCap;
+  const marketCap = rawMktCap ? Math.round(rawMktCap / 1e6) : null; // $M
   const price = profile?.price ?? null;
 
   return {
