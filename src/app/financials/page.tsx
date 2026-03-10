@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useLang } from "@/lib/LangContext";
 import { messages } from "@/lib/i18n";
 import AppHeader from "@/components/AppHeader";
+import { BarChart, Bar, XAxis, Cell, LabelList, ResponsiveContainer } from "recharts";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface QuarterData { [key: string]: any }
@@ -400,12 +401,37 @@ export default function FinancialsPage() {
                   {tb.label}
                 </button>
               ))}
-              <div className="ml-auto flex items-center">
-                <span className="text-[9px] font-mono" style={{ color: "#555" }}>
-                  {unit}
-                </span>
-              </div>
             </div>
+
+            {/* P&L KPI Cards */}
+            {activeTab === "pl" && quarterly.length > 0 && (() => {
+              const latest = quarterly[quarterly.length - 1];
+              const prev = quarterly.length >= 2 ? quarterly[quarterly.length - 2] : null;
+              const revYoY = latest?.revenueGrowth as number | null;
+              const oiCur = latest?.operatingIncome as number | null;
+              const oiPrev = prev?.operatingIncome as number | null;
+              const oiYoY = oiCur != null && oiPrev != null && oiPrev !== 0
+                ? Math.round(((oiCur - oiPrev) / Math.abs(oiPrev)) * 10000) / 100
+                : null;
+              const opm = latest?.operatingMargin as number | null;
+              const kpiColor = (v: number | null) => v == null ? "#4b5563" : v < 0 ? "#f87171" : "#4ade80";
+              return (
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div className="text-[10px]" style={{ color: "#6b7280" }}>Revenue {period === "annual" ? "YoY" : "QoQ"}</div>
+                    <div className="text-lg font-mono" style={{ color: kpiColor(revYoY) }}>{revYoY != null ? `${revYoY > 0 ? "+" : ""}${revYoY.toFixed(1)}%` : "—"}</div>
+                  </div>
+                  <div className="rounded p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div className="text-[10px]" style={{ color: "#6b7280" }}>Op. Income {period === "annual" ? "YoY" : "QoQ"}</div>
+                    <div className="text-lg font-mono" style={{ color: kpiColor(oiYoY) }}>{oiYoY != null ? `${oiYoY > 0 ? "+" : ""}${oiYoY.toFixed(1)}%` : "—"}</div>
+                  </div>
+                  <div className="rounded p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div className="text-[10px]" style={{ color: "#6b7280" }}>OPM (Latest)</div>
+                    <div className="text-lg font-mono" style={{ color: kpiColor(opm) }}>{opm != null ? `${opm.toFixed(1)}%` : "—"}</div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Table */}
             {quarterly.length === 0 ? (
@@ -419,7 +445,7 @@ export default function FinancialsPage() {
                         className="sticky left-0 z-10 py-2 pl-3 pr-4 text-left text-[10px] font-medium uppercase tracking-wider"
                         style={{ background: "#0d1117", color: "#6b7280", width: "192px", minWidth: "192px" }}
                       >
-                        &nbsp;
+                        <span className="text-xs font-mono" style={{ color: "rgba(251,191,36,0.7)" }}>{unit}</span>
                       </th>
                       {quarterly.map((q, i) => (
                         <th
@@ -470,6 +496,31 @@ export default function FinancialsPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* C/F Capex Bar Chart */}
+            {activeTab === "cf" && quarterly.length > 0 && (
+              <div className="mt-4">
+                <div className="text-[10px] mb-2" style={{ color: "#6b7280" }}>Capital Expenditure</div>
+                <div style={{ width: "100%", height: 160 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={quarterly.map((q) => ({ label: q.label, capex: q.capex as number | null }))} barCategoryGap="20%">
+                      <XAxis dataKey="label" tick={{ fill: "#6b7280", fontSize: 9, fontFamily: "monospace" }} axisLine={false} tickLine={false} />
+                      <Bar dataKey="capex" radius={[2, 2, 0, 0]}>
+                        <LabelList
+                          dataKey="capex"
+                          position="top"
+                          style={{ fill: "#9ca3af", fontSize: 9, fontFamily: "monospace" }}
+                          formatter={(v: number | null) => v != null ? (isKR ? Math.round(v / 1e8).toLocaleString() : v.toLocaleString()) : ""}
+                        />
+                        {quarterly.map((q, i) => (
+                          <Cell key={i} fill={(q.capex as number) >= 0 ? "#f59e0b" : "#f87171"} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             )}
           </>

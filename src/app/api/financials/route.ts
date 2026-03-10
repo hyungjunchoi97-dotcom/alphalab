@@ -240,7 +240,7 @@ async function fetchUS(ticker: string, period: string) {
       fcf: m(cf.freeCashFlow),
       investingCF: m(cf.netCashUsedForInvestingActivities),
       financingCF: m(cf.netCashUsedProvidedByFinancingActivities),
-      dividendsPaid: m(cf.dividendsPaid),
+      dividendsPaid: m(cf.dividendsPaid ?? cf.commonDividendsPaid),
     };
   }).reverse(); // oldest first
 
