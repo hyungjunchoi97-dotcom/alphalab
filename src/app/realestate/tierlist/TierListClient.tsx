@@ -44,7 +44,7 @@ const TIERS: { tier: string; districts: string[] }[] = [
 ];
 
 const AVAILABLE_DISTRICTS = new Set([
-  "강남구", "서초구", "용산구", "송파구", "성동구", "마포구", "광진구", "양천구", "영등포구",
+  "강남구", "서초구", "용산구", "송파구", "성동구", "마포구", "광진구", "양천구", "영등포구", "강동구",
 ]);
 
 /* ── Helpers ── */

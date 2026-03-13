@@ -21,7 +21,7 @@ interface Landmark {
 }
 
 const S: React.CSSProperties = { fontFamily: "'IBM Plex Mono', monospace" };
-const DISTRICT_ORDER = ["강남구", "서초구", "송파구", "용산구", "성동구", "마포구"];
+const DISTRICT_ORDER = ["강남구", "서초구", "송파구", "용산구", "성동구", "마포구", "강동구"];
 const PERIODS = [
   { label: "6M", range: 6 },
   { label: "1Y", range: 12 },

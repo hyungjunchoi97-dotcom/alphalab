@@ -19,6 +19,7 @@ const LANDMARKS: { district: string; code: string; keywords: KeywordRule[] }[] =
   { district: "용산구", code: "11170", keywords: ["용산파크타워", "한남더힐", { include: "한강(대우)", label: "한강대우" }] },
   { district: "성동구", code: "11200", keywords: ["트리마제", "서울숲더샵", "서울숲푸르지오"] },
   { district: "마포구", code: "11440", keywords: ["마포래미안푸르지오", "마포그랑자이", "한강밤섬자이"] },
+  { district: "강동구", code: "11740", keywords: ["고덕그라시움", "올림픽파크포레온"] },
 ];
 
 const xmlParser = new XMLParser({ ignoreAttributes: false, parseAttributeValue: true, parseTagValue: true });
