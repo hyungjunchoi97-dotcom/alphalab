@@ -261,6 +261,7 @@ export default function RealEstateClient() {
   const [error, setError] = useState<string | null>(null);
   const [trend, setTrend] = useState<TrendResponse | null>(null);
   const [trendLoading, setTrendLoading] = useState(false);
+  const [trendRange, setTrendRange] = useState(12);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   const [rankingOpen, setRankingOpen] = useState(true);
   const [trendOpen, setTrendOpen] = useState(true);
@@ -308,12 +309,12 @@ export default function RealEstateClient() {
 
   useEffect(() => {
     setTrendLoading(true);
-    fetch("/api/realestate/trend")
+    fetch(`/api/realestate/trend?range=${trendRange}`)
       .then(r => r.json())
       .then((j: TrendResponse) => { if (j.ok) setTrend(j); })
       .catch(() => {})
       .finally(() => setTrendLoading(false));
-  }, []);
+  }, [trendRange]);
 
   // Fetch news when district selected
   useEffect(() => {
@@ -605,6 +606,8 @@ export default function RealEstateClient() {
                         const code = DISTRICT_NAME_TO_CODE[name];
                         if (code) setSelectedDistrict(prev => prev === code ? null : code);
                       }}
+                      range={trendRange}
+                      onRangeChange={setTrendRange}
                     />
                   ) : (
                     <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>

@@ -24,10 +24,9 @@ const DISTRICT_COLORS: Record<string, string> = Object.fromEntries(
 const TOP5 = new Set(["강남구", "서초구", "송파구", "용산구", "마포구"]);
 
 const PERIODS = [
-  { label: "1M", n: 1 },
-  { label: "3M", n: 3 },
-  { label: "6M", n: 6 },
-  { label: "12M", n: 12 },
+  { label: "1Y", range: 12 },
+  { label: "3Y", range: 36 },
+  { label: "5Y", range: 60 },
 ] as const;
 
 interface Props {
@@ -35,6 +34,8 @@ interface Props {
   districts: Record<string, (number | null)[]>;
   selectedDistrict: string | null;
   onSelect: (name: string) => void;
+  range: number;
+  onRangeChange: (range: number) => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -62,23 +63,20 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
-export default function PriceChart({ months, districts, selectedDistrict, onSelect }: Props) {
-  const [period, setPeriod] = useState<1 | 3 | 6 | 12>(12);
+export default function PriceChart({ months, districts, selectedDistrict, onSelect, range, onRangeChange }: Props) {
   const [pinned, setPinned] = useState<Set<string>>(new Set());
 
   const districtNames = useMemo(() => Object.keys(districts), [districts]);
-  const sliced = months.slice(-period);
-  const startIdx = months.length - period;
 
   const chartData = useMemo(() =>
-    sliced.map((m, i) => {
+    months.map((m, i) => {
       const row: Record<string, string | number | null> = { month: m };
       for (const name of districtNames) {
-        row[name] = districts[name]?.[startIdx + i] ?? null;
+        row[name] = districts[name]?.[i] ?? null;
       }
       return row;
     }),
-    [sliced, districtNames, districts, startIdx]
+    [months, districtNames, districts]
   );
 
   const highlighted = selectedDistrict ?? (pinned.size === 1 ? [...pinned][0] : null);
@@ -142,15 +140,15 @@ export default function PriceChart({ months, districts, selectedDistrict, onSele
 
         {/* Period buttons */}
         <div style={{ display: "flex", gap: 2, flexShrink: 0, marginLeft: 10 }}>
-          {PERIODS.map(({ label, n }) => (
+          {PERIODS.map(({ label, range: r }) => (
             <button
               key={label}
-              onClick={() => setPeriod(n as 1 | 3 | 6 | 12)}
+              onClick={() => onRangeChange(r)}
               style={{
                 ...btnBase,
-                border: `1px solid ${period === n ? "#f59e0b60" : "#1e1e1e"}`,
-                background: period === n ? "#f59e0b12" : "#0e0e0e",
-                color: period === n ? "#f59e0b" : "#3a3a3a",
+                border: `1px solid ${range === r ? "#f59e0b60" : "#1e1e1e"}`,
+                background: range === r ? "#f59e0b12" : "#0e0e0e",
+                color: range === r ? "#f59e0b" : "#3a3a3a",
               }}
             >{label}</button>
           ))}

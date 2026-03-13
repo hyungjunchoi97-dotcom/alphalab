@@ -318,8 +318,14 @@ export async function GET(request: NextRequest) {
   const districtStats: DistrictStats[] = SEOUL_DISTRICTS.map((d) => {
     const currPrices = currMap[d.code] ?? [];
     const prevPrices = prevMap[d.code] ?? [];
-    const currAvg = currPrices.length ? currPrices.reduce((a, b) => a + b, 0) / currPrices.length : 0;
-    const prevAvg = prevPrices.length ? prevPrices.reduce((a, b) => a + b, 0) / prevPrices.length : 0;
+    const median = (arr: number[]) => {
+      if (!arr.length) return 0;
+      const s = [...arr].sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 === 0 ? (s[m - 1] + s[m]) / 2 : s[m];
+    };
+    const currAvg = median(currPrices);
+    const prevAvg = median(prevPrices);
     const change = currAvg > 0 && prevAvg > 0
       ? Math.round(((currAvg - prevAvg) / prevAvg) * 1000) / 10
       : null;
@@ -348,8 +354,18 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  allTrades.sort((a, b) => b.price - a.price);
-  const recentTrades = allTrades.slice(0, 200);
+  // 구별 top 20 → 합산 후 가격순 (모든 구 대표성 확보)
+  const byDistrict = new Map<string, Trade[]>();
+  for (const t of allTrades) {
+    if (!byDistrict.has(t.district)) byDistrict.set(t.district, []);
+    byDistrict.get(t.district)!.push(t);
+  }
+  const recentTrades: Trade[] = [];
+  for (const trades of byDistrict.values()) {
+    trades.sort((a, b) => b.price - a.price);
+    recentTrades.push(...trades.slice(0, 20));
+  }
+  recentTrades.sort((a, b) => b.price - a.price);
 
   const validCount = districtStats.filter((d) => d.avgPrice > 0).length;
   console.log(`[부동산API] 결과: ${dealYmd} | ${validCount}/25 구 | 거래 ${allTrades.length}건`);

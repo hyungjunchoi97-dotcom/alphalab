@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 import { XMLParser } from "fast-xml-parser";
 
@@ -8,7 +8,6 @@ export const maxDuration = 60;
 const MOLIT_KEY = process.env.MOLIT_API_KEY ?? "";
 const ENDPOINT_DEV = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
 const ENDPOINT_STD = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade";
-const CACHE_KEY = "realestate_trend_v1";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 const SEOUL_DISTRICTS = [
@@ -29,11 +28,10 @@ const SEOUL_DISTRICTS = [
 
 const xmlParser = new XMLParser({ ignoreAttributes: false, parseAttributeValue: true, parseTagValue: true });
 
-// Returns last 12 complete months as YYYYMM strings, oldest first
-function getLast12Months(): string[] {
+function getMonths(count: number): string[] {
   const months: string[] = [];
   const now = new Date();
-  for (let i = 12; i >= 1; i--) {
+  for (let i = count - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     months.push(`${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`);
   }
@@ -80,13 +78,16 @@ async function fetchDistrict(code: string, dealYmd: string): Promise<number[]> {
   return [];
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const range = parseInt(request.nextUrl.searchParams.get("range") ?? "12", 10);
+  const cacheKey = `realestate_trend_v1_${range}`;
+
   // Cache check
   try {
     const { data: cached } = await supabaseAdmin
       .from("legend_screener_cache")
       .select("results, created_at")
-      .eq("cache_key", CACHE_KEY)
+      .eq("cache_key", cacheKey)
       .single();
     if (cached) {
       const age = Date.now() - new Date(cached.created_at).getTime();
@@ -96,7 +97,7 @@ export async function GET() {
     }
   } catch { /* cache miss */ }
 
-  const months = getLast12Months(); // 12 months, e.g. ["202503", ..., "202602"]
+  const months = getMonths(range);
 
   // Build priceMap: districtCode → { [ym]: number[] }
   const priceMap: Record<string, Record<string, number[]>> = {};
@@ -124,8 +125,10 @@ export async function GET() {
     districts[d.name] = months.map(ym => {
       const prices = priceMap[d.code][ym] ?? [];
       if (prices.length === 0) return null;
-      const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
-      return Math.round(avg / 1000) / 10; // 억 단위 (소수점 1자리)
+      const sorted = [...prices].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+      return Math.round(median / 1000) / 10; // 억 단위 (소수점 1자리)
     });
   }
 
@@ -135,9 +138,9 @@ export async function GET() {
   const payload = { months: monthLabels, districts };
 
   try {
-    await supabaseAdmin.from("legend_screener_cache").delete().eq("cache_key", CACHE_KEY);
+    await supabaseAdmin.from("legend_screener_cache").delete().eq("cache_key", cacheKey);
     await supabaseAdmin.from("legend_screener_cache").insert({
-      cache_key: CACHE_KEY,
+      cache_key: cacheKey,
       results: payload,
       created_at: new Date().toISOString(),
     });
