@@ -149,7 +149,7 @@ export default function NewsList() {
           </p>
         )}
 
-        {news.slice(0, 12).map((item) => (
+        {news.slice(0, 6).map((item) => (
           <a
             key={item.id}
             href={item.url}

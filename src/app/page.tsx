@@ -162,19 +162,19 @@ export default function Home() {
 
           {/* Right column */}
           <div className="flex flex-col gap-2 min-h-0">
-            {/* 시장 뉴스 — fills remaining */}
+            {/* 시장 캘린더 — top, larger */}
+            <section className="shrink-0 rounded-lg border border-card-border bg-card-bg p-3 shadow-[0_1px_2px_rgba(0,0,0,0.3)] overflow-hidden" style={{ height: 380 }}>
+              <SectionHeader title={t("marketCalendar")} />
+              <div className="h-[calc(100%-24px)] overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-500">
+                <MarketCalendar />
+              </div>
+            </section>
+
+            {/* 시장 뉴스 — bottom, fills remaining */}
             <section className="flex-1 min-h-0 rounded-lg border border-card-border bg-card-bg p-3 shadow-[0_1px_2px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
               <SectionHeader title={lang === "kr" ? "시장 뉴스" : "Market News"} />
               <div className="flex-1 min-h-0 overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-500">
                 <NewsList />
-              </div>
-            </section>
-
-            {/* 시장 캘린더 — fixed height */}
-            <section className="shrink-0 rounded-lg border border-card-border bg-card-bg p-3 shadow-[0_1px_2px_rgba(0,0,0,0.3)] overflow-hidden" style={{ height: 280 }}>
-              <SectionHeader title={t("marketCalendar")} />
-              <div className="h-[calc(100%-24px)] overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-500">
-                <MarketCalendar />
               </div>
             </section>
           </div>
