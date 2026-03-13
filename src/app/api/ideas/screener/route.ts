@@ -234,6 +234,34 @@ const US_STOCKS: StockDef[] = [
   { ticker: "NEM", symbol: "NEM", name: "Newmont", market: "US" },
 ];
 
+// ── KR Yahoo symbol resolver (Naver API) ────────────────────
+
+const yahooSymbolCache = new Map<string, string>();
+
+async function getYahooSymbol(ticker: string, fallback: string): Promise<string> {
+  const cached = yahooSymbolCache.get(ticker);
+  if (cached) return cached;
+
+  try {
+    const res = await fetchWithTimeout(
+      `https://m.stock.naver.com/api/stock/${ticker}/basic`,
+      { headers: { "User-Agent": "Mozilla/5.0" } },
+      3000,
+    );
+    if (res.ok) {
+      const json = await res.json();
+      const marketType: string = json.marketType || json.stockExchangeType?.name || "";
+      const suffix = marketType.toUpperCase().includes("KOSPI") ? ".KS" : ".KQ";
+      const symbol = `${ticker}${suffix}`;
+      yahooSymbolCache.set(ticker, symbol);
+      return symbol;
+    }
+  } catch { /* fallback */ }
+
+  yahooSymbolCache.set(ticker, fallback);
+  return fallback;
+}
+
 // ── Cache ────────────────────────────────────────────────────
 
 const CACHE_TTL = 3 * 60 * 1000; // 3 minutes
@@ -296,7 +324,10 @@ interface StockData {
 
 async function fetchStockData(stock: StockDef): Promise<StockData | null> {
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(stock.symbol)}?range=3mo&interval=1d`;
+    const symbol = stock.market === "KR"
+      ? await getYahooSymbol(stock.ticker, stock.symbol)
+      : stock.symbol;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=3mo&interval=1d`;
     const res = await fetchWithTimeout(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
     }, 8000);
@@ -577,8 +608,8 @@ export async function GET(req: NextRequest) {
     if (auth) {
       // Fetch fundamentals for all stocks (we need them for VALUE screener)
       const symbolsToFetch = stocks.map(s => {
-        const def = allStocks.find(d => d.ticker === s.ticker);
-        return def?.symbol || s.ticker;
+        // Use resolved symbol from cache (populated during fetchStockData)
+        return yahooSymbolCache.get(s.ticker) || allStocks.find(d => d.ticker === s.ticker)?.symbol || s.ticker;
       });
       // Batch in groups of 30 to avoid overwhelming
       const batches: string[][] = [];
