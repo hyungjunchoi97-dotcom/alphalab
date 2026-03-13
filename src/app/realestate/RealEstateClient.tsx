@@ -593,7 +593,7 @@ export default function RealEstateClient() {
                 }}>▾</span>
               </div>
               {trendOpen && (
-                <div style={{ height: 540 }}>
+                <div style={{ height: 620 }}>
                   {trendLoading ? (
                     <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0a0a" }}>
                       <span style={{ ...S, fontSize: 10, color: "#222" }}>LOADING TREND…</span>

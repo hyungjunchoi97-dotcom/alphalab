@@ -169,10 +169,9 @@ export default function PriceChart({ months, districts, districtVolumes, selecte
 
       {/* Price chart title */}
       <div style={{
-        padding: "6px 12px 2px",
+        padding: "8px 12px 4px 12px",
         fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
-        color: "#f59e0b", fontWeight: 700, letterSpacing: "0.08em",
-        textTransform: "uppercase",
+        color: "#999",
       }}>
         지역별 평균가 추이
       </div>
