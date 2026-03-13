@@ -225,11 +225,56 @@ export default function MarketCalendar() {
       {/* Weekday headers */}
       <div className="grid grid-cols-7 gap-px mb-px">
         {WEEKDAYS.map((wd) => (
-          <div key={wd} className="py-0.5 text-center text-[8px] font-mono font-bold tracking-widest text-[#444]">
+          <div key={wd} className="py-0.5 text-center text-[8px] font-mono font-bold tracking-widest text-[#666]">
             {wd}
           </div>
         ))}
       </div>
+
+      {/* Selected day detail panel — TOP */}
+      {selectedDay && selectedEvents.length > 0 && (
+        <div className="mb-2 border border-[#222] bg-[#0d0d0d]">
+          <div className="px-3 py-2 border-b border-[#1a1a1a] flex items-center justify-between">
+            <span className="text-[10px] font-mono font-bold text-amber-400 tracking-wider">
+              {selectedDay}
+            </span>
+            <button
+              onClick={() => setSelectedDay(null)}
+              className="text-[#555] hover:text-foreground transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="divide-y divide-[#1a1a1a]">
+            {selectedEvents.map((ev) => {
+              const impact = getImpactLevel(ev);
+              const impactInfo = IMPACT_LABEL[impact];
+              const title = lang === "kr" && ev.titleKr ? ev.titleKr : ev.title;
+              return (
+                <div key={ev.id} className="px-3 py-2 flex items-center gap-3">
+                  <span className="text-[10px] font-mono text-[#888] w-12 shrink-0">
+                    {formatTimeKST(ev.datetimeISO)}
+                  </span>
+                  <span className={`shrink-0 px-1.5 py-px text-[9px] font-mono font-bold ${BADGE_COLORS[ev.category] || "bg-[#222] text-[#666]"}`}>
+                    {BADGE_LABELS[ev.category] || ev.category.toUpperCase()}
+                  </span>
+                  <span className="flex-1 text-xs font-mono text-[#e8e8e8] truncate">{title}</span>
+                  {(ev.actual || ev.forecast || ev.previous) && (
+                    <span className="text-[9px] font-mono text-[#999] tabular-nums shrink-0">
+                      {ev.actual != null && <span>A:<span className="text-foreground">{ev.actual}</span></span>}
+                      {ev.forecast != null && <span className="ml-1">F:<span className="text-foreground">{ev.forecast}</span></span>}
+                      {ev.previous != null && <span className="ml-1">P:<span className="text-foreground">{ev.previous}</span></span>}
+                    </span>
+                  )}
+                  <span className={`text-[9px] font-mono font-bold shrink-0 ${impactInfo.cls}`}>{impactInfo.text}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Calendar grid */}
       <div className="grid grid-cols-7 gap-px">
@@ -264,15 +309,15 @@ export default function MarketCalendar() {
               onClick={() => {
                 if (dayEvents.length > 0) setSelectedDay(isSelected ? null : key);
               }}
-              className={`relative min-h-[36px] p-0.5 border ${cellBorder} ${cellBg} transition-colors ${
+              className={`relative min-h-[44px] p-1 border ${cellBorder} ${cellBg} transition-colors ${
                 inMonth ? "" : "opacity-30"
               } ${dayEvents.length > 0 ? "cursor-pointer hover:bg-[#161616]" : ""}`}
             >
               {/* Day number */}
               <span
                 className={`block text-[9px] font-mono leading-tight ${
-                  isToday ? "text-amber-400 font-bold" : "text-[#555]"
-                } ${date.getDay() === 0 ? "text-red-400/60" : ""} ${date.getDay() === 6 ? "text-blue-400/60" : ""}`}
+                  isToday ? "text-amber-400 font-bold" : "text-[#888]"
+                } ${date.getDay() === 0 ? "text-red-400/80" : ""} ${date.getDay() === 6 ? "text-blue-400/80" : ""}`}
               >
                 {date.getDate()}
               </span>
@@ -327,7 +372,7 @@ export default function MarketCalendar() {
               return (
                 <div key={ev.id} className="px-3 py-2 flex items-center gap-3">
                   {/* Time */}
-                  <span className="text-[10px] font-mono text-[#555] w-12 shrink-0">
+                  <span className="text-[10px] font-mono text-[#888] w-12 shrink-0">
                     {formatTimeKST(ev.datetimeISO)}
                   </span>
                   {/* Badge */}
@@ -339,12 +384,12 @@ export default function MarketCalendar() {
                     {BADGE_LABELS[ev.category] || ev.category.toUpperCase()}
                   </span>
                   {/* Title */}
-                  <span className="flex-1 text-xs font-mono text-[#ccc] truncate">
+                  <span className="flex-1 text-xs font-mono text-[#e8e8e8] truncate">
                     {title}
                   </span>
                   {/* A/F/P */}
                   {(ev.actual || ev.forecast || ev.previous) && (
-                    <span className="text-[9px] font-mono text-[#555] tabular-nums shrink-0">
+                    <span className="text-[9px] font-mono text-[#999] tabular-nums shrink-0">
                       {ev.actual != null && <span>A:<span className="text-foreground">{ev.actual}</span></span>}
                       {ev.forecast != null && <span className="ml-1">F:<span className="text-foreground">{ev.forecast}</span></span>}
                       {ev.previous != null && <span className="ml-1">P:<span className="text-foreground">{ev.previous}</span></span>}

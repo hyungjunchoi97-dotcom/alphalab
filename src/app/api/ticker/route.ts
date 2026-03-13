@@ -63,23 +63,27 @@ async function fetchYahooQuote(symbol: string): Promise<{ price: number; changeP
   const cached = getYahooCache(symbol);
   if (cached) return cached;
   try {
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
     const res = await fetchWithTimeout(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
     }, 8000);
     if (!res.ok) return null;
     const json = await res.json();
-    const q = json?.quoteResponse?.result?.[0];
-    if (!q) return null;
-
-    const price = q.regularMarketPrice;
+    const result = json.chart?.result?.[0];
+    if (!result) return null;
+    const meta = result.meta;
+    const price = meta?.regularMarketPrice;
     if (price == null) return null;
-
-    const changePct = q.regularMarketChangePercent ?? 0;
-    const change = q.regularMarketChange ?? 0;
+    const changePct = meta?.regularMarketChangePercent != null
+      ? meta.regularMarketChangePercent
+      : (() => {
+          const prevClose = meta?.chartPreviousClose ?? meta?.regularMarketPreviousClose ?? meta?.previousClose;
+          return prevClose && prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
+        })();
+    const prevClose = meta?.chartPreviousClose ?? meta?.regularMarketPreviousClose ?? meta?.previousClose;
+    const change = prevClose ? price - prevClose : 0;
     setYahooCache(symbol, price, change, changePct);
     return { price, changePct };
-  } catch {
     return null;
   }
 }
