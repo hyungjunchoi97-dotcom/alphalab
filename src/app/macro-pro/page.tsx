@@ -10,11 +10,17 @@ import {
   Sphere,
 } from "react-simple-maps";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  LineChart,
+  Line,
+  ResponsiveContainer,
+  Tooltip as RechartTooltip,
+} from "recharts";
 import AppHeader from "@/components/AppHeader";
-import UsdHegemonyMonitor from "@/components/macro-pro/UsdHegemonyMonitor";
 import CommodityResearchPanel from "@/components/macro-pro/CommodityResearchPanel";
 import { useLang } from "@/lib/LangContext";
 import { COUNTRY_INTEL } from "@/data/countryIntel";
+import type { CommodityResult } from "@/app/api/macro/commodities/route";
 
 // ── i18n translations ──────────────────────────────────────
 const i18n = {
@@ -722,7 +728,7 @@ function stanceArrow(s: Stance): string {
 // ── Country panel component ─────────────────────────────────
 function CountryPanel({ code, data, onClose, lang }: { code: string; data: CountryData; onClose: () => void; lang: LangKey }) {
   const tx = i18n[lang];
-  const sectionStyle = { border: `1px solid ${C.panelBorder}`, background: C.sectionBg, padding: 12, borderRadius: 2 };
+  const sectionStyle = { background: "rgba(17,24,39,0.6)", padding: 16, borderRadius: 4, borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 12 };
   const labelStyle = { color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" };
   return (
     <motion.div
@@ -766,7 +772,7 @@ function CountryPanel({ code, data, onClose, lang }: { code: string; data: Count
               {tx.stanceLabels[data.centralBank.stance]} {stanceArrow(data.centralBank.stance)}
             </span>
           </div>
-          <p className="text-[12px] mt-1 leading-6 italic" style={{ color: "rgba(255,255,255,0.5)" }}>&ldquo;{data.centralBank.quote}&rdquo;</p>
+          <p className="text-sm mt-1 leading-relaxed italic text-gray-200">&ldquo;{data.centralBank.quote}&rdquo;</p>
           <p className="text-[11px] mt-1" style={{ color: C.dim }}>{tx.updated}: {data.centralBank.daysAgo}{tx.dAgo}</p>
         </div>
       )}
@@ -782,7 +788,7 @@ function CountryPanel({ code, data, onClose, lang }: { code: string; data: Count
               {tx.stanceLabels[data.treasury.stance]} {stanceArrow(data.treasury.stance)}
             </span>
           </div>
-          <p className="text-[12px] mt-1 leading-6 italic" style={{ color: "rgba(255,255,255,0.5)" }}>&ldquo;{data.treasury.quote}&rdquo;</p>
+          <p className="text-sm mt-1 leading-relaxed italic text-gray-200">&ldquo;{data.treasury.quote}&rdquo;</p>
           <p className="text-[11px] mt-1" style={{ color: C.dim }}>{tx.updated}: {data.treasury.daysAgo}{tx.dAgo}</p>
         </div>
       )}
@@ -792,11 +798,11 @@ function CountryPanel({ code, data, onClose, lang }: { code: string; data: Count
         const intel = COUNTRY_INTEL[code];
         if (!intel) return null;
         const IntelSection = ({ label, text }: { label: string; text: string }) => (
-          <div className="mb-2 panel-section" style={sectionStyle}>
-            <span className="text-[10px] uppercase tracking-widest font-bold font-[family-name:var(--font-jetbrains)]" style={labelStyle}>
+          <div className="mb-3 pb-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+            <h4 className="text-sm font-semibold text-white tracking-wide border-l-2 border-yellow-500 pl-2 mb-2">
               {label}
-            </span>
-            <p className="text-[12px] leading-6 mt-1.5 font-[family-name:var(--font-jetbrains)]" style={{ color: "rgba(255,255,255,0.6)" }}>
+            </h4>
+            <p className="text-sm text-gray-200 leading-relaxed">
               {text}
             </p>
           </div>
@@ -810,28 +816,24 @@ function CountryPanel({ code, data, onClose, lang }: { code: string; data: Count
 
             {/* KEY COMMODITY EXPOSURE */}
             {intel.commodityExposure && intel.commodityExposure.length > 0 && (
-              <div className="mb-2 panel-section" style={sectionStyle}>
-                <span className="text-[10px] uppercase tracking-widest font-bold font-[family-name:var(--font-jetbrains)]" style={labelStyle}>
+              <div className="mb-3 pb-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                <h4 className="text-sm font-semibold text-white tracking-wide border-l-2 border-yellow-500 pl-2 mb-2">
                   {tx.keyCommodityExposure}
-                </span>
-                <div className="space-y-2 mt-2">
+                </h4>
+                <div className="space-y-2.5 mt-2">
                   {intel.commodityExposure.map((exp, i) => {
-                    const isExporter = exp.direction === "EXPORTER" || exp.direction === "PRODUCER";
+                    const commColor = exp.commodity === "OIL" ? "bg-orange-500/20 text-orange-400" : exp.commodity === "GAS" || exp.commodity === "LNG" ? "bg-blue-500/20 text-blue-400" : exp.commodity === "WHEAT" ? "bg-yellow-500/20 text-yellow-400" : "bg-gray-500/20 text-gray-300";
                     return (
                       <div key={i} className="flex items-start gap-2">
-                        <span
-                          className="text-[11px] font-bold font-[family-name:var(--font-jetbrains)] shrink-0 rounded"
-                          style={{ padding: "2px 6px", border: `1px solid rgba(255,255,255,0.2)`, color: "rgba(255,255,255,0.7)" }}
-                        >
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded shrink-0 ${commColor}`}>
                           {exp.commodity}
                         </span>
                         <span
-                          className="text-[11px] font-bold font-[family-name:var(--font-jetbrains)] shrink-0 rounded"
-                          style={{ padding: "2px 6px", border: `1px solid ${isExporter ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.15)"}`, color: isExporter ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.5)" }}
+                          className="text-xs font-bold shrink-0 rounded px-2 py-0.5 bg-gray-700/50 text-gray-300"
                         >
                           {tx.directionLabels[exp.direction] || exp.direction}
                         </span>
-                        <span className="text-[11px] font-[family-name:var(--font-jetbrains)] leading-relaxed" style={{ color: C.subtle }}>
+                        <span className="text-sm text-gray-200 leading-relaxed">
                           {exp.reason}
                         </span>
                       </div>
@@ -844,78 +846,190 @@ function CountryPanel({ code, data, onClose, lang }: { code: string; data: Count
         );
       })()}
 
-      {/* USD Hegemony Monitor — US only */}
-      {code === "US" && (
-        <div className="mb-2">
-          <UsdHegemonyMonitor lang={lang} />
-        </div>
-      )}
-
       {/* Key Event */}
       {data.keyEvent && (
-        <div style={{ border: `1px solid ${C.panelBorder}`, background: C.sectionBg, padding: 12, borderRadius: 2 }}>
-          <span className="text-[10px] uppercase tracking-widest font-[family-name:var(--font-jetbrains)]" style={labelStyle}>{tx.keyEvent}</span>
-          <p className="text-[12px] mt-1 leading-6" style={{ color: "rgba(255,255,255,0.6)" }}>{data.keyEvent}</p>
+        <div className="mb-3 pb-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <h4 className="text-sm font-semibold text-white tracking-wide border-l-2 border-yellow-500 pl-2 mb-2">
+            {tx.keyEvent}
+          </h4>
+          <div className="border-l border-gray-600 pl-3">
+            <p className="text-sm text-gray-100">{data.keyEvent}</p>
+          </div>
         </div>
       )}
     </motion.div>
   );
 }
 
-// ── Static price fallbacks for commodities not in Yahoo API ──
-const STATIC_PRICES: Record<string, { price: string; unit: string }> = {
-  LITHIUM: { price: "~$12,000", unit: "/t (SMM)" },
-  COAL: { price: "$220", unit: "/t HCC" },
-  URANIUM: { price: "$95", unit: "/lb" },
-};
+// ── Commodity price hook ──────────────────────────────────────
+function useCommodityPrices() {
+  const [data, setData] = useState<CommodityResult[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-// ── Unit labels per commodity ──
-const COMMODITY_UNITS: Record<CommodityKey, string> = {
-  OIL: "/bbl", GAS: "/MMBtu", GOLD: "/oz", COPPER: "/lb",
-  LITHIUM: "/t", NICKEL: "/t", SILVER: "/oz", COAL: "/t",
-  URANIUM: "/lb", ALUMINUM: "/ton", WHEAT: "/bu",
-};
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch("/api/macro/commodities", { signal: AbortSignal.timeout(20000) });
+      const json = await res.json();
+      if (json.ok && Array.isArray(json.data)) {
+        setData(json.data);
+      } else {
+        setError(true);
+      }
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-interface PriceHistoryEntry { price: number | null; change: number | null }
+  useEffect(() => { load(); }, [load]);
+  return { data, loading, error, reload: load };
+}
 
-// ── Commodity intel panel ─────────────────────────────────────
-function CommodityIntelPanel({ commodity, lang }: { commodity: CommodityKey; lang: LangKey }) {
+// ── Mini price card ───────────────────────────────────────────
+function PriceCard({ result, onReload }: { result: CommodityResult; onReload: () => void }) {
+  const isUp = result.changePercent >= 0;
+  const chartColor = isUp ? "#22c55e" : "#ef4444";
+  const hasPrice = result.price > 0;
+  const chartData = result.history.map((h) => ({ date: h.date, v: h.close }));
+
+  return (
+    <div
+      className="rounded p-3"
+      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
+    >
+      <div className="flex items-start justify-between mb-1">
+        <div>
+          <span className="text-[11px] font-bold font-mono" style={{ color: "#e8e8e8" }}>{result.labelKr}</span>
+          <span className="text-[9px] ml-1.5 font-mono" style={{ color: "#4b5563" }}>{result.symbol}</span>
+        </div>
+        <span className="text-[9px] font-mono" style={{ color: "#4b5563" }}>{result.unit}</span>
+      </div>
+
+      {!hasPrice ? (
+        <div>
+          <span className="text-[11px] font-mono" style={{ color: "#ef4444" }}>데이터 없음</span>
+          <button
+            onClick={onReload}
+            className="ml-2 text-[9px] font-mono px-1.5 py-0.5 rounded"
+            style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444" }}
+          >
+            재시도
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[18px] font-bold font-mono tabular-nums" style={{ color: "#ffffff" }}>
+              ${result.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className="text-[11px] font-mono font-bold" style={{ color: chartColor }}>
+              {isUp ? "▲" : "▼"} {result.changePercent >= 0 ? "+" : ""}{result.changePercent.toFixed(2)}%
+            </span>
+          </div>
+          <div className="text-[9px] font-mono" style={{ color: "#4b5563" }}>
+            오늘 {result.change >= 0 ? "+" : ""}{result.change.toFixed(2)}
+            {result.high52w != null && result.low52w != null && (
+              <> · 52W: {result.low52w.toFixed(2)}–{result.high52w.toFixed(2)}</>
+            )}
+          </div>
+
+          {/* Mini chart */}
+          {chartData.length > 1 && (
+            <div className="mt-2" style={{ height: 72 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+                  <Line
+                    type="monotone"
+                    dataKey="v"
+                    stroke={chartColor}
+                    strokeWidth={1.5}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                  <RechartTooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const d = payload[0].payload as { date: string; v: number };
+                      return (
+                        <div className="text-[9px] font-mono px-1.5 py-1 rounded" style={{ background: "rgba(13,17,23,0.95)", border: "1px solid rgba(255,255,255,0.1)", color: "#e8e8e8" }}>
+                          <div>{d.date}</div>
+                          <div style={{ color: chartColor }}>${d.v.toFixed(2)}</div>
+                        </div>
+                      );
+                    }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── OIL special: WTI + Brent dual card ───────────────────────
+function OilDualCard({ wti, brent, onReload }: { wti: CommodityResult | undefined; brent: CommodityResult | undefined; onReload: () => void }) {
+  const spread = wti && brent && wti.price > 0 && brent.price > 0
+    ? Math.abs(brent.price - wti.price)
+    : null;
+
+  return (
+    <div className="space-y-2 mb-3">
+      <div className="grid grid-cols-2 gap-2">
+        {wti && <PriceCard result={wti} onReload={onReload} />}
+        {brent && <PriceCard result={brent} onReload={onReload} />}
+      </div>
+      {spread != null && (
+        <div
+          className="rounded px-3 py-1.5 text-[10px] font-mono flex items-center justify-between"
+          style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <span style={{ color: "#6b7280" }}>WTI–Brent 스프레드</span>
+          <span style={{ color: "#f59e0b" }}>${spread.toFixed(2)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Commodity intel panel (new) ───────────────────────────────
+function CommodityIntelPanel({ commodity, lang, commodityPrices, pricesLoading, pricesError, onReloadPrices }: {
+  commodity: CommodityKey;
+  lang: LangKey;
+  commodityPrices: CommodityResult[] | null;
+  pricesLoading: boolean;
+  pricesError: boolean;
+  onReloadPrices: () => void;
+}) {
   const tx = i18n[lang];
   const data = COMMODITY_LAYERS[commodity];
   const riskColor = data.supplyRisk >= 66 ? C.red : data.supplyRisk >= 41 ? C.amber : C.green;
 
-  const [priceData, setPriceData] = useState<{
-    currentPrice: number;
-    changePercent: number;
-    unit: string;
-    history: Record<string, PriceHistoryEntry>;
-    updatedAt: string;
-  } | null>(null);
-  const [priceLoading, setPriceLoading] = useState(true);
+  // Map commodity tab keys to API ids
+  const ID_MAP: Record<CommodityKey, string[]> = {
+    OIL:     ["OIL_WTI", "OIL_BRENT"],
+    GAS:     ["GAS"],
+    GOLD:    ["GOLD"],
+    SILVER:  ["SILVER"],
+    COPPER:  ["COPPER"],
+    LITHIUM: ["LITHIUM"],
+    NICKEL:  ["NICKEL"],
+    COAL:    ["COAL"],
+    URANIUM: ["URANIUM"],
+    ALUMINUM:["ALUMINUM"],
+    WHEAT:   ["WHEAT"],
+  };
 
-  useEffect(() => {
-    let cancelled = false;
-    setPriceLoading(true);
-    fetch(`/api/commodity-price-history?commodity=${commodity}`, { signal: AbortSignal.timeout(15000) })
-      .then((r) => r.json())
-      .then((json) => {
-        if (!cancelled && json.ok) setPriceData(json);
-      })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setPriceLoading(false); });
-    return () => { cancelled = true; };
-  }, [commodity]);
-
-  const staticPrice = STATIC_PRICES[commodity];
-  const hasLivePrice = priceData && priceData.currentPrice > 0;
-  const updatedTime = priceData?.updatedAt
-    ? new Date(priceData.updatedAt).toLocaleString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" }) + " KST"
-    : "";
-
-  const periodLabels = lang === "kr"
-    ? { "1m": "1개월 전", "3m": "3개월 전", "6m": "6개월 전", "1y": "1년 전" }
-    : { "1m": "1M ago", "3m": "3M ago", "6m": "6M ago", "1y": "1Y ago" };
-  const collecting = lang === "kr" ? "데이터 수집 중" : "Collecting...";
+  const ids = ID_MAP[commodity] ?? [];
+  const matchedResults = commodityPrices?.filter((r) => ids.includes(r.id)) ?? [];
+  const wti   = matchedResults.find((r) => r.id === "OIL_WTI");
+  const brent = matchedResults.find((r) => r.id === "OIL_BRENT");
+  const single = matchedResults.find((r) => r.id !== "OIL_BRENT");
 
   return (
     <motion.div
@@ -927,124 +1041,77 @@ function CommodityIntelPanel({ commodity, lang }: { commodity: CommodityKey; lan
       style={{ scrollbarWidth: "thin", scrollbarColor: `rgba(255,255,255,0.15) transparent` }}
     >
       {/* Header */}
-      <div className="mb-4">
+      <div className="mb-3">
         <h2 className="text-base font-bold uppercase tracking-wider font-[family-name:var(--font-rajdhani)]" style={{ color: C.white }}>
           {data.label}
         </h2>
         <span className="text-[10px] uppercase tracking-widest font-[family-name:var(--font-jetbrains)]" style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}>{tx.commodityLayer}</span>
       </div>
 
-      {/* Current Price */}
-      <div className="mb-2 panel-section" style={{ border: `1px solid ${C.panelBorder}`, background: C.sectionBg, padding: 12, borderRadius: 2 }}>
-        <span className="text-[10px] uppercase tracking-widest font-[family-name:var(--font-jetbrains)]" style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}>{tx.currentPrice}</span>
-        {priceLoading ? (
-          <div className="mt-2 h-6 w-32 rounded" style={{ background: "rgba(255,255,255,0.05)", animation: "threatPulse 1.5s infinite" }} />
-        ) : hasLivePrice ? (
-          <>
-            <p className="text-[22px] font-bold font-[family-name:var(--font-jetbrains)] mt-1" style={{ color: C.white }}>
-              ${priceData.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              <span className="text-[13px] ml-1" style={{ color: C.muted }}>{COMMODITY_UNITS[commodity]}</span>
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <span
-                className="text-[13px] font-bold font-[family-name:var(--font-jetbrains)]"
-                style={{ color: priceData.changePercent >= 0 ? C.green : C.red }}
-              >
-                {priceData.changePercent >= 0 ? "+" : ""}{priceData.changePercent.toFixed(2)}%
-              </span>
-              <span className="text-[11px] font-[family-name:var(--font-jetbrains)]" style={{ color: C.dim }}>
-                {updatedTime} 기준
-              </span>
-            </div>
-          </>
-        ) : staticPrice ? (
-          <p className="text-[22px] font-bold font-[family-name:var(--font-jetbrains)] mt-1" style={{ color: C.white }}>
-            {staticPrice.price}<span className="text-[13px] ml-1" style={{ color: C.muted }}>{staticPrice.unit}</span>
-          </p>
+      {/* ── Price Section ── */}
+      <div className="mb-3">
+        <span className="text-[9px] uppercase tracking-widest font-mono block mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>
+          {tx.currentPrice} · {lang === "kr" ? "ETF 기준" : "ETF-based"}
+        </span>
+        {pricesLoading ? (
+          <div className="space-y-2">
+            {[1, commodity === "OIL" ? 2 : 0].filter(Boolean).map((i) => (
+              <div key={i} className="rounded p-3 animate-pulse" style={{ background: "rgba(255,255,255,0.03)", height: 110 }} />
+            ))}
+          </div>
+        ) : pricesError ? (
+          <div className="rounded px-3 py-2" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }}>
+            <span className="text-[10px] font-mono" style={{ color: "#f87171" }}>가격 데이터 오류</span>
+            <button onClick={onReloadPrices} className="ml-2 text-[9px] font-mono px-2 py-0.5 rounded" style={{ background: "rgba(239,68,68,0.2)", color: "#f87171" }}>새로고침</button>
+          </div>
+        ) : commodity === "OIL" ? (
+          <OilDualCard wti={wti} brent={brent} onReload={onReloadPrices} />
+        ) : single ? (
+          <PriceCard result={single} onReload={onReloadPrices} />
         ) : (
-          <p className="text-[14px] font-bold font-[family-name:var(--font-jetbrains)] mt-1" style={{ color: C.muted }}>--</p>
+          <div className="text-[10px] font-mono" style={{ color: "#4b5563" }}>데이터 없음</div>
         )}
       </div>
 
-      {/* Price History Comparison */}
-      {hasLivePrice && priceData.history && (
-        <div className="mb-2 panel-section" style={{ border: `1px solid ${C.panelBorder}`, background: C.sectionBg, padding: 12, borderRadius: 2 }}>
-          <span className="text-[10px] uppercase tracking-widest font-[family-name:var(--font-jetbrains)]" style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}>
-            {lang === "kr" ? "가격 비교" : "PRICE COMPARISON"}
-          </span>
-          <div className="mt-2 space-y-1.5">
-            {(["1m", "3m", "6m", "1y"] as const).map((key) => {
-              const h = priceData.history[key];
-              const hasData = h && h.price !== null && h.change !== null;
-              return (
-                <div key={key} className="flex items-center gap-2 font-[family-name:var(--font-jetbrains)]">
-                  <span className="text-[12px] opacity-40 w-[72px] shrink-0">{periodLabels[key]}</span>
-                  {hasData ? (
-                    <>
-                      <span className="text-[13px] opacity-60 tabular-nums flex-1">
-                        ${h.price!.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                      <span
-                        className="text-[13px] font-bold tabular-nums"
-                        style={{ color: h.change! >= 0 ? C.green : C.red }}
-                      >
-                        {h.change! >= 0 ? "+" : ""}{h.change!.toFixed(1)}%
-                      </span>
-                      <span className="text-[12px]" style={{ color: h.change! >= 0 ? C.green : C.red }}>
-                        {h.change! >= 0 ? "▲" : "▼"}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-[12px] opacity-30 italic">{collecting}</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Top Producers */}
-      <div className="mb-2 panel-section" style={{ border: `1px solid ${C.panelBorder}`, background: C.sectionBg, padding: 12, borderRadius: 2 }}>
-        <span className="text-[10px] uppercase tracking-widest font-[family-name:var(--font-jetbrains)]" style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}>{tx.topProducers}</span>
+      <div className="mb-3 pb-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <h4 className="text-sm font-semibold text-white tracking-wide border-l-2 border-yellow-500 pl-2 mb-2">
+          {tx.topProducers}
+        </h4>
         <div className="mt-2 space-y-1.5">
-          {data.producers.map((p) => {
-            const rColor = p.rank === 1 ? C.white : p.rank === 2 ? C.subtle : p.rank === 3 ? C.muted : C.dim;
-            return (
-              <div key={p.id} className="flex items-center gap-2 font-[family-name:var(--font-jetbrains)]">
-                <span className="text-[12px] font-bold w-5 text-right" style={{ color: rColor }}>#{p.rank}</span>
-                <span className="text-[12px] font-bold" style={{ color: C.white }}>{p.id}</span>
-                <span className="text-[12px] flex-1" style={{ color: "rgba(255,255,255,0.6)" }}>{GEO_DATA[p.id]?.name || p.id}</span>
-                <span className="text-[12px] tabular-nums" style={{ color: C.muted }}>{p.share}</span>
-              </div>
-            );
-          })}
+          {data.producers.map((p) => (
+            <div key={p.id} className="flex items-center gap-2 font-[family-name:var(--font-jetbrains)]">
+              <span className="text-xs font-bold w-5 text-right text-yellow-500">#{p.rank}</span>
+              <span className="text-xs font-bold bg-gray-700 px-1 rounded text-gray-100">{p.id}</span>
+              <span className="text-sm flex-1 text-gray-100">{GEO_DATA[p.id]?.name || p.id}</span>
+              <span className="text-sm tabular-nums text-gray-300">{p.share}</span>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Top Consumers */}
-      <div className="mb-2 panel-section" style={{ border: `1px solid ${C.panelBorder}`, background: C.sectionBg, padding: 12, borderRadius: 2 }}>
-        <span className="text-[10px] uppercase tracking-widest font-[family-name:var(--font-jetbrains)]" style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}>{tx.topConsumers}</span>
+      <div className="mb-3 pb-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <h4 className="text-sm font-semibold text-white tracking-wide border-l-2 border-yellow-500 pl-2 mb-2">
+          {tx.topConsumers}
+        </h4>
         <div className="mt-2 space-y-1.5">
-          {data.consumers.map((c) => {
-            const rColor = c.rank === 1 ? C.white : c.rank === 2 ? C.subtle : c.rank === 3 ? C.muted : C.dim;
-            return (
-              <div key={c.id} className="flex items-center gap-2 font-[family-name:var(--font-jetbrains)]">
-                <span className="text-[12px] font-bold w-5 text-right" style={{ color: rColor }}>#{c.rank}</span>
-                <span className="text-[12px] font-bold" style={{ color: C.white }}>{c.id}</span>
-                <span className="text-[12px] flex-1" style={{ color: "rgba(255,255,255,0.6)" }}>{GEO_DATA[c.id]?.name || c.id}</span>
-                <span className="text-[12px] tabular-nums" style={{ color: C.muted }}>{c.share}</span>
-              </div>
-            );
-          })}
+          {data.consumers.map((c) => (
+            <div key={c.id} className="flex items-center gap-2 font-[family-name:var(--font-jetbrains)]">
+              <span className="text-xs font-bold w-5 text-right text-yellow-500">#{c.rank}</span>
+              <span className="text-xs font-bold bg-gray-700 px-1 rounded text-gray-100">{c.id}</span>
+              <span className="text-sm flex-1 text-gray-100">{GEO_DATA[c.id]?.name || c.id}</span>
+              <span className="text-sm tabular-nums text-gray-300">{c.share}</span>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Supply Risk Bar */}
-      <div className="mb-2 panel-section" style={{ border: `1px solid ${C.panelBorder}`, background: C.sectionBg, padding: 12, borderRadius: 2 }}>
+      <div className="mb-3 pb-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[9px] uppercase tracking-widest font-mono" style={{ color: C.dim }}>{tx.supplyRisk}</span>
-          <span className="text-[14px] font-bold tabular-nums font-mono" style={{ color: riskColor }}>
+          <h4 className="text-sm font-semibold text-white tracking-wide border-l-2 border-yellow-500 pl-2">{tx.supplyRisk}</h4>
+          <span className="text-2xl font-bold tabular-nums font-mono text-yellow-400">
             {data.supplyRisk}
           </span>
         </div>
@@ -1060,9 +1127,9 @@ function CommodityIntelPanel({ commodity, lang }: { commodity: CommodityKey; lan
       </div>
 
       {/* Intelligence Note */}
-      <div className="border-l-2 pl-4" style={{ borderColor: "rgba(245,158,11,0.5)" }}>
-        <span className="text-[9px] uppercase tracking-widest font-mono mb-1 block" style={{ color: C.amber }}>{tx.intelligenceNote}</span>
-        <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>{data.riskNote}</p>
+      <div className="border-l-2 border-yellow-500 pl-3">
+        <span className="text-xs uppercase tracking-widest font-mono mb-1 block text-yellow-500">{tx.intelligenceNote}</span>
+        <p className="text-sm text-gray-100 leading-relaxed">{data.riskNote}</p>
       </div>
     </motion.div>
   );
@@ -1077,11 +1144,21 @@ export default function MacroProPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [commodityTab, setCommodityTab] = useState<"ALL" | CommodityKey>("ALL");
 
+  // Commodity prices (shared across all tabs)
+  const { data: commodityPrices, loading: pricesLoading, error: pricesError, reload: reloadPrices } = useCommodityPrices();
+
   // Map controls (Globe only)
   const [globeScale, setGlobeScale] = useState(180);
   const [rotation, setRotation] = useState<[number, number, number]>([-30, -30, 0]);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number; rot: [number, number, number] } | null>(null);
+
+  // Globe animation refs (avoid re-render overhead)
+  const rotRef = useRef<[number, number, number]>([-30, -30, 0]);
+  const isDraggingRef = useRef(false);
+  const lastMouseRef = useRef<{ x: number; y: number } | null>(null);
+  const velRef = useRef({ x: 0, y: 0 });
+  const autoRotRef = useRef(true);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Continent collapse state (all collapsed by default)
   const [expandedContinents, setExpandedContinents] = useState<Set<string>>(new Set());
@@ -1106,6 +1183,41 @@ export default function MacroProPage() {
   }, []);
 
 
+  // Auto-rotation + momentum RAF loop
+  useEffect(() => {
+    let rafId: number;
+    function animate() {
+      if (!isDraggingRef.current) {
+        const [rx, ry, rz] = rotRef.current;
+        let nx = rx;
+        let ny = ry;
+        // Momentum decay
+        if (Math.abs(velRef.current.x) > 0.01 || Math.abs(velRef.current.y) > 0.01) {
+          velRef.current.x *= 0.95;
+          velRef.current.y *= 0.95;
+          nx += velRef.current.x;
+          ny += velRef.current.y;
+        }
+        // Auto-rotation (~0.003 rad/frame = ~0.17°/frame)
+        if (autoRotRef.current) {
+          nx += 0.17;
+        }
+        ny = Math.max(-90, Math.min(90, ny));
+        if (nx !== rx || ny !== ry) {
+          rotRef.current = [nx, ny, rz];
+          setRotation([nx, ny, rz]);
+        }
+      }
+      rafId = requestAnimationFrame(animate);
+    }
+    rafId = requestAnimationFrame(animate);
+    return () => {
+      cancelAnimationFrame(rafId);
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Scroll zoom
   const scaleRef = useRef(globeScale);
   const rafRef = useRef<number | null>(null);
@@ -1121,26 +1233,75 @@ export default function MacroProPage() {
     }
   }, []);
 
-  // Globe drag rotation
+  // Globe drag + hover handlers
+  const handleMouseEnter = useCallback(() => {
+    autoRotRef.current = false;
+    if (resumeTimerRef.current) { clearTimeout(resumeTimerRef.current); resumeTimerRef.current = null; }
+  }, []);
+
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    isDraggingRef.current = true;
+    lastMouseRef.current = { x: e.clientX, y: e.clientY };
+    velRef.current = { x: 0, y: 0 };
     setIsDragging(true);
-    setDragStart({ x: e.clientX, y: e.clientY, rot: rotation });
-  }, [rotation]);
+  }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging || !dragStart) return;
-    const dx = e.clientX - dragStart.x;
-    const dy = e.clientY - dragStart.y;
-    setRotation([
-      dragStart.rot[0] + dx * 0.3,
-      Math.max(-90, Math.min(90, dragStart.rot[1] - dy * 0.3)),
-      0,
-    ]);
-  }, [isDragging, dragStart]);
+    if (!isDraggingRef.current || !lastMouseRef.current) return;
+    const dx = e.clientX - lastMouseRef.current.x;
+    const dy = e.clientY - lastMouseRef.current.y;
+    const [rx, ry, rz] = rotRef.current;
+    const nx = rx + dx * 0.3;
+    const ny = Math.max(-90, Math.min(90, ry - dy * 0.3));
+    rotRef.current = [nx, ny, rz];
+    setRotation([nx, ny, rz]);
+    velRef.current = { x: dx * 0.3, y: -dy * 0.3 };
+    lastMouseRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
 
   const handleMouseUp = useCallback(() => {
+    isDraggingRef.current = false;
+    lastMouseRef.current = null;
     setIsDragging(false);
-    setDragStart(null);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    isDraggingRef.current = false;
+    lastMouseRef.current = null;
+    setIsDragging(false);
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => { autoRotRef.current = true; resumeTimerRef.current = null; }, 1000);
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    isDraggingRef.current = true;
+    lastMouseRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    velRef.current = { x: 0, y: 0 };
+    autoRotRef.current = false;
+    setIsDragging(true);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    if (!isDraggingRef.current || !lastMouseRef.current || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - lastMouseRef.current.x;
+    const dy = e.touches[0].clientY - lastMouseRef.current.y;
+    const [rx, ry, rz] = rotRef.current;
+    const nx = rx + dx * 0.3;
+    const ny = Math.max(-90, Math.min(90, ry - dy * 0.3));
+    rotRef.current = [nx, ny, rz];
+    setRotation([nx, ny, rz]);
+    velRef.current = { x: dx * 0.3, y: -dy * 0.3 };
+    lastMouseRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    isDraggingRef.current = false;
+    lastMouseRef.current = null;
+    setIsDragging(false);
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => { autoRotRef.current = true; resumeTimerRef.current = null; }, 1000);
   }, []);
 
   const selectedData = useMemo(() => (selected ? GEO_DATA[selected] : null), [selected]);
@@ -1218,10 +1379,14 @@ export default function MacroProPage() {
               boxShadow: `0 0 40px rgba(255,255,255,0.03), inset 0 0 60px rgba(255,255,255,0.01)`,
             }}
             onWheel={handleWheel}
+            onMouseEnter={handleMouseEnter}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
             <ComposableMap
               projection="geoOrthographic"
@@ -1366,7 +1531,7 @@ export default function MacroProPage() {
           className="w-full lg:w-[380px] shrink-0 p-3 lg:p-4 border-l overflow-hidden"
           style={{
             borderColor: C.panelBorder,
-            background: C.panelBg,
+            background: "rgba(17,24,39,0.95)",
             backdropFilter: "blur(12px)",
           }}
         >
@@ -1374,7 +1539,15 @@ export default function MacroProPage() {
             {selectedData ? (
               <CountryPanel key={selected} code={selected!} data={selectedData} onClose={() => setSelected(null)} lang={currentLang} />
             ) : commodityTab !== "ALL" ? (
-              <CommodityIntelPanel key={`commodity-${commodityTab}`} commodity={commodityTab} lang={currentLang} />
+              <CommodityIntelPanel
+                key={`commodity-${commodityTab}`}
+                commodity={commodityTab}
+                lang={currentLang}
+                commodityPrices={commodityPrices}
+                pricesLoading={pricesLoading}
+                pricesError={pricesError}
+                onReloadPrices={reloadPrices}
+              />
             ) : (
               <motion.div
                 key="empty"

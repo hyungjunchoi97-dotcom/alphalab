@@ -3,9 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useLang } from "@/lib/LangContext";
-import { messages } from "@/lib/i18n";
 import AppHeader from "@/components/AppHeader";
-import AiAnalysisPanel from "@/components/AiAnalysisPanel";
 
 const RRGChart = dynamic(() => import("@/components/RRGChart"), {
   ssr: false,
@@ -23,6 +21,7 @@ const TD = "py-1.5";
 interface FomoItem {
   ticker: string;
   name: string;
+  nameKr?: string;
   price: number;
   chgPct: number;
   tag: string;
@@ -31,11 +30,48 @@ interface FomoItem {
   metrics: { chg1d: number; chg5d: number; chg20d: number; near52wHigh: boolean; volumeSpike: boolean; tradingValue: number };
 }
 
+interface FomoUsItem {
+  symbol: string;
+  name: string;
+  price: number;
+  changePct: number;
+  volume: number;
+  avgVolume: number;
+  volumeRatio: number;
+  tradingValue: number;
+}
+
 interface AiResult {
   bullets: string[];
   risk: string;
   confidence: number;
 }
+
+interface UsProfile {
+  description: string;
+  sector: string;
+  industry: string;
+  ceo: string;
+  fullTimeEmployees: number | null;
+  website: string;
+  country: string;
+}
+
+interface UsNewsItem {
+  title: string;
+  url: string;
+  publishedDate: string;
+}
+
+type UsSector = "tech" | "financial" | "healthcare" | "energy" | "consumer";
+
+const US_SECTORS: { key: UsSector; label: string; labelKr: string }[] = [
+  { key: "tech", label: "TECH", labelKr: "테크" },
+  { key: "financial", label: "FINANCIAL", labelKr: "금융" },
+  { key: "healthcare", label: "HEALTHCARE", labelKr: "헬스케어" },
+  { key: "energy", label: "ENERGY", labelKr: "에너지" },
+  { key: "consumer", label: "CONSUMER", labelKr: "소비재" },
+];
 
 type SignalFilter = "ALL" | "VOLUME SPIKE" | "BREAKOUT" | "MOMO";
 
@@ -99,37 +135,6 @@ function TooltipIcon({ text }: { text: string }) {
   );
 }
 
-// ── Legend Screener types ────────────────────────────────────
-interface ScreenerItem {
-  symbol: string;
-  name: string;
-  price: number;
-  change_pct: number;
-  per: number | null;
-  epsYoY: number | null;
-  epsQoQ: number | null;
-  revYoY: number | null;
-  distFromHigh: number | null;
-}
-
-interface ScreenerFilters {
-  per?: number;
-  epsYoY?: number;
-  epsQoQ?: number;
-  revYoY?: number;
-  nearHigh?: number;
-}
-
-type FilterKey = keyof ScreenerFilters;
-
-const FILTER_CARDS: { key: FilterKey; label: string; labelKr: string; options: { label: string; value: number }[] }[] = [
-  { key: "per", label: "PER", labelKr: "PER", options: [{ label: "< 10", value: 10 }, { label: "< 20", value: 20 }, { label: "< 30", value: 30 }] },
-  { key: "epsYoY", label: "EPS YoY", labelKr: "EPS YoY", options: [{ label: "10%+", value: 10 }, { label: "25%+", value: 25 }, { label: "50%+", value: 50 }] },
-  { key: "epsQoQ", label: "EPS QoQ", labelKr: "EPS QoQ", options: [{ label: "10%+", value: 10 }, { label: "25%+", value: 25 }, { label: "50%+", value: 50 }] },
-  { key: "revYoY", label: "Rev YoY", labelKr: "매출 YoY", options: [{ label: "10%+", value: 10 }, { label: "25%+", value: 25 }, { label: "50%+", value: 50 }] },
-  { key: "nearHigh", label: "52W High", labelKr: "52주 신고가", options: [{ label: "20%", value: 20 }, { label: "10%", value: 10 }, { label: "5%", value: 5 }] },
-];
-
 // ── Per-tab tables ──────────────────────────────────────────
 
 function FomoTable({ items, selected, onSelect, lang }: { items: FomoItem[]; selected: string | null; onSelect: (item: FomoItem) => void; lang: "en" | "kr" }) {
@@ -157,7 +162,7 @@ function FomoTable({ items, selected, onSelect, lang }: { items: FomoItem[]; sel
               }`}
             >
               <td className={`${TD} pl-2 text-accent`}>{item.ticker}</td>
-              <td className={TD}>{item.name}</td>
+              <td className={TD}>{lang === "kr" && item.nameKr ? item.nameKr : item.name}</td>
               <td className={`${TD} text-right tabular-nums`}>{item.price.toLocaleString()}</td>
               <td className={`${TD} text-right tabular-nums`}><ChgPct v={item.chgPct} /></td>
               <td className={`${TD} text-right tabular-nums font-medium ${item.volumeRatio >= 2 ? "text-yellow-400" : "text-muted"}`}>
@@ -176,498 +181,23 @@ function FomoTable({ items, selected, onSelect, lang }: { items: FomoItem[]; sel
   );
 }
 
-// ── Financials Tab ───────────────────────────────────────────
+// ── Market hours helper ───────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type FinData = any;
-
-interface FinRow {
-  label: string;
-  key: string;
-  isHeader?: boolean;
-  isYoY?: boolean;
-  indent?: boolean;
-  ratio?: boolean;
-}
-
-const IS_ROWS_US: FinRow[] = [
-  { label: "finRevenue", key: "revenue", isHeader: true },
-  { label: "finGrowthYoY", key: "revenue_yoy", isYoY: true, indent: true },
-  { label: "finGrossProfit", key: "grossProfit", indent: true },
-  { label: "finOperatingIncome", key: "operatingIncome", isHeader: true },
-  { label: "finGrowthYoY", key: "operatingIncome_yoy", isYoY: true, indent: true },
-  { label: "finEBITDA", key: "ebitda", indent: true },
-  { label: "finNetIncome", key: "netIncome", isHeader: true },
-  { label: "finGrowthYoY", key: "netIncome_yoy", isYoY: true, indent: true },
-  { label: "finEPS", key: "eps", indent: true },
-];
-
-const BS_ROWS_US: FinRow[] = [
-  { label: "finTotalAssets", key: "totalAssets", isHeader: true },
-  { label: "finTotalDebt", key: "totalDebt", indent: true },
-  { label: "finCash", key: "cashAndCashEquivalents", indent: true },
-  { label: "finTotalEquity", key: "totalStockholdersEquity", isHeader: true },
-  { label: "finDebtEquity", key: "debtEquity", indent: true, ratio: true },
-];
-
-const CF_ROWS_US: FinRow[] = [
-  { label: "finOperatingCF", key: "operatingCashFlow", isHeader: true },
-  { label: "finInvestingCF", key: "netCashUsedForInvestingActivites", indent: true },
-  { label: "finFinancingCF", key: "netCashUsedProvidedByFinancingActivities", indent: true },
-  { label: "finFCF", key: "freeCashFlow", isHeader: true },
-];
-
-const IS_ROWS_KR: FinRow[] = [
-  { label: "finRevenue", key: "매출액", isHeader: true },
-  { label: "finGrowthYoY", key: "매출액_yoy", isYoY: true, indent: true },
-  { label: "finGrossProfit", key: "매출총이익", indent: true },
-  { label: "finOperatingIncome", key: "영업이익", isHeader: true },
-  { label: "finGrowthYoY", key: "영업이익_yoy", isYoY: true, indent: true },
-  { label: "finNetIncome", key: "당기순이익", isHeader: true },
-  { label: "finGrowthYoY", key: "당기순이익_yoy", isYoY: true, indent: true },
-];
-
-const BS_ROWS_KR: FinRow[] = [
-  { label: "finTotalAssets", key: "자산총계", isHeader: true },
-  { label: "finTotalDebt", key: "부채총계", indent: true },
-  { label: "finCash", key: "현금및현금성자산", indent: true },
-  { label: "finTotalEquity", key: "자본총계", isHeader: true },
-  { label: "finDebtEquity", key: "debtEquity", indent: true, ratio: true },
-];
-
-const CF_ROWS_KR: FinRow[] = [
-  { label: "finOperatingCF", key: "영업활동으로인한현금흐름", isHeader: true },
-  { label: "finInvestingCF", key: "투자활동으로인한현금흐름", indent: true },
-  { label: "finFinancingCF", key: "재무활동으로인한현금흐름", indent: true },
-];
-
-function fmtFinNum(v: number | null | undefined, isRatio?: boolean): string {
-  if (v == null || isNaN(v)) return "—";
-  if (isRatio) return v.toFixed(2);
-  const abs = Math.abs(v);
-  const formatted = abs >= 1e9
-    ? (abs / 1e6).toLocaleString(undefined, { maximumFractionDigits: 1 })
-    : abs >= 1e6
-    ? (abs / 1e6).toLocaleString(undefined, { maximumFractionDigits: 1 })
-    : abs.toLocaleString(undefined, { maximumFractionDigits: 1 });
-  return v < 0 ? `(${formatted})` : formatted;
-}
-
-function fmtKrNum(v: number | null | undefined, isRatio?: boolean): string {
-  if (v == null || isNaN(v)) return "—";
-  if (isRatio) return v.toFixed(2);
-  // DART returns raw KRW — convert to 억원
-  const inEok = v / 1e8;
-  const abs = Math.abs(inEok);
-  const formatted = abs.toLocaleString(undefined, { maximumFractionDigits: 0 });
-  return v < 0 ? `(${formatted})` : formatted;
-}
-
-function fmtYoY(v: number | null | undefined): string {
-  if (v == null || isNaN(v)) return "—";
-  return `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
-}
-
-function computeYoY(data: FinData[], key: string): (number | null)[] {
-  return data.map((d, i) => {
-    if (i >= data.length - 1) return null;
-    const cur = d[key];
-    const prev = data[i + 1]?.[key];
-    if (cur == null || prev == null || prev === 0) return null;
-    return ((cur - prev) / Math.abs(prev)) * 100;
-  });
-}
-
-function compute5YAvg(data: FinData[], key: string): number | null {
-  const yoy = computeYoY(data, key).filter((v): v is number => v != null);
-  if (yoy.length === 0) return null;
-  return yoy.reduce((a, b) => a + b, 0) / yoy.length;
-}
-
-interface TickerResult {
-  ticker: string;
-  name: string;
-  nameEn: string;
-  market: "KR" | "US";
-  exchange: string;
-}
-
-function FinancialsTab({ lang }: { lang: string }) {
-  const t = messages[lang as "en" | "kr"] || messages.en;
-  const [query, setQuery] = useState("");
-  const [selectedTicker, setSelectedTicker] = useState("");
-  const [market, setMarket] = useState<"US" | "KR">("US");
-  const [period, setPeriod] = useState<"annual" | "quarterly">("annual");
-  const [sheet, setSheet] = useState<"IS" | "BS" | "CF">("IS");
-  const [finData, setFinData] = useState<FinData | null>(null);
-  const [finLoading, setFinLoading] = useState(false);
-  const [finError, setFinError] = useState("");
-
-  // Search dropdown state
-  const [searchResults, setSearchResults] = useState<TickerResult[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  // Debounced search
-  const handleQueryChange = (val: string) => {
-    setQuery(val);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!val.trim()) {
-      setSearchResults([]);
-      setShowDropdown(false);
-      return;
-    }
-    debounceRef.current = setTimeout(async () => {
-      setSearchLoading(true);
-      setShowDropdown(true);
-      try {
-        const res = await fetch(`/api/search-ticker?q=${encodeURIComponent(val.trim())}&limit=8`);
-        const json = await res.json();
-        setSearchResults(json.ok ? json.results || [] : []);
-      } catch {
-        setSearchResults([]);
-      } finally {
-        setSearchLoading(false);
-      }
-    }, 300);
-  };
-
-  const fetchFinancials = useCallback(async (tk: string, mk: string) => {
-    if (!tk.trim()) return;
-    setFinLoading(true);
-    setFinError("");
-    setFinData(null);
-    try {
-      const res = await fetch(`/api/financials?ticker=${encodeURIComponent(tk.trim())}&market=${mk}`);
-      const json = await res.json();
-      if (json.ok) setFinData(json.data);
-      else setFinError(json.error || "Error");
-    } catch {
-      setFinError("Network error");
-    } finally {
-      setFinLoading(false);
-    }
-  }, []);
-
-  const selectResult = (r: TickerResult) => {
-    setQuery(`${r.ticker} — ${r.name}`);
-    setSelectedTicker(r.ticker);
-    setMarket(r.market);
-    setShowDropdown(false);
-    setSearchResults([]);
-    fetchFinancials(r.ticker, r.market);
-  };
-
-  // Get data for current view
-  const currentData: FinData[] = finData
-    ? (period === "annual" ? finData.annual : finData.quarterly)?.[
-        sheet === "IS" ? "incomeStatement" : sheet === "BS" ? "balanceSheet" : "cashFlow"
-      ] || []
-    : [];
-
-  const isKR = market === "KR";
-  const rows = sheet === "IS"
-    ? (isKR ? IS_ROWS_KR : IS_ROWS_US)
-    : sheet === "BS"
-    ? (isKR ? BS_ROWS_KR : BS_ROWS_US)
-    : (isKR ? CF_ROWS_KR : CF_ROWS_US);
-
-  const fmt = isKR ? fmtKrNum : fmtFinNum;
-
-  // Column headers
-  const columns: string[] = currentData.map((d: FinData) => {
-    if (d.period) return d.period;
-    if (d.calendarYear) return `${d.calendarYear}`;
-    if (d.year) return `${d.year}`;
-    if (d.date) return d.date.substring(0, 4);
-    return "—";
-  });
-
-  // Precompute YoY values
-  const yoyCache: Record<string, (number | null)[]> = {};
-  for (const row of rows) {
-    if (row.isYoY) {
-      const baseKey = row.key.replace("_yoy", "");
-      yoyCache[row.key] = computeYoY(currentData, baseKey);
-    }
-  }
-
-  // 5Y Avg growth for annual
-  const show5YAvg = period === "annual" && currentData.length >= 2;
-
-  return (
-    <div className="space-y-3">
-      {/* Search bar with autocomplete */}
-      <div ref={dropdownRef} className="relative w-full max-w-lg">
-        <input
-          value={query}
-          onChange={(e) => handleQueryChange(e.target.value)}
-          onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
-          placeholder={lang === "kr" ? "종목명 또는 티커 검색..." : "Search ticker or company name..."}
-          className="w-full rounded border px-3 py-2 text-sm font-mono outline-none transition-colors focus:border-amber-400/50"
-          style={{ background: "rgba(255,255,255,0.05)", borderColor: "rgba(255,255,255,0.1)", color: "#e8e8e8" }}
-        />
-        {showDropdown && (
-          <div
-            className="absolute z-50 mt-1 w-full overflow-hidden rounded"
-            style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.1)" }}
-          >
-            {searchLoading ? (
-              <div className="px-3 py-3 text-[11px] animate-pulse" style={{ color: "#6b7280" }}>
-                {lang === "kr" ? "검색중..." : "Searching..."}
-              </div>
-            ) : searchResults.length === 0 ? (
-              <div className="px-3 py-3 text-[11px]" style={{ color: "#4b5563" }}>
-                {lang === "kr" ? "결과 없음" : "No results found"}
-              </div>
-            ) : (
-              searchResults.map((r) => (
-                <button
-                  key={`${r.market}-${r.ticker}`}
-                  onClick={() => selectResult(r)}
-                  className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-white/5"
-                >
-                  <div>
-                    <span className="text-sm" style={{ color: "#e8e8e8" }}>{r.name}</span>
-                    <span className="ml-2 text-[10px]" style={{ color: "#6b7280" }}>{r.exchange}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px]" style={{ color: "#fbbf24" }}>{r.ticker}</span>
-                    <span
-                      className="rounded px-1.5 py-0.5 text-[9px] font-bold"
-                      style={{
-                        background: r.market === "KR" ? "rgba(96,165,250,0.12)" : "rgba(251,191,36,0.12)",
-                        color: r.market === "KR" ? "#60a5fa" : "#fbbf24",
-                      }}
-                    >
-                      {r.market}
-                    </span>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Loading */}
-      {finLoading && (
-        <div className="py-12 text-center text-[11px] animate-pulse" style={{ color: "#555" }}>
-          {t.finLoading}
-        </div>
-      )}
-
-      {/* Error */}
-      {finError && (
-        <div className="py-8 text-center text-[11px]" style={{ color: "#f87171" }}>{finError}</div>
-      )}
-
-      {/* Table */}
-      {finData && !finLoading && (
-        <>
-          {/* Controls: Period + Sheet toggles */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex gap-px rounded bg-card-border p-px">
-              {(["annual", "quarterly"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`px-3 py-1 text-[11px] font-mono font-medium tracking-widest transition-colors ${
-                    period === p ? "bg-white/10 text-white" : "bg-transparent text-gray-500 hover:text-gray-300"
-                  }`}
-                >
-                  {p === "annual" ? t.finAnnual : t.finQuarterly}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-px rounded bg-card-border p-px">
-              {(["IS", "BS", "CF"] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSheet(s)}
-                  className={`px-3 py-1 text-[11px] font-mono font-medium tracking-widest transition-colors ${
-                    sheet === s ? "bg-white/10 text-white" : "bg-transparent text-gray-500 hover:text-gray-300"
-                  }`}
-                >
-                  {s === "IS" ? t.finIS : s === "BS" ? t.finBS : t.finCF}
-                </button>
-              ))}
-            </div>
-            <span className="ml-auto text-[9px] font-mono" style={{ color: "#555" }}>
-              {t.finUnit}
-            </span>
-          </div>
-
-          {currentData.length === 0 ? (
-            <div className="py-8 text-center text-[11px]" style={{ color: "#555" }}>{t.finNoData}</div>
-          ) : (
-            <div className="overflow-x-auto rounded-lg" style={{ border: "1px solid #222" }}>
-              <table className="w-full font-mono text-[11px]" style={{ background: "#080c12" }}>
-                <thead>
-                  <tr style={{ background: "#0d1117", borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
-                    <th
-                      className="sticky left-0 z-10 py-2 pl-3 pr-4 text-left text-[10px] font-medium uppercase tracking-wider"
-                      style={{ background: "#0d1117", color: "#6b7280", width: "208px", minWidth: "208px" }}
-                    >
-                      &nbsp;
-                    </th>
-                    {columns.map((col, i) => (
-                      <th
-                        key={i}
-                        className="py-2 px-3 text-right text-[10px] font-medium uppercase tracking-wider"
-                        style={{ color: "#6b7280", minWidth: "90px" }}
-                      >
-                        {col}
-                      </th>
-                    ))}
-                    {show5YAvg && (
-                      <th
-                        className="py-2 px-3 text-right text-[10px] font-medium uppercase tracking-wider"
-                        style={{ color: "#6b7280", minWidth: "90px" }}
-                      >
-                        {t.fin5YAvg}
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => {
-                    const isYoY = row.isYoY;
-                    const label = t[row.label as keyof typeof t] || row.label;
-
-                    return (
-                      <tr
-                        key={row.key}
-                        style={{
-                          borderBottom: "1px solid rgba(255,255,255,0.04)",
-                          background: row.isHeader ? "rgba(255,255,255,0.03)" : "transparent",
-                        }}
-                      >
-                        {/* Label cell */}
-                        <td
-                          className="sticky left-0 z-10 py-1.5 pl-3 pr-4 text-left whitespace-nowrap"
-                          style={{
-                            background: "#080c12",
-                            color: isYoY ? "#4b5563" : row.isHeader ? "#e8e8e8" : "#9ca3af",
-                            fontWeight: row.isHeader ? 500 : 400,
-                            paddingLeft: row.indent || isYoY ? "28px" : "12px",
-                            fontSize: isYoY ? "10px" : "11px",
-                          }}
-                        >
-                          {label}
-                        </td>
-
-                        {/* Data cells */}
-                        {currentData.map((d: FinData, ci: number) => {
-                          if (isYoY) {
-                            const yoyVal = yoyCache[row.key]?.[ci];
-                            return (
-                              <td
-                                key={ci}
-                                className="py-1.5 px-3 text-right tabular-nums"
-                                style={{
-                                  fontSize: "10px",
-                                  color: yoyVal == null ? "#4b5563" : yoyVal >= 0 ? "#4ade80" : "#ef4444",
-                                }}
-                              >
-                                {fmtYoY(yoyVal)}
-                              </td>
-                            );
-                          }
-
-                          // For ratio rows, compute from data
-                          if (row.ratio && row.key === "debtEquity") {
-                            const debt = isKR ? d["부채총계"] : d.totalDebt;
-                            const equity = isKR ? d["자본총계"] : d.totalStockholdersEquity;
-                            const ratio = debt && equity && equity !== 0 ? debt / equity : null;
-                            return (
-                              <td
-                                key={ci}
-                                className="py-1.5 px-3 text-right tabular-nums"
-                                style={{ color: ratio != null && ratio > 2 ? "#f87171" : "#9ca3af" }}
-                              >
-                                {ratio != null ? ratio.toFixed(2) : "—"}
-                              </td>
-                            );
-                          }
-
-                          const val = d[row.key];
-                          const numVal = typeof val === "number" ? val : typeof val === "string" ? parseFloat(val.replace(/,/g, "")) : null;
-
-                          return (
-                            <td
-                              key={ci}
-                              className="py-1.5 px-3 text-right tabular-nums"
-                              style={{
-                                color: numVal != null && numVal < 0 ? "#f87171" : row.isHeader ? "#e8e8e8" : "#9ca3af",
-                              }}
-                            >
-                              {fmt(numVal, row.ratio)}
-                            </td>
-                          );
-                        })}
-
-                        {/* 5Y Avg column */}
-                        {show5YAvg && (
-                          <td
-                            className="py-1.5 px-3 text-right tabular-nums"
-                            style={{ fontSize: isYoY ? "10px" : "11px" }}
-                          >
-                            {isYoY ? (() => {
-                              const baseKey = row.key.replace("_yoy", "");
-                              const avg = compute5YAvg(currentData, baseKey);
-                              return (
-                                <span style={{ color: avg == null ? "#4b5563" : avg >= 0 ? "#4ade80" : "#ef4444" }}>
-                                  {fmtYoY(avg)}
-                                </span>
-                              );
-                            })() : <span style={{ color: "#4b5563" }}>—</span>}
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* AI Analysis Panel */}
-          <div className="mt-4 rounded-lg p-4" style={{ background: "#0d1117", border: "1px solid #222" }}>
-            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#6b7280" }}>
-              AI ANALYSIS
-            </h3>
-            <AiAnalysisPanel
-              ticker={finData.ticker}
-              market={finData.market}
-              financialData={finData}
-              lang={lang}
-            />
-          </div>
-        </>
-      )}
-    </div>
-  );
+function isKrMarketOpen(): boolean {
+  const now = new Date();
+  const kst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+  const day = kst.getDay();
+  if (day === 0 || day === 6) return false;
+  const hhmm = kst.getHours() * 100 + kst.getMinutes();
+  return hhmm >= 900 && hhmm <= 1530;
 }
 
 // ── Main page ────────────────────────────────────────────────
 
+
 export default function IdeasPage() {
   const { t, lang } = useLang();
-  const [tab, setTab] = useState<"fomo" | "legend" | "rotation" | "financials">("fomo");
+  const [tab, setTab] = useState<"fomo" | "rotation" | "etf" | "consensus">("fomo");
   const [selected, setSelected] = useState<FomoItem | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -688,14 +218,64 @@ export default function IdeasPage() {
   // Signal filter
   const [signalFilter, setSignalFilter] = useState<SignalFilter>("ALL");
 
-  // Legend screener state (filter-based)
-  const [scrFilters, setScrFilters] = useState<ScreenerFilters>({});
-  const [scrResults, setScrResults] = useState<ScreenerItem[]>([]);
-  const [scrLoading, setScrLoading] = useState(false);
-  const [scrError, setScrError] = useState<string | null>(null);
-  const [scrUpdatedAt, setScrUpdatedAt] = useState<string | null>(null);
-  const [scrCached, setScrCached] = useState(false);
-  const [legendSelected, setLegendSelected] = useState<string | null>(null);
+  // FOMO market toggle
+  const [fomoMarket, setFomoMarket] = useState<"KR" | "US">("KR");
+  const [usSector, setUsSector] = useState<UsSector>("tech");
+
+  // US FOMO data
+  const [fomoUs, setFomoUs] = useState<FomoUsItem[]>([]);
+  const [usLoading, setUsLoading] = useState(false);
+  const [usError, setUsError] = useState<string | null>(null);
+  const [usUpdatedAt, setUsUpdatedAt] = useState<string | null>(null);
+  const [usCached, setUsCached] = useState(false);
+  const [usSelected, setUsSelected] = useState<FomoUsItem | null>(null);
+  const [usProfile, setUsProfile] = useState<UsProfile | null>(null);
+  const [usProfileLoading, setUsProfileLoading] = useState(false);
+  const [usNews, setUsNews] = useState<UsNewsItem[]>([]);
+  const [usDescExpanded, setUsDescExpanded] = useState(false);
+
+  // Translation state
+  const [descLang, setDescLang] = useState<"en" | "ko">("en");
+  const [descKo, setDescKo] = useState<string | null>(null);
+  const [descTranslating, setDescTranslating] = useState(false);
+  const [newsLang, setNewsLang] = useState<"en" | "ko">("en");
+  const [newsKo, setNewsKo] = useState<Record<number, string>>({});
+  const [newsTranslating, setNewsTranslating] = useState(false);
+
+  // Analyst ratings
+  const [analystData, setAnalystData] = useState<{
+    consensus: string; targetConsensus: number; targetHigh: number; targetLow: number;
+    analystCount: number; buyCount: number; holdCount: number; sellCount: number;
+  } | null>(null);
+  const [analystLoading, setAnalystLoading] = useState(false);
+
+  // KR company info
+  const [krProfile, setKrProfile] = useState<UsProfile | null>(null);
+  const [krProfileLoading, setKrProfileLoading] = useState(false);
+  const [krNews, setKrNews] = useState<UsNewsItem[]>([]);
+  const [krDescExpanded, setKrDescExpanded] = useState(false);
+  const [krDescLang, setKrDescLang] = useState<"en" | "ko">("en");
+  const [krDescKo, setKrDescKo] = useState<string | null>(null);
+  const [krDescTranslating, setKrDescTranslating] = useState(false);
+
+  // ETF holdings
+  const [etfFilter, setEtfFilter] = useState<string>("IVV");
+  const [etfHoldings, setEtfHoldings] = useState<{ symbol: string; name: string; sector: string; weight: number | null }[]>([]);
+  const [etfHoldingsDate, setEtfHoldingsDate] = useState<string | null>(null);
+  const [etfHoldingsLoading, setEtfHoldingsLoading] = useState(false);
+  const [etfHoldingsError, setEtfHoldingsError] = useState<string | null>(null);
+
+  // Wall St Consensus
+  interface ConsensusItem { symbol: string; name: string; sector: string; price: number | null; targetConsensus: number | null; targetHigh: number | null; targetLow: number | null; upside: number | null; analystCount: number; rating: string; }
+  const [consensusItems, setConsensusItems] = useState<ConsensusItem[]>([]);
+  const [consensusLoading, setConsensusLoading] = useState(false);
+  const [consensusError, setConsensusError] = useState<string | null>(null);
+  const [consensusUpdatedAt, setConsensusUpdatedAt] = useState<string | null>(null);
+  const [consensusSectorFilter, setConsensusSectorFilter] = useState("ALL");
+  const [consensusRatingFilter, setConsensusRatingFilter] = useState("ALL");
+  const [consensusUpsideFilter, setConsensusUpsideFilter] = useState("ALL");
+  const [consensusAnalystFilter, setConsensusAnalystFilter] = useState("ALL");
+  const [consensusFetched, setConsensusFetched] = useState(false);
 
   // Data
   const [fomoKr, setFomoKr] = useState<FomoItem[]>([]);
@@ -724,46 +304,270 @@ export default function IdeasPage() {
     }
   }, []);
 
-  const fetchScreenerFiltered = useCallback(async (filters: ScreenerFilters, refresh = false) => {
-    // Need at least one filter
-    if (Object.keys(filters).length === 0) return;
-    setScrLoading(true);
-    setScrError(null);
+  const fetchConsensus = useCallback(async (refresh = false) => {
+    setConsensusLoading(true);
+    setConsensusError(null);
     try {
-      const params = new URLSearchParams();
-      if (filters.per != null) params.set("per", String(filters.per));
-      if (filters.epsYoY != null) params.set("epsYoY", String(filters.epsYoY));
-      if (filters.epsQoQ != null) params.set("epsQoQ", String(filters.epsQoQ));
-      if (filters.revYoY != null) params.set("revYoY", String(filters.revYoY));
-      if (filters.nearHigh != null) params.set("nearHigh", String(filters.nearHigh));
-      if (refresh) params.set("refresh", "true");
-      const res = await fetch(`/api/legend-screener?${params.toString()}`);
+      const url = refresh ? "/api/wall-st-consensus?refresh=true" : "/api/wall-st-consensus";
+      const res = await fetch(url);
       const json = await res.json();
       if (json.ok) {
-        setScrResults(json.results || []);
-        setScrUpdatedAt(json.updated_at);
-        setScrCached(json.cached ?? false);
+        setConsensusItems(json.items ?? []);
+        setConsensusUpdatedAt(json.updatedAt ?? null);
+        setConsensusFetched(true);
       } else {
-        setScrError(json.error || "Failed to fetch screener");
+        setConsensusError(json.error || "Failed to load consensus data");
       }
     } catch (err) {
-      setScrError(err instanceof Error ? err.message : "Network error");
+      setConsensusError(err instanceof Error ? err.message : "Network error");
     } finally {
-      setScrLoading(false);
+      setConsensusLoading(false);
     }
   }, []);
+
+  const fetchFomoUs = useCallback(async (sector: UsSector, refresh = false) => {
+    setUsLoading(true);
+    setUsError(null);
+    setUsSelected(null);
+    try {
+      const params = new URLSearchParams({ sector });
+      if (refresh) params.set("refresh", "true");
+      const res = await fetch(`/api/fomo/us?${params.toString()}`);
+      const json = await res.json();
+      if (json.ok) {
+        setFomoUs(json.results || []);
+        setUsUpdatedAt(json.updated_at);
+        setUsCached(json.cached ?? false);
+      } else {
+        setUsError(json.error || "Failed to fetch US FOMO");
+      }
+    } catch (err) {
+      setUsError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setUsLoading(false);
+    }
+  }, []);
+
+  const fetchUsProfile = useCallback(async (symbol: string) => {
+    const cacheKey = `company_${symbol}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      setUsProfile(parsed.profile);
+      setUsNews(parsed.news);
+      return;
+    }
+    setUsProfileLoading(true);
+    setUsProfile(null);
+    setUsNews([]);
+    setUsDescExpanded(false);
+    try {
+      const res = await fetch(`/api/company-info?symbol=${encodeURIComponent(symbol)}`);
+      const json = await res.json();
+      if (json.ok) {
+        if (json.profile) setUsProfile(json.profile);
+        setUsNews(json.news || []);
+        sessionStorage.setItem(cacheKey, JSON.stringify({ profile: json.profile, news: json.news || [] }));
+      } else {
+        console.warn("company-info error:", json.error);
+      }
+    } catch (err) {
+      console.warn("company-info fetch failed:", err);
+    } finally {
+      setUsProfileLoading(false);
+    }
+  }, []);
+
+  const fetchKrProfile = useCallback(async (ticker: string) => {
+    const cacheKey = `company_kr_${ticker}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      setKrProfile(parsed.profile);
+      setKrNews(parsed.news);
+      return;
+    }
+    setKrProfileLoading(true);
+    setKrProfile(null);
+    setKrNews([]);
+    setKrDescExpanded(false);
+    try {
+      const res = await fetch(`/api/company-info?symbol=${encodeURIComponent(ticker)}&market=kr`);
+      const json = await res.json();
+      if (json.ok) {
+        if (json.profile) setKrProfile(json.profile);
+        setKrNews(json.news || []);
+        sessionStorage.setItem(cacheKey, JSON.stringify({ profile: json.profile, news: json.news || [] }));
+      }
+    } catch { /* noop */ }
+    finally { setKrProfileLoading(false); }
+  }, []);
+
+  const fetchAnalystRatings = useCallback(async (symbol: string) => {
+    const cacheKey = `analyst_${symbol}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Date.now() - parsed._ts < 24 * 60 * 60 * 1000) {
+        setAnalystData(parsed.data);
+        return;
+      }
+    }
+    setAnalystLoading(true);
+    setAnalystData(null);
+    try {
+      const res = await fetch(`/api/analyst-ratings?symbol=${encodeURIComponent(symbol)}`);
+      const json = await res.json();
+      if (json.ok && json.data) {
+        setAnalystData(json.data);
+        sessionStorage.setItem(cacheKey, JSON.stringify({ data: json.data, _ts: Date.now() }));
+      }
+    } catch { /* noop */ }
+    finally { setAnalystLoading(false); }
+  }, []);
+
+  const translateText = useCallback(async (text: string): Promise<string | null> => {
+    // Simple hash for cache key
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+    const cacheKey = `translate_${hash}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) return cached;
+    try {
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const json = await res.json();
+      if (json.ok && json.translated) {
+        sessionStorage.setItem(cacheKey, json.translated);
+        return json.translated;
+      }
+    } catch { /* noop */ }
+    return null;
+  }, []);
+
+  const handleKrDescTranslate = useCallback(async () => {
+    if (krDescLang === "ko") { setKrDescLang("en"); return; }
+    if (krDescKo) { setKrDescLang("ko"); return; }
+    if (!krProfile?.description) return;
+    setKrDescTranslating(true);
+    const result = await translateText(krProfile.description);
+    if (result) { setKrDescKo(result); setKrDescLang("ko"); }
+    setKrDescTranslating(false);
+  }, [krDescLang, krDescKo, krProfile, translateText]);
+
+  const handleDescTranslate = useCallback(async () => {
+    if (descLang === "ko") { setDescLang("en"); return; }
+    if (descKo) { setDescLang("ko"); return; }
+    if (!usProfile?.description) return;
+    setDescTranslating(true);
+    const result = await translateText(usProfile.description);
+    if (result) { setDescKo(result); setDescLang("ko"); }
+    setDescTranslating(false);
+  }, [descLang, descKo, usProfile, translateText]);
+
+  const handleNewsTranslate = useCallback(async () => {
+    if (newsLang === "ko") { setNewsLang("en"); return; }
+    if (Object.keys(newsKo).length > 0) { setNewsLang("ko"); return; }
+    if (usNews.length === 0) return;
+    setNewsTranslating(true);
+    const combined = usNews.map((n) => n.title).join("\n---\n");
+    const result = await translateText(combined);
+    if (result) {
+      const parts = result.split(/\n---\n|\n-{3,}\n/);
+      const map: Record<number, string> = {};
+      usNews.forEach((_, i) => { map[i] = parts[i]?.trim() || usNews[i].title; });
+      setNewsKo(map);
+      setNewsLang("ko");
+    }
+    setNewsTranslating(false);
+  }, [newsLang, newsKo, usNews, translateText]);
+
+  const fetchEtfHoldings = useCallback(async (etf: string) => {
+    setEtfHoldingsLoading(true);
+    setEtfHoldingsError(null);
+    try {
+      const res = await fetch(`/api/etf/holdings?action=holdings&etf=${encodeURIComponent(etf)}`);
+      const json = await res.json();
+      if (json.ok) {
+        setEtfHoldings(json.holdings || []);
+        setEtfHoldingsDate(json.date || null);
+      } else {
+        setEtfHoldingsError(json.error || "Failed to fetch holdings");
+      }
+    } catch (err) {
+      setEtfHoldingsError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setEtfHoldingsLoading(false);
+    }
+  }, []);
+
+
+  const [marketOpen, setMarketOpen] = useState(isKrMarketOpen);
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetchScreener();
   }, [fetchScreener]);
 
-  // Auto-fetch when filters change
+  // Auto-refresh every 60s during KR market hours
   useEffect(() => {
-    if (tab === "legend" && Object.keys(scrFilters).length > 0) {
-      fetchScreenerFiltered(scrFilters);
+    function tick() {
+      const open = isKrMarketOpen();
+      setMarketOpen(open);
+      if (open && tab === "fomo" && fomoMarket === "KR") {
+        fetchScreener();
+      }
+    }
+    refreshTimerRef.current = setInterval(tick, 60_000);
+    return () => { if (refreshTimerRef.current) clearInterval(refreshTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, fomoMarket, fetchScreener]);
+
+  // Auto-fetch ETF data when tab/filter changes
+  useEffect(() => {
+    if (tab === "etf") {
+      fetchEtfHoldings(etfFilter);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, scrFilters]);
+  }, [tab, etfFilter]);
+
+  // Auto-fetch consensus when tab selected (once)
+  useEffect(() => {
+    if (tab === "consensus" && !consensusFetched) {
+      fetchConsensus();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  // Auto-fetch US FOMO when sector changes
+  useEffect(() => {
+    if (tab === "fomo" && fomoMarket === "US") {
+      fetchFomoUs(usSector);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usSector, fomoMarket, tab]);
+
+  // Fetch US profile + news + analyst when stock selected
+  useEffect(() => {
+    if (usSelected) {
+      fetchUsProfile(usSelected.symbol);
+      fetchAnalystRatings(usSelected.symbol);
+    } else {
+      setUsProfile(null);
+      setUsNews([]);
+      setUsDescExpanded(false);
+      setAnalystData(null);
+    }
+    // Reset translations on stock change
+    setDescLang("en");
+    setDescKo(null);
+    setNewsLang("en");
+    setNewsKo({});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usSelected]);
 
   // Reset show count when switching tabs
   useEffect(() => {
@@ -817,6 +621,11 @@ export default function IdeasPage() {
     setSelected(item);
     setAiResult(null);
     setError(null);
+    setAnalystData(null);
+    // Reset KR company info translation state
+    setKrDescLang("en");
+    setKrDescKo(null);
+    setKrDescExpanded(false);
     // Auto-fetch financials
     setDetailFin(null);
     setDetailFinError(false);
@@ -829,6 +638,9 @@ export default function IdeasPage() {
       })
       .catch(() => setDetailFinError(true))
       .finally(() => setDetailFinLoading(false));
+    // Auto-fetch company info + analyst
+    fetchKrProfile(item.ticker);
+    fetchAnalystRatings(item.ticker);
   };
 
   return (
@@ -839,7 +651,7 @@ export default function IdeasPage() {
         {/* Tab pills + sub-tabs */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-px rounded bg-card-border p-px w-fit">
-            {(["fomo", "legend", "rotation", "financials"] as const).map((tv) => (
+            {(["fomo", "rotation", "etf", "consensus"] as const).map((tv) => (
               <button
                 key={tv}
                 onClick={() => {
@@ -854,115 +666,995 @@ export default function IdeasPage() {
                     : "bg-card-bg text-muted hover:text-foreground"
                 }`}
               >
-                {tv === "fomo" ? "FOMO" : tv === "legend" ? (lang === "kr" ? "대가 스크리너" : "Legend Screener") : tv === "rotation" ? (lang === "kr" ? "섹터 로테이션" : "Sector Rotation") : (lang === "kr" ? "재무제표" : "Financials")}
+                {tv === "fomo" ? "FOMO"
+                  : tv === "rotation" ? (lang === "kr" ? "섹터 로테이션" : "Sector Rotation")
+                  : tv === "etf" ? (lang === "kr" ? "ETF 변동" : "ETF Changes")
+                  : (lang === "kr" ? "월가 컨센서스" : "Wall St Consensus")}
               </button>
             ))}
           </div>
 
-          {/* Last updated */}
-          {asOf && (
-            <span className="ml-auto text-[9px] text-muted/60 tabular-nums">
-              {lang === "kr" ? "마지막 업데이트" : "Updated"}: {new Date(asOf).toLocaleString(lang === "kr" ? "ko-KR" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-              {totalStocks > 0 && <span className="ml-1">({totalStocks} stocks)</span>}
-            </span>
-          )}
+          {/* Last updated + market status */}
+          <div className="ml-auto flex items-center gap-2">
+            {fomoMarket === "KR" && (
+              <span className={`flex items-center gap-1 text-[9px] font-medium ${marketOpen ? "text-gain" : "text-muted/50"}`}>
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${marketOpen ? "bg-gain animate-pulse" : "bg-muted/30"}`} />
+                {marketOpen ? (lang === "kr" ? "장 중" : "LIVE") : (lang === "kr" ? "장 마감" : "CLOSED")}
+                {marketOpen && <span className="text-muted/40 ml-0.5">60s</span>}
+              </span>
+            )}
+            {asOf && (
+              <span className="text-[9px] text-muted/60 tabular-nums">
+                {lang === "kr" ? "업데이트" : "Updated"}: {new Date(asOf).toLocaleString(lang === "kr" ? "ko-KR" : "en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                {totalStocks > 0 && <span className="ml-1">({totalStocks})</span>}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Rotation tab */}
         {tab === "rotation" && <RRGChart />}
 
-        {/* Financials tab */}
-        {tab === "financials" && <FinancialsTab lang={lang} />}
-
-        {/* Legend Screener tab — filter-based */}
-        {tab === "legend" && (
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
-            {/* Left: Filters + List */}
-            <section className={`${CARD} lg:col-span-3`}>
-              {/* Filter cards */}
-              <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-                {FILTER_CARDS.map((fc) => (
-                  <div key={fc.key} className="rounded border border-card-border/60 bg-[#0d1117] p-2.5">
-                    <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-muted/70">
-                      {lang === "kr" ? fc.labelKr : fc.label}
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {fc.options.map((opt) => {
-                        const isActive = scrFilters[fc.key] === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            onClick={() => {
-                              setScrFilters((prev) => {
-                                const next = { ...prev };
-                                if (isActive) {
-                                  delete next[fc.key];
-                                } else {
-                                  next[fc.key] = opt.value;
-                                }
-                                return next;
-                              });
-                              setLegendSelected(null);
-                            }}
-                            className={`rounded px-2 py-0.5 text-[10px] font-mono font-medium transition-colors ${
-                              isActive
-                                ? "bg-accent text-white"
-                                : "bg-card-border/40 text-muted hover:text-foreground hover:bg-card-border/70"
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+        {/* Two-column layout (FOMO only) */}
+        {tab === "fomo" && (
+          <div className="space-y-3">
+            {/* KR / US toggle */}
+            <div className="flex items-center gap-3">
+              <div className="flex gap-px rounded bg-card-border p-px w-fit">
+                {(["KR", "US"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => {
+                      setFomoMarket(m);
+                      setSelected(null);
+                      setUsSelected(null);
+                    }}
+                    className={`px-3 py-1 text-[10px] font-mono font-bold tracking-wider transition-colors ${
+                      fomoMarket === m
+                        ? "bg-accent text-white"
+                        : "bg-transparent text-muted hover:text-foreground"
+                    }`}
+                  >
+                    {m}
+                  </button>
                 ))}
               </div>
 
-              {/* Active filters summary + refresh */}
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                  <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                    {lang === "kr" ? "스크리너 결과" : "Screener Results"} — {scrResults.length} {lang === "kr" ? "종목" : "stocks"}
-                  </h2>
+              {/* US sector sub-tabs */}
+              {fomoMarket === "US" && (
+                <div className="flex flex-wrap gap-1">
+                  {US_SECTORS.map((s) => (
+                    <button
+                      key={s.key}
+                      onClick={() => { setUsSector(s.key); setUsSelected(null); }}
+                      className={`rounded px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                        usSector === s.key
+                          ? "bg-accent text-white"
+                          : "bg-card-border/50 text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {lang === "kr" ? s.labelKr : s.label}
+                    </button>
+                  ))}
                 </div>
-                <button
-                  onClick={() => fetchScreenerFiltered(scrFilters, true)}
-                  disabled={scrLoading || Object.keys(scrFilters).length === 0}
-                  className="px-3 py-1 text-[10px] font-mono text-muted border border-card-border hover:text-foreground transition-colors disabled:opacity-30"
-                >
-                  {scrLoading ? "SCANNING..." : "REFRESH"}
-                </button>
+              )}
+            </div>
+
+            {/* KR FOMO */}
+            {fomoMarket === "KR" && (
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+                <section className={`${CARD} lg:col-span-3`}>
+                  {/* Signal filter tabs */}
+                  <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                    {SIGNAL_FILTERS.map((sf) => (
+                      <button
+                        key={sf}
+                        onClick={() => {
+                          setSignalFilter(sf);
+                          setSelected(null);
+                          setAiResult(null);
+                        }}
+                        className={`flex items-center gap-1 rounded px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                          signalFilter === sf
+                            ? "bg-accent text-white"
+                            : "bg-card-border/50 text-muted hover:text-foreground"
+                        }`}
+                      >
+                        {sf}
+                        <span className={`rounded px-1 py-px text-[8px] tabular-nums ${
+                          signalFilter === sf ? "bg-white/20" : "bg-card-border"
+                        }`}>
+                          {signalCounts[sf] || 0}
+                        </span>
+                        {sf !== "ALL" && SIGNAL_TOOLTIPS[sf] && (
+                          <TooltipIcon text={SIGNAL_TOOLTIPS[sf]} />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                    <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                      {sectionHeader}
+                    </h2>
+                  </div>
+
+                  {dataLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                      <span className="ml-2 text-xs text-muted">
+                        {lang === "kr" ? "데이터 로딩 중..." : "Loading screener data..."}
+                      </span>
+                    </div>
+                  ) : dataError ? (
+                    <div className="py-8 text-center">
+                      <p className="text-[10px] text-loss">{dataError}</p>
+                      <button
+                        onClick={fetchScreener}
+                        className="mt-2 rounded bg-accent/20 px-3 py-1 text-[10px] text-accent hover:bg-accent/30"
+                      >
+                        {lang === "kr" ? "다시 시도" : "Retry"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      {filteredFomo.length === 0 ? (
+                        <p className="py-8 text-center text-[10px] text-muted">{lang === "kr" ? "해당 종목 없음" : "No stocks match"}</p>
+                      ) : (
+                        <FomoTable items={filteredFomo} selected={selected?.ticker ?? null} onSelect={handleSelect} lang={lang} />
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                {/* KR Detail panel */}
+                <section className={`${CARD} lg:col-span-2`}>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                    <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Detail</h2>
+                  </div>
+                  {!selected ? (
+                    <p className="py-8 text-center text-[10px] text-muted">
+                      {lang === "kr" ? "목록에서 종목을 선택하세요" : "Select a ticker from the list"}
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm font-bold text-accent">{selected.ticker}</span>
+                          <span className="ml-2 text-xs text-muted">{lang === "kr" && selected.nameKr ? selected.nameKr : selected.name}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium tabular-nums">{selected.price.toLocaleString()}</p>
+                          <p className="text-[10px] tabular-nums"><ChgPct v={selected.chgPct} /></p>
+                        </div>
+                      </div>
+                      {/* Analyst Consensus (KR) */}
+                      {analystLoading && (
+                        <div className="border-b border-[#1e1e1e] pb-3">
+                          <p className="text-[11px] text-[#555] animate-pulse">Loading analyst data...</p>
+                        </div>
+                      )}
+                      {analystData && !analystLoading && analystData.analystCount > 0 && (() => {
+                        const a = analystData;
+                        const currentPrice = selected.price;
+                        const fmtTarget = (v: number) => v >= 1000 ? v.toLocaleString() : v.toFixed(0);
+                        const upsidePct = (target: number) => currentPrice > 0 && target > 0
+                          ? ((target - currentPrice) / currentPrice * 100) : null;
+                        const consensusUpside = upsidePct(a.targetConsensus);
+                        const highUpside = upsidePct(a.targetHigh);
+                        const lowUpside = upsidePct(a.targetLow);
+                        const total = a.buyCount + a.holdCount + a.sellCount;
+                        const buyPct = total > 0 ? Math.round(a.buyCount / total * 100) : 0;
+                        const holdPct = total > 0 ? Math.round(a.holdCount / total * 100) : 0;
+                        const sellPct = total > 0 ? 100 - buyPct - holdPct : 0;
+                        const consensusBg = a.consensus === "Buy" ? "bg-green-500/20 text-green-400" : a.consensus === "Sell" ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400";
+                        const consensusKr = a.consensus === "Buy" ? "매수" : a.consensus === "Sell" ? "매도" : "중립";
+                        return (
+                          <div className="border-b border-[#1e1e1e] pb-3">
+                            {/* Header */}
+                            <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
+                              {lang === "kr" ? "월가 목표주가" : "WALL STREET TARGET"}
+                            </p>
+                            {/* Row 1: Consensus badge + target + upside */}
+                            <div className="flex items-center gap-2 mb-3 flex-wrap">
+                              <span className={`rounded px-2 py-0.5 text-[11px] font-bold ${consensusBg}`}>
+                                {lang === "kr" ? consensusKr : a.consensus.toUpperCase()}
+                              </span>
+                              {a.targetConsensus > 0 && (
+                                <span className="text-sm text-white font-mono font-semibold">
+                                  {lang === "kr" ? "목표주가" : "Target"} {fmtTarget(a.targetConsensus)}
+                                </span>
+                              )}
+                              {consensusUpside !== null && (
+                                <span className={`text-xs font-mono font-semibold ${consensusUpside >= 0 ? "text-green-400" : "text-red-400"}`}>
+                                  {consensusUpside >= 0 ? "+" : ""}{consensusUpside.toFixed(1)}%
+                                  {lang === "kr" ? (consensusUpside >= 0 ? " 상승여력" : " 하락여력") : (consensusUpside >= 0 ? " upside" : " downside")}
+                                </span>
+                              )}
+                            </div>
+                            {/* Row 2: Three target columns */}
+                            {(a.targetHigh > 0 || a.targetLow > 0) && (
+                              <div className="grid grid-cols-3 gap-2 mb-3">
+                                {[
+                                  { label: "High", val: a.targetHigh, upside: highUpside, color: "text-green-400" },
+                                  { label: lang === "kr" ? "평균" : "Median", val: a.targetConsensus, upside: consensusUpside, color: "text-yellow-400" },
+                                  { label: "Low", val: a.targetLow, upside: lowUpside, color: "text-red-400" },
+                                ].map(({ label, val, upside, color }) => (
+                                  <div key={label} className="rounded bg-[#0f0f0f] px-2.5 py-2 text-center">
+                                    <p className="text-[9px] text-[#555] uppercase tracking-wider mb-1">{label}</p>
+                                    <p className="text-xs font-mono font-semibold text-white">{val > 0 ? fmtTarget(val) : "—"}</p>
+                                    {upside !== null && val > 0 && (
+                                      <p className={`text-[10px] font-mono font-medium mt-0.5 ${color}`}>
+                                        {upside >= 0 ? "+" : ""}{upside.toFixed(1)}%
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {/* Analyst count */}
+                            {a.analystCount > 0 && (
+                              <p className="text-[10px] text-[#555] mb-2">
+                                {lang === "kr" ? `애널리스트 ${a.analystCount}명` : `${a.analystCount} analysts`}
+                              </p>
+                            )}
+                            {/* Row 3: Buy/Hold/Sell bar */}
+                            {total > 0 && (
+                              <div>
+                                <div className="flex h-2 w-full overflow-hidden rounded-sm">
+                                  {buyPct > 0 && <div className="bg-green-500" style={{ width: `${buyPct}%` }} />}
+                                  {holdPct > 0 && <div className="bg-yellow-500" style={{ width: `${holdPct}%` }} />}
+                                  {sellPct > 0 && <div className="bg-red-500" style={{ width: `${sellPct}%` }} />}
+                                </div>
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <span className="text-[9px] text-green-400">{lang === "kr" ? "매수" : "Buy"} {buyPct}%</span>
+                                  <span className="text-[9px] text-yellow-400">{lang === "kr" ? "중립" : "Hold"} {holdPct}%</span>
+                                  <span className="text-[9px] text-red-400">{lang === "kr" ? "매도" : "Sell"} {sellPct}%</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {"volumeRatio" in selected && (() => {
+                        const fomo = selected as FomoItem;
+                        const volRatio = fomo.volumeRatio;
+                        const barPct = Math.min(volRatio / 10 * 100, 100);
+                        const avgVol = volRatio > 0 ? fomo.volume / volRatio : 0;
+                        const signalTag = fomo.tag;
+                        const signalExplanations: Record<string, { kr: string; en: string }> = {
+                          "VOLUME SPIKE": { kr: `평균 대비 ${volRatio.toFixed(0)}배 이상 거래량. 기관/세력 개입 가능성`, en: `Volume surged ${volRatio.toFixed(0)}x above average. Possible institutional activity` },
+                          "BREAKOUT": { kr: "최근 20일 고점 돌파. 신규 상승 추세 시작 신호", en: "Broke above 20-day high. New uptrend initiation signal" },
+                          "MOMO": { kr: "가격과 거래량 모두 상승. 추세 추종 매매 포착", en: "Price and volume both rising. Trend-following signal detected" },
+                          "52W HIGH": { kr: "52주 최고가 경신. 강한 상승 추세 확인", en: "52-week high reached. Strong uptrend confirmed" },
+                          "PULLBACK": { kr: "단기 조정 후 반등 시도. 저점 매수 기회 탐색", en: "Rebound attempt after pullback. Potential dip-buy opportunity" },
+                        };
+                        const explanation = signalExplanations[signalTag] || { kr: "복합 시그널 감지", en: "Composite signal detected" };
+                        return (
+                          <div className="space-y-0">
+                            <div className="border-b border-[#1e1e1e] py-3">
+                              <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">WHY THIS IS A FOMO SIGNAL</p>
+                              <p className="text-sm text-[#aaa] leading-relaxed">
+                                {lang === "kr"
+                                  ? volRatio >= 5
+                                    ? <>평소 대비 <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}배</span> 거래량 폭증 — 기관/세력 대량 개입 가능성</>
+                                    : volRatio >= 3
+                                    ? <>20일 평균 대비 <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}배</span> 거래량 급증 — 단기 강한 수급 유입</>
+                                    : volRatio >= 2
+                                    ? <>20일 평균 대비 <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}배</span> 거래량 증가 — 평소보다 {volRatio.toFixed(1)}배 많은 거래 발생</>
+                                    : <>20일 평균 대비 <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}배</span> 수준 — 거래량 소폭 증가</>
+                                  : volRatio >= 5
+                                    ? <>Volume surged <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}x</span> above average — possible institutional activity</>
+                                    : volRatio >= 3
+                                    ? <>Volume spiked <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}x</span> vs 20D avg — strong inflow detected</>
+                                    : volRatio >= 2
+                                    ? <>Volume rose <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}x</span> vs 20D avg — trading {volRatio.toFixed(1)}x more than usual</>
+                                    : <>Volume at <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}x</span> vs 20D avg — slight increase</>
+                                }
+                              </p>
+                              <div className="relative h-2 w-full overflow-hidden rounded-sm bg-[#1e1e1e] mt-2.5">
+                                <div
+                                  className={`absolute inset-y-0 left-0 rounded-sm ${volRatio >= 5 ? "bg-yellow-400" : volRatio >= 3 ? "bg-gain" : "bg-accent"}`}
+                                  style={{ width: `${barPct}%` }}
+                                />
+                              </div>
+                              <p className="mt-2 text-[10px] text-[#666]">
+                                {lang === "kr"
+                                  ? <>오늘 <span className="font-mono text-white">{formatVol(fomo.volume)}</span>주 거래 / 20일 평균 <span className="font-mono text-[#888]">{formatVol(avgVol)}</span>주</>
+                                  : <>Today <span className="font-mono text-white">{formatVol(fomo.volume)}</span> / 20D avg <span className="font-mono text-[#888]">{formatVol(avgVol)}</span></>
+                                }
+                              </p>
+                            </div>
+                            <div className="border-b border-[#1e1e1e] py-3">
+                              <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">PRICE MOMENTUM</p>
+                              <div className="space-y-1.5">
+                                {([["1D", selected.metrics.chg1d], ["5D", selected.metrics.chg5d], ["20D", selected.metrics.chg20d]] as const).map(([label, val]) => (
+                                  <div key={label} className="flex items-center justify-between">
+                                    <span className="w-8 text-[10px] font-mono text-[#666]">{label}</span>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`text-[10px] ${val >= 0 ? "text-gain" : "text-loss"}`}>{val >= 0 ? "\u25B2" : "\u25BC"}</span>
+                                      <span className={`font-mono text-[11px] font-medium tabular-nums ${val >= 0 ? "text-gain" : "text-loss"}`}>
+                                        {val >= 0 ? "+" : ""}{val.toFixed(2)}%
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="py-3">
+                              <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">SIGNAL TYPE</p>
+                              <div className="flex items-start gap-2.5">
+                                <span className={`shrink-0 rounded px-2 py-0.5 text-[9px] font-bold ${TAG_COLORS[signalTag] || "bg-muted/20 text-muted"}`}>{signalTag}</span>
+                                <p className="text-[10px] leading-relaxed text-[#888]">{lang === "kr" ? explanation.kr : explanation.en}</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      {detailFinLoading && (
+                        <div className="border-t border-white/10 pt-4 mt-4">
+                          <p className="text-xs animate-pulse" style={{ color: "#555" }}>Loading...</p>
+                        </div>
+                      )}
+                      {detailFin && !detailFinLoading && (() => {
+                        const isKR = detailFin.market === "KR";
+                        const unit = isKR ? (lang === "kr" ? "억원" : "KRW 100M") : "$M";
+                        const q = detailFin.quarterly || [];
+                        const mcap = detailFin.marketCap;
+                        let mcapStr = "—";
+                        if (mcap != null) {
+                          if (isKR) {
+                            const jo = Math.floor(mcap / 10000);
+                            const eok = mcap % 10000;
+                            mcapStr = jo > 0 ? `${jo}조 ${eok.toLocaleString()}억원` : `${eok.toLocaleString()}억원`;
+                          } else {
+                            mcapStr = mcap >= 1000 ? `$${(mcap / 1000).toFixed(1)}B` : `$${mcap.toLocaleString()}M`;
+                          }
+                        }
+                        const fmtVal = (v: number | null) => {
+                          if (v == null) return "—";
+                          const val = isKR ? v / 1e8 : v;
+                          const abs = Math.abs(val);
+                          const f = abs.toLocaleString(undefined, { maximumFractionDigits: 0 });
+                          return val < 0 ? `(${f})` : f;
+                        };
+                        return (
+                          <div className="border-t border-white/10 pt-4 mt-4 space-y-3">
+                            <div>
+                              <span className="text-[10px]" style={{ color: "#6b7280" }}>{lang === "kr" ? "시가총액" : "Market Cap"}</span>
+                              <p className="text-sm font-mono" style={{ color: "#e8e8e8" }}>{mcapStr}</p>
+                            </div>
+                            {q.length > 0 && (
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "#6b7280" }}>
+                                  {lang === "kr" ? "FINANCIALS · 최근 4분기" : "FINANCIALS · Last 4Q"}
+                                </p>
+                                <div className="overflow-x-auto rounded" style={{ border: "1px solid #222" }}>
+                                  <table className="w-full font-mono text-xs" style={{ background: "#080c12" }}>
+                                    <thead>
+                                      <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
+                                        <th className="py-1.5 pl-2 pr-3 text-left text-[9px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>&nbsp;</th>
+                                        {q.map((qi, i) => (
+                                          <th key={i} className="py-1.5 px-2 text-right text-[9px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>{qi.label}</th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(255,255,255,0.03)" }}>
+                                        <td className="py-1 pl-2 pr-3 text-[10px] font-medium" style={{ color: "#e8e8e8" }}>{lang === "kr" ? "매출액" : "Revenue"}</td>
+                                        {q.map((qi, i) => (
+                                          <td key={i} className="py-1 px-2 text-right tabular-nums" style={{ color: qi.revenue != null && qi.revenue < 0 ? "#f87171" : "#e8e8e8" }}>{fmtVal(qi.revenue)}</td>
+                                        ))}
+                                      </tr>
+                                      <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                                        <td className="py-1 pl-2 pr-3 text-[10px]" style={{ color: "#9ca3af" }}>{lang === "kr" ? "영업이익" : "Operating Income"}</td>
+                                        {q.map((qi, i) => (
+                                          <td key={i} className="py-1 px-2 text-right tabular-nums" style={{ color: qi.operatingIncome != null && qi.operatingIncome < 0 ? "#f87171" : "#9ca3af" }}>{fmtVal(qi.operatingIncome)}</td>
+                                        ))}
+                                      </tr>
+                                      <tr style={{ background: "rgba(255,255,255,0.03)" }}>
+                                        <td className="py-1 pl-2 pr-3 text-[10px] font-medium" style={{ color: "#e8e8e8" }}>{lang === "kr" ? "당기순이익" : "Net Income"}</td>
+                                        {q.map((qi, i) => (
+                                          <td key={i} className="py-1 px-2 text-right tabular-nums" style={{ color: qi.netIncome != null && qi.netIncome < 0 ? "#f87171" : "#e8e8e8" }}>{fmtVal(qi.netIncome)}</td>
+                                        ))}
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
+                                <p className="mt-1 text-[9px] text-right" style={{ color: "#555" }}>{unit}</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* KR Company Info */}
+                      {krProfileLoading && (
+                        <div className="pt-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-3 w-3 animate-spin rounded-full border border-[#555] border-t-transparent" />
+                            <p className="text-[11px] text-[#555]">Loading profile...</p>
+                          </div>
+                        </div>
+                      )}
+                      {krProfile && !krProfileLoading && (
+                        <div className="border-t border-[#1e1e1e] pt-4 mt-1">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm font-semibold uppercase tracking-widest text-[#666]">COMPANY INFO</p>
+                            {krProfile.description && (
+                              <button
+                                onClick={handleKrDescTranslate}
+                                disabled={krDescTranslating}
+                                className={`flex items-center gap-1 rounded px-2 py-0.5 text-[9px] font-mono font-bold transition-colors ${
+                                  krDescLang === "ko"
+                                    ? "bg-accent/20 text-accent"
+                                    : "bg-[#1e1e1e] text-[#666] hover:text-[#aaa]"
+                                } disabled:opacity-40`}
+                              >
+                                {krDescTranslating && <span className="inline-block h-2 w-2 animate-spin rounded-full border border-current border-t-transparent" />}
+                                {krDescLang === "ko" ? "EN" : "KO"}
+                              </button>
+                            )}
+                          </div>
+                          {krProfile.description && (
+                            <div className="mb-3">
+                              <p className={`text-sm leading-relaxed text-gray-300 ${krDescExpanded ? "" : "line-clamp-3"}`}>
+                                {krDescLang === "ko" && krDescKo ? krDescKo : krProfile.description}
+                              </p>
+                              <button
+                                onClick={() => setKrDescExpanded(!krDescExpanded)}
+                                className="mt-1.5 text-[10px] text-accent hover:underline"
+                              >
+                                {krDescExpanded ? "less" : "more"}
+                              </button>
+                            </div>
+                          )}
+                          <div className="grid grid-cols-2 gap-3 mt-3">
+                            {(krProfile.sector || krProfile.industry) && (
+                              <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Sector</p>
+                                <p className="text-sm text-gray-200 mt-0.5 truncate">{[krProfile.sector, krProfile.industry].filter(Boolean).join(" / ")}</p>
+                              </div>
+                            )}
+                            {krProfile.ceo && (
+                              <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">CEO</p>
+                                <p className="text-sm text-gray-200 mt-0.5 truncate">{krProfile.ceo}</p>
+                              </div>
+                            )}
+                            {krProfile.fullTimeEmployees != null && (
+                              <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">{lang === "kr" ? "임직원 수" : "Employees"}</p>
+                                <p className="text-sm text-gray-200 mt-0.5 font-mono">{krProfile.fullTimeEmployees.toLocaleString()}</p>
+                              </div>
+                            )}
+                            {krProfile.website && (
+                              <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Website</p>
+                                <a href={krProfile.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-yellow-400 hover:underline mt-0.5 truncate">
+                                  {krProfile.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
+                                  <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* KR Latest News */}
+                      {!krProfileLoading && krNews.length > 0 && (
+                        <div className="border-t border-[#1e1e1e] pt-4 mt-1">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-sm font-semibold uppercase tracking-widest text-[#666]">
+                              {lang === "kr" ? "최신 뉴스" : "LATEST NEWS"}
+                            </p>
+                          </div>
+                          <div>
+                            {krNews.map((n, i) => (
+                              <a
+                                key={i}
+                                href={n.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block border-b border-[#1a1a1a] py-2.5 last:border-b-0 hover:bg-white/[0.02] -mx-1 px-1 rounded transition-colors"
+                              >
+                                <p className="text-sm font-medium leading-snug text-[#ddd] line-clamp-2">
+                                  {n.title}
+                                </p>
+                                {n.publishedDate && (
+                                  <p className="mt-1 text-xs text-[#555]">
+                                    {new Date(n.publishedDate).toLocaleDateString(lang === "kr" ? "ko-KR" : undefined, { month: "short", day: "numeric", year: "numeric" })}
+                                  </p>
+                                )}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
+              </div>
+            )}
+
+            {/* US FOMO */}
+            {fomoMarket === "US" && (
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
+                <section className={`${CARD} lg:col-span-3`}>
+                  {/* Header */}
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                        US {US_SECTORS.find(s => s.key === usSector)?.label} — {fomoUs.length} {lang === "kr" ? "종목" : "stocks"}
+                      </h2>
+                    </div>
+                    <button
+                      onClick={() => fetchFomoUs(usSector, true)}
+                      disabled={usLoading}
+                      className="px-3 py-1 text-[10px] font-mono text-muted border border-card-border hover:text-foreground transition-colors disabled:opacity-30"
+                    >
+                      {usLoading ? "LOADING..." : "REFRESH"}
+                    </button>
+                  </div>
+
+                  {/* Loading */}
+                  {usLoading && (
+                    <div className="space-y-0">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-3 py-2.5 border-b border-card-border/20">
+                          <div className="h-3 w-14 rounded bg-card-border/30 animate-pulse" />
+                          <div className="h-3 w-24 rounded bg-card-border/20 animate-pulse" />
+                          <div className="ml-auto h-3 w-16 rounded bg-card-border/20 animate-pulse" />
+                          <div className="h-3 w-12 rounded bg-card-border/20 animate-pulse" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Error */}
+                  {usError && !usLoading && (
+                    <div className="py-8 text-center">
+                      <p className="text-[10px] text-loss">{usError}</p>
+                      <button
+                        onClick={() => fetchFomoUs(usSector, true)}
+                        className="mt-2 rounded bg-accent/20 px-3 py-1 text-[10px] text-accent hover:bg-accent/30"
+                      >
+                        {lang === "kr" ? "다시 시도" : "Retry"}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Table */}
+                  {!usLoading && !usError && fomoUs.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-card-border">
+                            <th className={TH}>Symbol</th>
+                            <th className={TH}>Name</th>
+                            <th className={`${TH} text-right`}>Price</th>
+                            <th className={`${TH} text-right`}>Chg%</th>
+                            <th className={`${TH} text-right`}>{lang === "kr" ? "거래대금" : "Value"}</th>
+                            <th className={`${TH} text-right`}>{lang === "kr" ? "거래량" : "Volume"}</th>
+                            <th className={`${TH} text-right`}>Vol Ratio</th>
+                            <th className={`${TH} w-16`}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fomoUs.map((r) => {
+                            const volColor = r.volumeRatio >= 2 ? "text-red-400" : r.volumeRatio >= 1.5 ? "text-yellow-400" : "text-muted";
+                            const barW = Math.min(r.volumeRatio / 5 * 100, 100);
+                            const barColor = r.volumeRatio >= 2 ? "bg-red-400" : r.volumeRatio >= 1.5 ? "bg-yellow-400" : "bg-card-border";
+                            return (
+                              <tr
+                                key={r.symbol}
+                                onClick={() => setUsSelected(usSelected?.symbol === r.symbol ? null : r)}
+                                className={`cursor-pointer border-b border-card-border/40 transition-colors ${
+                                  usSelected?.symbol === r.symbol ? "bg-accent/10" : "hover:bg-card-border/20"
+                                }`}
+                              >
+                                <td className={`${TD} pl-2 text-accent font-medium`}>{r.symbol}</td>
+                                <td className={`${TD} text-muted truncate max-w-[120px]`}>{r.name}</td>
+                                <td className={`${TD} text-right tabular-nums`}>${r.price.toFixed(2)}</td>
+                                <td className={`${TD} text-right tabular-nums`}><ChgPct v={r.changePct} /></td>
+                                <td className={`${TD} text-right tabular-nums text-muted`}>
+                                  {r.tradingValue >= 1e9
+                                    ? `$${(r.tradingValue / 1e9).toFixed(1)}B`
+                                    : `$${(r.tradingValue / 1e6).toFixed(0)}M`}
+                                </td>
+                                <td className={`${TD} text-right tabular-nums text-muted`}>{formatVol(r.volume)}</td>
+                                <td className={`${TD} text-right tabular-nums font-medium ${volColor}`}>{r.volumeRatio.toFixed(1)}x</td>
+                                <td className={TD}>
+                                  <div className="relative h-1.5 w-full overflow-hidden rounded-sm bg-[#1e1e1e]">
+                                    <div className={`absolute inset-y-0 left-0 rounded-sm ${barColor}`} style={{ width: `${barW}%` }} />
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Empty */}
+                  {!usLoading && !usError && fomoUs.length === 0 && (
+                    <p className="py-8 text-center text-[10px] text-muted">
+                      {lang === "kr" ? "데이터 없음" : "No data available"}
+                    </p>
+                  )}
+
+                  {/* Footer */}
+                  {usUpdatedAt && !usLoading && (
+                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-card-border/40">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-mono text-muted/50">
+                          {fomoUs.length} stocks
+                        </span>
+                        {usCached && (
+                          <span className="text-[9px] font-mono text-amber-500/50">CACHED</span>
+                        )}
+                      </div>
+                      <span className="text-[9px] font-mono text-muted/50">
+                        Updated {new Date(usUpdatedAt).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </section>
+
+                {/* US Detail panel */}
+                <section className={`${CARD} lg:col-span-2`}>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                    <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Detail</h2>
+                  </div>
+                  {!usSelected ? (
+                    <p className="py-8 text-center text-[10px] text-muted">
+                      {lang === "kr" ? "목록에서 종목을 선택하세요" : "Select a stock from the list"}
+                    </p>
+                  ) : (() => {
+                    const s = usSelected;
+                    const volBarPct = Math.min(s.volumeRatio / 10 * 100, 100);
+                    const volColor = s.volumeRatio >= 2 ? "bg-red-400" : s.volumeRatio >= 1.5 ? "bg-yellow-400" : "bg-accent";
+                    return (
+                      <div className="space-y-3">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-sm font-bold text-accent">{s.symbol}</span>
+                            <span className="ml-2 text-xs text-muted">{s.name}</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-medium tabular-nums">${s.price.toFixed(2)}</p>
+                            <p className="text-[10px] tabular-nums"><ChgPct v={s.changePct} /></p>
+                          </div>
+                        </div>
+
+                        {/* Analyst Consensus */}
+                        {analystLoading && (
+                          <div className="border-b border-[#1e1e1e] pb-3">
+                            <p className="text-[11px] text-[#555] animate-pulse">Loading analyst data...</p>
+                          </div>
+                        )}
+                        {analystData && !analystLoading && analystData.analystCount > 0 && (() => {
+                          const a = analystData;
+                          const fmtTarget = (v: number) => `$${v.toFixed(2)}`;
+                          const upsidePct = (target: number) => s.price > 0 && target > 0
+                            ? ((target - s.price) / s.price * 100) : null;
+                          const consensusUpside = upsidePct(a.targetConsensus);
+                          const highUpside = upsidePct(a.targetHigh);
+                          const lowUpside = upsidePct(a.targetLow);
+                          const total = a.buyCount + a.holdCount + a.sellCount;
+                          const buyPct = total > 0 ? Math.round(a.buyCount / total * 100) : 0;
+                          const holdPct = total > 0 ? Math.round(a.holdCount / total * 100) : 0;
+                          const sellPct = total > 0 ? 100 - buyPct - holdPct : 0;
+                          const consensusBg = a.consensus === "Buy" ? "bg-green-500/20 text-green-400" : a.consensus === "Sell" ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400";
+                          const consensusKr = a.consensus === "Buy" ? "매수" : a.consensus === "Sell" ? "매도" : "중립";
+                          return (
+                            <div className="border-b border-[#1e1e1e] pb-3">
+                              {/* Header */}
+                              <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
+                                {lang === "kr" ? "월가 목표주가" : "WALL STREET TARGET"}
+                              </p>
+                              {/* Row 1: Consensus badge + target + upside */}
+                              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                <span className={`rounded px-2 py-0.5 text-[11px] font-bold ${consensusBg}`}>
+                                  {lang === "kr" ? consensusKr : a.consensus.toUpperCase()}
+                                </span>
+                                {a.targetConsensus > 0 && (
+                                  <span className="text-sm text-white font-mono font-semibold">
+                                    {lang === "kr" ? "목표주가" : "Target"} {fmtTarget(a.targetConsensus)}
+                                  </span>
+                                )}
+                                {consensusUpside !== null && (
+                                  <span className={`text-xs font-mono font-semibold ${consensusUpside >= 0 ? "text-green-400" : "text-red-400"}`}>
+                                    {consensusUpside >= 0 ? "+" : ""}{consensusUpside.toFixed(1)}%
+                                    {lang === "kr" ? (consensusUpside >= 0 ? " 상승여력" : " 하락여력") : (consensusUpside >= 0 ? " upside" : " downside")}
+                                  </span>
+                                )}
+                              </div>
+                              {/* Row 2: Three target columns */}
+                              {(a.targetHigh > 0 || a.targetLow > 0) && (
+                                <div className="grid grid-cols-3 gap-2 mb-3">
+                                  {[
+                                    { label: "High", val: a.targetHigh, upside: highUpside, color: "text-green-400" },
+                                    { label: lang === "kr" ? "평균" : "Median", val: a.targetConsensus, upside: consensusUpside, color: "text-yellow-400" },
+                                    { label: "Low", val: a.targetLow, upside: lowUpside, color: "text-red-400" },
+                                  ].map(({ label, val, upside, color }) => (
+                                    <div key={label} className="rounded bg-[#0f0f0f] px-2.5 py-2 text-center">
+                                      <p className="text-[9px] text-[#555] uppercase tracking-wider mb-1">{label}</p>
+                                      <p className="text-xs font-mono font-semibold text-white">{val > 0 ? fmtTarget(val) : "—"}</p>
+                                      {upside !== null && val > 0 && (
+                                        <p className={`text-[10px] font-mono font-medium mt-0.5 ${color}`}>
+                                          {upside >= 0 ? "+" : ""}{upside.toFixed(1)}%
+                                        </p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {/* Analyst count */}
+                              {a.analystCount > 0 && (
+                                <p className="text-[10px] text-[#555] mb-2">
+                                  {lang === "kr" ? `애널리스트 ${a.analystCount}명` : `${a.analystCount} analysts`}
+                                </p>
+                              )}
+                              {/* Row 3: Buy/Hold/Sell bar */}
+                              {total > 0 && (
+                                <div>
+                                  <div className="flex h-2 w-full overflow-hidden rounded-sm">
+                                    {buyPct > 0 && <div className="bg-green-500" style={{ width: `${buyPct}%` }} />}
+                                    {holdPct > 0 && <div className="bg-yellow-500" style={{ width: `${holdPct}%` }} />}
+                                    {sellPct > 0 && <div className="bg-red-500" style={{ width: `${sellPct}%` }} />}
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-1.5">
+                                    <span className="text-[9px] text-green-400">{lang === "kr" ? "매수" : "Buy"} {buyPct}%</span>
+                                    <span className="text-[9px] text-yellow-400">{lang === "kr" ? "중립" : "Hold"} {holdPct}%</span>
+                                    <span className="text-[9px] text-red-400">{lang === "kr" ? "매도" : "Sell"} {sellPct}%</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Volume Analysis */}
+                        <div className="border-b border-[#1e1e1e] pb-3">
+                          <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
+                            VOLUME ANALYSIS
+                          </p>
+                          <p className="text-sm text-[#aaa] leading-relaxed mb-2">
+                            {lang === "kr"
+                              ? <>20일 평균 대비 <span className="font-mono font-bold text-white">{s.volumeRatio.toFixed(1)}배</span> 거래량 {s.volumeRatio >= 2 ? "급증" : s.volumeRatio >= 1.5 ? "증가" : "수준"}</>
+                              : <>Volume at <span className="font-mono font-bold text-white">{s.volumeRatio.toFixed(1)}x</span> vs 20D avg {s.volumeRatio >= 2 ? "— significant spike" : s.volumeRatio >= 1.5 ? "— above average" : ""}</>
+                            }
+                          </p>
+                          <div className="relative h-2 w-full overflow-hidden rounded-sm bg-[#1e1e1e]">
+                            <div className={`absolute inset-y-0 left-0 rounded-sm ${volColor}`} style={{ width: `${volBarPct}%` }} />
+                          </div>
+                          <p className="mt-2 text-[10px] text-[#666]">
+                            {lang === "kr"
+                              ? <>오늘 <span className="font-mono text-white">{formatVol(s.volume)}</span> / 20일 평균 <span className="font-mono text-[#888]">{formatVol(s.avgVolume)}</span></>
+                              : <>Today <span className="font-mono text-white">{formatVol(s.volume)}</span> / 20D avg <span className="font-mono text-[#888]">{formatVol(s.avgVolume)}</span></>
+                            }
+                          </p>
+                        </div>
+
+                        {/* Key Metrics */}
+                        <div className="border-b border-[#1e1e1e] pb-3">
+                          <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">KEY METRICS</p>
+                          <div className="space-y-2">
+                            {([
+                              [lang === "kr" ? "거래대금" : "Trading Value", s.tradingValue >= 1e9 ? `$${(s.tradingValue / 1e9).toFixed(2)}B` : `$${(s.tradingValue / 1e6).toFixed(0)}M`],
+                              [lang === "kr" ? "거래량" : "Volume", formatVol(s.volume)],
+                              [lang === "kr" ? "20일 평균 거래량" : "Avg Volume (20D)", formatVol(s.avgVolume)],
+                              ["Vol Ratio", `${s.volumeRatio.toFixed(2)}x`],
+                              [lang === "kr" ? "등락률" : "Change", `${s.changePct >= 0 ? "+" : ""}${s.changePct.toFixed(2)}%`],
+                            ] as const).map(([label, val]) => (
+                              <div key={label} className="flex items-center justify-between">
+                                <span className="text-[11px] text-[#888]">{label}</span>
+                                <span className="text-[11px] font-mono text-foreground">{val}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Company Info */}
+                        {usProfileLoading && (
+                          <div className="pt-3">
+                            <div className="flex items-center gap-2">
+                              <div className="h-3 w-3 animate-spin rounded-full border border-[#555] border-t-transparent" />
+                              <p className="text-[11px] text-[#555]">Loading profile...</p>
+                            </div>
+                          </div>
+                        )}
+                        {usProfile && !usProfileLoading && (
+                          <div className="border-t border-[#1e1e1e] pt-4 mt-1">
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-sm font-semibold uppercase tracking-widest text-[#666]">COMPANY INFO</p>
+                              {usProfile.description && (
+                                <button
+                                  onClick={handleDescTranslate}
+                                  disabled={descTranslating}
+                                  className={`flex items-center gap-1 rounded px-2 py-0.5 text-[9px] font-mono font-bold transition-colors ${
+                                    descLang === "ko"
+                                      ? "bg-accent/20 text-accent"
+                                      : "bg-[#1e1e1e] text-[#666] hover:text-[#aaa]"
+                                  } disabled:opacity-40`}
+                                >
+                                  {descTranslating && <span className="inline-block h-2 w-2 animate-spin rounded-full border border-current border-t-transparent" />}
+                                  {descLang === "ko" ? "EN" : "KO"}
+                                </button>
+                              )}
+                            </div>
+                            {usProfile.description && (
+                              <div className="mb-3">
+                                <p className={`text-sm leading-relaxed text-gray-300 ${usDescExpanded ? "" : "line-clamp-3"}`}>
+                                  {descLang === "ko" && descKo ? descKo : usProfile.description}
+                                </p>
+                                <button
+                                  onClick={() => setUsDescExpanded(!usDescExpanded)}
+                                  className="mt-1.5 text-[10px] text-accent hover:underline"
+                                >
+                                  {usDescExpanded ? "less" : "more"}
+                                </button>
+                              </div>
+                            )}
+                            <div className="grid grid-cols-2 gap-3 mt-3">
+                              {(usProfile.sector || usProfile.industry) && (
+                                <div>
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Sector</p>
+                                  <p className="text-sm text-gray-200 mt-0.5 truncate">{[usProfile.sector, usProfile.industry].filter(Boolean).join(" / ")}</p>
+                                </div>
+                              )}
+                              {usProfile.ceo && (
+                                <div>
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">CEO</p>
+                                  <p className="text-sm text-gray-200 mt-0.5 truncate">{usProfile.ceo}</p>
+                                </div>
+                              )}
+                              {usProfile.fullTimeEmployees != null && (
+                                <div>
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Employees</p>
+                                  <p className="text-sm text-gray-200 mt-0.5 font-mono">{usProfile.fullTimeEmployees.toLocaleString()}</p>
+                                </div>
+                              )}
+                              {usProfile.website && (
+                                <div>
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Website</p>
+                                  <a href={usProfile.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-yellow-400 hover:underline mt-0.5 truncate">
+                                    {usProfile.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
+                                    <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Latest News */}
+                        {!usProfileLoading && usNews.length > 0 && (
+                          <div className="border-t border-[#1e1e1e] pt-4 mt-1">
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-sm font-semibold uppercase tracking-widest text-[#666]">LATEST NEWS</p>
+                              <button
+                                onClick={handleNewsTranslate}
+                                disabled={newsTranslating}
+                                className={`flex items-center gap-1 rounded px-2 py-0.5 text-[9px] font-mono font-bold transition-colors ${
+                                  newsLang === "ko"
+                                    ? "bg-accent/20 text-accent"
+                                    : "bg-[#1e1e1e] text-[#666] hover:text-[#aaa]"
+                                } disabled:opacity-40`}
+                              >
+                                {newsTranslating && <span className="inline-block h-2 w-2 animate-spin rounded-full border border-current border-t-transparent" />}
+                                {newsLang === "ko" ? "EN" : "KO"}
+                              </button>
+                            </div>
+                            <div>
+                              {usNews.map((n, i) => (
+                                <a
+                                  key={i}
+                                  href={n.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block border-b border-[#1a1a1a] py-2.5 last:border-b-0 hover:bg-white/[0.02] -mx-1 px-1 rounded transition-colors"
+                                >
+                                  <p className="text-sm font-medium leading-snug text-[#ddd] line-clamp-2">
+                                    {newsLang === "ko" && newsKo[i] ? newsKo[i] : n.title}
+                                  </p>
+                                  {n.publishedDate && (
+                                    <p className="mt-1 text-xs text-[#555]">
+                                      {new Date(n.publishedDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                                    </p>
+                                  )}
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </section>
+              </div>
+            )}
+          </div>
+        )}
+        {/* ETF tab */}
+        {tab === "etf" && (
+          <div className="space-y-4">
+            {/* ETF filter tabs */}
+            {(() => {
+              const ETF_DESC: Record<string, string> = {
+                IVV: "S&P 500 대형주 500개",
+                IWM: "Russell 2000 중소형주 2000개",
+                IYW: "미국 테크 섹터",
+                IYF: "미국 금융 섹터",
+                IYH: "미국 헬스케어 섹터",
+                IYE: "미국 에너지 섹터",
+                IYC: "미국 소비재 섹터",
+                IYJ: "미국 산업재 섹터",
+              };
+              return (
+                <div>
+                  <div className="flex flex-wrap gap-1">
+                    {["IVV", "IWM", "IYW", "IYF", "IYH", "IYE", "IYC", "IYJ"].map((e) => (
+                      <button
+                        key={e}
+                        onClick={() => setEtfFilter(e)}
+                        className={`rounded px-2.5 py-1 text-[10px] font-medium transition-colors ${
+                          etfFilter === e
+                            ? "bg-accent text-white"
+                            : "bg-card-border/50 text-muted hover:text-foreground"
+                        }`}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 flex items-center gap-1.5 text-sm text-gray-300 font-mono">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                    iShares {etfFilter} — {ETF_DESC[etfFilter] || ""}
+                  </p>
+                </div>
+              );
+            })()}
+
+            {/* Section 1: Holdings Table */}
+            <section className={CARD}>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  {etfFilter} {lang === "kr" ? "보유 종목" : "Holdings"} — {etfHoldings.length}{lang === "kr" ? "개" : " stocks"}
+                </h2>
+                {etfHoldingsDate && (
+                  <span className="ml-auto text-[9px] text-muted/50 tabular-nums">
+                    Snapshot: {etfHoldingsDate}
+                  </span>
+                )}
               </div>
 
-              {/* No filter selected */}
-              {Object.keys(scrFilters).length === 0 && !scrLoading && (
-                <p className="py-8 text-center text-[10px] text-muted">
-                  {lang === "kr" ? "필터를 1개 이상 선택하세요" : "Select at least one filter above"}
-                </p>
-              )}
-
-              {/* Loading */}
-              {scrLoading && (
+              {etfHoldingsLoading && (
                 <div className="space-y-0">
-                  {Array.from({ length: 5 }).map((_, i) => (
+                  {Array.from({ length: 8 }).map((_, i) => (
                     <div key={i} className="flex items-center gap-3 py-2.5 border-b border-card-border/20">
-                      <div className="h-3 w-16 rounded bg-card-border/30 animate-pulse" />
+                      <div className="h-3 w-14 rounded bg-card-border/30 animate-pulse" />
                       <div className="h-3 w-28 rounded bg-card-border/20 animate-pulse" />
-                      <div className="ml-auto h-3 w-14 rounded bg-card-border/20 animate-pulse" />
-                      <div className="h-3 w-12 rounded bg-card-border/20 animate-pulse" />
+                      <div className="ml-auto h-3 w-16 rounded bg-card-border/20 animate-pulse" />
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Error */}
-              {scrError && !scrLoading && (
+              {etfHoldingsError && !etfHoldingsLoading && (
                 <div className="py-8 text-center">
-                  <p className="text-[10px] text-loss">{scrError}</p>
+                  <p className="text-[10px] text-loss">{etfHoldingsError}</p>
                   <button
-                    onClick={() => fetchScreenerFiltered(scrFilters, true)}
+                    onClick={() => fetchEtfHoldings(etfFilter)}
                     className="mt-2 rounded bg-accent/20 px-3 py-1 text-[10px] text-accent hover:bg-accent/30"
                   >
                     {lang === "kr" ? "다시 시도" : "Retry"}
@@ -970,48 +1662,61 @@ export default function IdeasPage() {
                 </div>
               )}
 
-              {/* Results table */}
-              {!scrLoading && !scrError && scrResults.length > 0 && Object.keys(scrFilters).length > 0 && (
-                <div className="overflow-x-auto">
+              {!etfHoldingsLoading && !etfHoldingsError && etfHoldings.length === 0 && (
+                <p className="py-8 text-center text-[10px] text-muted">
+                  {lang === "kr" ? "스냅샷 데이터 없음" : "No snapshot data available"}
+                </p>
+              )}
+
+              {!etfHoldingsLoading && !etfHoldingsError && etfHoldings.length > 0 && (
+                <div className="overflow-x-auto max-h-[480px] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:#374151_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full">
                   <table className="w-full text-xs">
-                    <thead>
+                    <thead className="sticky top-0 bg-card-bg z-10">
                       <tr className="border-b border-card-border">
-                        <th className={TH}>Symbol</th>
+                        <th className={`${TH} w-8 text-right`}>#</th>
+                        <th className={`${TH} w-20`}>Symbol</th>
                         <th className={TH}>Name</th>
-                        <th className={`${TH} text-right`}>Price</th>
-                        <th className={`${TH} text-right`}>Chg%</th>
-                        <th className={`${TH} text-right`}>PER</th>
-                        <th className={`${TH} text-right`}>EPS YoY</th>
-                        <th className={`${TH} text-right`}>EPS QoQ</th>
-                        <th className={`${TH} text-right`}>Rev YoY</th>
-                        <th className={`${TH} text-right`}>{lang === "kr" ? "신고가대비" : "vs High"}</th>
+                        <th className={`${TH} w-40`}>Sector</th>
+                        <th className={`${TH} text-right w-24`}>Weight(%)</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {scrResults.map((r) => (
+                      {etfHoldings.map((h, i) => (
                         <tr
-                          key={r.symbol}
-                          onClick={() => setLegendSelected(legendSelected === r.symbol ? null : r.symbol)}
-                          className={`cursor-pointer border-b border-card-border/40 transition-colors ${
-                            legendSelected === r.symbol ? "bg-accent/10" : "hover:bg-card-border/20"
-                          }`}
+                          key={h.symbol}
+                          onClick={() => { if (h.symbol) window.location.href = `/financials?ticker=${encodeURIComponent(h.symbol)}`; }}
+                          className="border-b border-card-border/40 hover:bg-[#1a1a1a] cursor-pointer transition-colors group"
                         >
-                          <td className={`${TD} pl-2 text-accent font-medium`}>{r.symbol}</td>
-                          <td className={`${TD} text-muted truncate max-w-[120px]`}>{r.name}</td>
-                          <td className={`${TD} text-right tabular-nums`}>{r.price.toFixed(2)}</td>
-                          <td className={`${TD} text-right tabular-nums`}><ChgPct v={r.change_pct} /></td>
-                          <td className={`${TD} text-right tabular-nums text-muted`}>{r.per != null ? r.per.toFixed(1) : "—"}</td>
-                          <td className={`${TD} text-right tabular-nums ${r.epsYoY != null && r.epsYoY > 0 ? "text-gain" : "text-muted"}`}>
-                            {r.epsYoY != null ? `${r.epsYoY > 0 ? "+" : ""}${r.epsYoY.toFixed(1)}%` : "—"}
+                          <td className={`${TD} text-right text-muted/50 tabular-nums text-[10px] w-8`}>{i + 1}</td>
+                          <td className={`${TD} pl-2 text-accent font-medium group-hover:text-yellow-400 transition-colors w-20 font-mono`}>{h.symbol}</td>
+                          <td className={`${TD} text-gray-200 truncate max-w-[200px]`}>{h.name}</td>
+                          <td className={TD}>
+                            {h.sector ? (() => {
+                              const SECTOR_COLOR: Record<string, string> = {
+                                "Information Technology": "bg-blue-500/15 text-blue-300",
+                                "Technology": "bg-blue-500/15 text-blue-300",
+                                "Health Care": "bg-green-500/15 text-green-300",
+                                "Financials": "bg-yellow-500/15 text-yellow-300",
+                                "Industrials": "bg-orange-500/15 text-orange-300",
+                                "Energy": "bg-red-500/15 text-red-300",
+                                "Materials": "bg-purple-500/15 text-purple-300",
+                                "Communication": "bg-cyan-500/15 text-cyan-300",
+                                "Communication Services": "bg-cyan-500/15 text-cyan-300",
+                                "Consumer Discretionary": "bg-pink-500/15 text-pink-300",
+                                "Consumer Staples": "bg-pink-500/15 text-pink-300",
+                                "Real Estate": "bg-amber-500/15 text-amber-300",
+                                "Utilities": "bg-teal-500/15 text-teal-300",
+                              };
+                              const color = SECTOR_COLOR[h.sector] || "bg-gray-500/15 text-gray-300";
+                              return (
+                                <span className={`inline-block rounded px-1.5 py-px text-[9px] font-medium ${color}`}>
+                                  {h.sector}
+                                </span>
+                              );
+                            })() : <span className="text-gray-600">—</span>}
                           </td>
-                          <td className={`${TD} text-right tabular-nums ${r.epsQoQ != null && r.epsQoQ > 0 ? "text-gain" : "text-muted"}`}>
-                            {r.epsQoQ != null ? `${r.epsQoQ > 0 ? "+" : ""}${r.epsQoQ.toFixed(1)}%` : "—"}
-                          </td>
-                          <td className={`${TD} text-right tabular-nums ${r.revYoY != null && r.revYoY > 0 ? "text-gain" : "text-muted"}`}>
-                            {r.revYoY != null ? `${r.revYoY > 0 ? "+" : ""}${r.revYoY.toFixed(1)}%` : "—"}
-                          </td>
-                          <td className={`${TD} text-right tabular-nums text-muted`}>
-                            {r.distFromHigh != null ? `-${r.distFromHigh.toFixed(1)}%` : "—"}
+                          <td className={`${TD} text-right tabular-nums font-mono`}>
+                            {h.weight != null ? h.weight.toFixed(2) : "—"}
                           </td>
                         </tr>
                       ))}
@@ -1019,424 +1724,218 @@ export default function IdeasPage() {
                   </table>
                 </div>
               )}
-
-              {/* Empty results */}
-              {!scrLoading && !scrError && scrResults.length === 0 && Object.keys(scrFilters).length > 0 && (
-                <p className="py-8 text-center text-[10px] text-muted">
-                  {lang === "kr" ? "조건 충족 종목 없음" : "No stocks match criteria"}
-                </p>
-              )}
-
-              {/* Footer */}
-              {scrUpdatedAt && !scrLoading && (
-                <div className="flex items-center justify-between mt-3 pt-2 border-t border-card-border/40">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono text-muted/50">
-                      S&P 100 · {scrResults.length} passed
-                    </span>
-                    {scrCached && (
-                      <span className="text-[9px] font-mono text-amber-500/50">CACHED</span>
-                    )}
-                  </div>
-                  <span className="text-[9px] font-mono text-muted/50">
-                    Updated {new Date(scrUpdatedAt).toLocaleString()}
-                  </span>
-                </div>
-              )}
             </section>
 
-            {/* Right: Detail panel */}
-            <section className={`${CARD} lg:col-span-2`}>
-              <div className="mb-3 flex items-center gap-2">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                  Detail
-                </h2>
-              </div>
-
-              {!legendSelected ? (
-                <p className="py-8 text-center text-[10px] text-muted">
-                  {lang === "kr" ? "목록에서 종목을 선택하세요" : "Select a stock from the list"}
-                </p>
-              ) : (() => {
-                const item = scrResults.find((r) => r.symbol === legendSelected);
-                if (!item) return null;
-                return (
-                  <div className="space-y-3">
-                    {/* Header */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-sm font-bold text-accent">{item.symbol}</span>
-                        <span className="ml-2 text-xs text-muted">{item.name}</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium tabular-nums">{item.price.toFixed(2)}</p>
-                        <p className="text-[10px] tabular-nums"><ChgPct v={item.change_pct} /></p>
-                      </div>
-                    </div>
-
-                    {/* Metrics */}
-                    <div className="border-b border-[#1e1e1e] pb-3">
-                      <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
-                        FUNDAMENTALS
-                      </p>
-                      <div className="space-y-2">
-                        {([
-                          ["PER", item.per != null ? item.per.toFixed(1) : "—"],
-                          ["EPS YoY", item.epsYoY != null ? `${item.epsYoY > 0 ? "+" : ""}${item.epsYoY.toFixed(1)}%` : "—"],
-                          ["EPS QoQ", item.epsQoQ != null ? `${item.epsQoQ > 0 ? "+" : ""}${item.epsQoQ.toFixed(1)}%` : "—"],
-                          ["Rev YoY", item.revYoY != null ? `${item.revYoY > 0 ? "+" : ""}${item.revYoY.toFixed(1)}%` : "—"],
-                          [lang === "kr" ? "52주 신고가 대비" : "vs 52W High", item.distFromHigh != null ? `-${item.distFromHigh.toFixed(1)}%` : "—"],
-                        ] as const).map(([label, val]) => (
-                          <div key={label} className="flex items-center justify-between">
-                            <span className="text-[11px] text-[#888]">{label}</span>
-                            <span className="text-[11px] font-mono text-foreground">{val}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Chart analysis link */}
-                    <a
-                      href="/ai-trading"
-                      className="block w-full rounded bg-accent px-4 py-1.5 text-xs font-medium text-white text-center transition-opacity hover:opacity-90"
-                    >
-                      {lang === "kr" ? "AI 차트 분석" : "AI Chart Analysis"}
-                    </a>
-                  </div>
-                );
-              })()}
-            </section>
           </div>
         )}
 
-        {/* Two-column layout (FOMO only) */}
-        {tab === "fomo" && (
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
-            {/* Left: Ideas list */}
-            <section className={`${CARD} lg:col-span-3`}>
-              {/* Signal filter tabs */}
-              <div className="mb-3 flex flex-wrap items-center gap-1.5">
-                {SIGNAL_FILTERS.map((sf) => (
-                  <button
-                    key={sf}
-                    onClick={() => {
-                      setSignalFilter(sf);
-                      setSelected(null);
-                      setAiResult(null);
-                    }}
-                    className={`flex items-center gap-1 rounded px-2.5 py-1 text-[10px] font-medium transition-colors ${
-                      signalFilter === sf
-                        ? "bg-accent text-white"
-                        : "bg-card-border/50 text-muted hover:text-foreground"
-                    }`}
-                  >
-                    {sf}
-                    <span className={`rounded px-1 py-px text-[8px] tabular-nums ${
-                      signalFilter === sf ? "bg-white/20" : "bg-card-border"
-                    }`}>
-                      {signalCounts[sf] || 0}
+        {/* Wall St Consensus tab */}
+        {tab === "consensus" && (() => {
+          const RATING_COLORS: Record<string, string> = {
+            "Strong Buy": "bg-green-500/20 text-green-400",
+            "Buy": "bg-emerald-500/20 text-emerald-400",
+            "Hold": "bg-yellow-500/20 text-yellow-400",
+            "Sell": "bg-red-500/20 text-red-400",
+            "Strong Sell": "bg-red-700/20 text-red-500",
+            "N/A": "bg-card-border text-muted",
+          };
+
+          const RATINGS = ["ALL", "Strong Buy", "Buy", "Hold"];
+          const UPSIDES = ["ALL", "10%+", "20%+", "30%+", "50%+"];
+          const ANALYSTS = ["ALL", "5명+", "10명+", "20명+"];
+
+          const filtered = consensusItems.filter((item) => {
+            if (consensusSectorFilter !== "ALL" && !item.sector.toLowerCase().includes(consensusSectorFilter.toLowerCase())) return false;
+            if (consensusRatingFilter !== "ALL" && item.rating !== consensusRatingFilter) return false;
+            if (consensusUpsideFilter !== "ALL") {
+              const threshold = parseInt(consensusUpsideFilter);
+              if (item.upside == null || item.upside < threshold) return false;
+            }
+            if (consensusAnalystFilter !== "ALL") {
+              const threshold = parseInt(consensusAnalystFilter);
+              if (item.analystCount < threshold) return false;
+            }
+            return true;
+          });
+
+          function upsideGradient(upside: number | null): string {
+            if (upside == null) return "text-muted";
+            if (upside >= 50) return "text-green-300 font-bold";
+            if (upside >= 30) return "text-green-400 font-semibold";
+            if (upside >= 20) return "text-green-500";
+            if (upside >= 10) return "text-emerald-500";
+            if (upside >= 0) return "text-emerald-600";
+            return "text-red-400";
+          }
+
+          return (
+            <div className="space-y-3">
+              {/* Filters */}
+              <div className="flex flex-wrap gap-x-4 gap-y-2 items-center">
+                {/* Sector */}
+                <div className="flex flex-wrap gap-px">
+                  {["ALL", "Technology", "Healthcare", "Financials", "Energy", "Consumer"].map((s) => (
+                    <button key={s}
+                      onClick={() => setConsensusSectorFilter(s === "Consumer" ? "Consumer" : s)}
+                      className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors ${
+                        (s === "Consumer" ? consensusSectorFilter === "Consumer" : consensusSectorFilter === s)
+                          ? "bg-accent text-white" : "bg-card-border/50 text-muted hover:text-foreground"
+                      }`}
+                    >{s}</button>
+                  ))}
+                </div>
+                {/* Rating */}
+                <div className="flex gap-px">
+                  {RATINGS.map((r) => (
+                    <button key={r} onClick={() => setConsensusRatingFilter(r)}
+                      className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors ${
+                        consensusRatingFilter === r ? "bg-accent text-white" : "bg-card-border/50 text-muted hover:text-foreground"
+                      }`}
+                    >{r === "Strong Buy" ? "강력매수" : r === "Buy" ? "매수" : r === "Hold" ? "중립" : r}</button>
+                  ))}
+                </div>
+                {/* Upside */}
+                <div className="flex gap-px">
+                  {UPSIDES.map((u) => (
+                    <button key={u} onClick={() => setConsensusUpsideFilter(u)}
+                      className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors ${
+                        consensusUpsideFilter === u ? "bg-accent text-white" : "bg-card-border/50 text-muted hover:text-foreground"
+                      }`}
+                    >{u}</button>
+                  ))}
+                </div>
+                {/* Analysts */}
+                <div className="flex gap-px">
+                  {ANALYSTS.map((a) => (
+                    <button key={a} onClick={() => setConsensusAnalystFilter(a)}
+                      className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors ${
+                        consensusAnalystFilter === a ? "bg-accent text-white" : "bg-card-border/50 text-muted hover:text-foreground"
+                      }`}
+                    >{a}</button>
+                  ))}
+                </div>
+                {/* Refresh + meta */}
+                <div className="ml-auto flex items-center gap-3">
+                  {consensusUpdatedAt && (
+                    <span className="text-[9px] text-muted/60 tabular-nums font-mono">
+                      {new Date(consensusUpdatedAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} 기준
                     </span>
-                    {sf !== "ALL" && SIGNAL_TOOLTIPS[sf] && (
-                      <TooltipIcon text={SIGNAL_TOOLTIPS[sf]} />
-                    )}
-                  </button>
-                ))}
+                  )}
+                  <button
+                    onClick={() => fetchConsensus(true)}
+                    disabled={consensusLoading}
+                    className="rounded bg-card-border/50 px-2 py-0.5 text-[10px] text-muted hover:text-foreground disabled:opacity-40 transition-colors"
+                  >↻ 새로고침</button>
+                </div>
               </div>
 
-              {/* Section header */}
-              <div className="mb-3 flex items-center gap-2">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                  {sectionHeader}
-                </h2>
-              </div>
-
-              {dataLoading ? (
-                <div className="flex items-center justify-center py-12">
+              {/* Table / Loading / Error */}
+              {consensusLoading ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-3">
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                  <span className="ml-2 text-xs text-muted">
-                    {lang === "kr" ? "데이터 로딩 중..." : "Loading screener data..."}
+                  <span className="text-xs text-muted font-mono">
+                    월가 목표주가 분석 중...
                   </span>
+                  <span className="text-[10px] text-muted/50 font-mono">첫 로딩 1~2분 소요 · 이후 24시간 캐시</span>
                 </div>
-              ) : dataError ? (
-                <div className="py-8 text-center">
-                  <p className="text-[10px] text-loss">{dataError}</p>
-                  <button
-                    onClick={fetchScreener}
-                    className="mt-2 rounded bg-accent/20 px-3 py-1 text-[10px] text-accent hover:bg-accent/30"
-                  >
-                    {lang === "kr" ? "다시 시도" : "Retry"}
+              ) : consensusError ? (
+                <div className="py-8 text-center space-y-2">
+                  <p className="text-[10px] text-loss">{consensusError}</p>
+                  <button onClick={() => fetchConsensus()} className="rounded bg-accent/20 px-3 py-1 text-[10px] text-accent hover:bg-accent/30">
+                    다시 시도
+                  </button>
+                </div>
+              ) : consensusFetched && consensusItems.length === 0 ? (
+                <div className="py-8 text-center space-y-2">
+                  <p className="text-[10px] text-muted">데이터를 불러오지 못했습니다. FMP API 응답을 확인해주세요.</p>
+                  <button onClick={() => fetchConsensus(true)} className="rounded bg-accent/20 px-3 py-1 text-[10px] text-accent hover:bg-accent/30">
+                    다시 시도
                   </button>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  {filteredFomo.length === 0 ? (
-                    <p className="py-8 text-center text-[10px] text-muted">{lang === "kr" ? "해당 종목 없음" : "No stocks match"}</p>
-                  ) : (
-                    <FomoTable items={filteredFomo} selected={selected?.ticker ?? null} onSelect={handleSelect} lang={lang} />
-                  )}
-                </div>
-              )}
-            </section>
-
-            {/* Right: Detail panel */}
-            <section className={`${CARD} lg:col-span-2`}>
-              <div className="mb-3 flex items-center gap-2">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                  Detail
-                </h2>
-              </div>
-
-              {!selected ? (
-                <p className="py-8 text-center text-[10px] text-muted">
-                  {lang === "kr" ? "목록에서 종목을 선택하세요" : "Select a ticker from the list"}
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {/* Ticker header */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-sm font-bold text-accent">{selected.ticker}</span>
-                      <span className="ml-2 text-xs text-muted">{selected.name}</span>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium tabular-nums">{selected.price.toLocaleString()}</p>
-                      <p className="text-[10px] tabular-nums"><ChgPct v={selected.chgPct} /></p>
-                    </div>
+                <div className={`${CARD} overflow-x-auto`}>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                    <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                      월가 목표주가 컨센서스
+                    </h2>
+                    <span className="text-[10px] text-muted/60 font-mono">
+                      {filtered.length}개 표시 / {consensusItems.length}개 종목
+                    </span>
                   </div>
-
-                  {/* FOMO detail: Goldman Sachs style */}
-                  {tab === "fomo" && "volumeRatio" in selected && (() => {
-                    const fomo = selected as FomoItem;
-                    const volRatio = fomo.volumeRatio;
-                    const barPct = Math.min(volRatio / 10 * 100, 100);
-                    const avgVol = volRatio > 0 ? fomo.volume / volRatio : 0;
-                    const signalTag = fomo.tag;
-                    const signalExplanations: Record<string, { kr: string; en: string }> = {
-                      "VOLUME SPIKE": { kr: `평균 대비 ${volRatio.toFixed(0)}배 이상 거래량. 기관/세력 개입 가능성`, en: `Volume surged ${volRatio.toFixed(0)}x above average. Possible institutional activity` },
-                      "BREAKOUT": { kr: "최근 20일 고점 돌파. 신규 상승 추세 시작 신호", en: "Broke above 20-day high. New uptrend initiation signal" },
-                      "MOMO": { kr: "가격과 거래량 모두 상승. 추세 추종 매매 포착", en: "Price and volume both rising. Trend-following signal detected" },
-                      "52W HIGH": { kr: "52주 최고가 경신. 강한 상승 추세 확인", en: "52-week high reached. Strong uptrend confirmed" },
-                      "PULLBACK": { kr: "단기 조정 후 반등 시도. 저점 매수 기회 탐색", en: "Rebound attempt after pullback. Potential dip-buy opportunity" },
-                    };
-                    const explanation = signalExplanations[signalTag] || { kr: "복합 시그널 감지", en: "Composite signal detected" };
-                    return (
-                      <div className="space-y-0">
-                        {/* WHY THIS IS A FOMO SIGNAL */}
-                        <div className="border-b border-[#1e1e1e] py-3">
-                          <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
-                            WHY THIS IS A FOMO SIGNAL
-                          </p>
-                          <p className="text-sm text-[#aaa] leading-relaxed">
-                            {lang === "kr"
-                              ? volRatio >= 5
-                                ? <>평소 대비 <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}배</span> 거래량 폭증 — 기관/세력 대량 개입 가능성</>
-                                : volRatio >= 3
-                                ? <>20일 평균 대비 <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}배</span> 거래량 급증 — 단기 강한 수급 유입</>
-                                : volRatio >= 2
-                                ? <>20일 평균 대비 <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}배</span> 거래량 증가 — 평소보다 {volRatio.toFixed(1)}배 많은 거래 발생</>
-                                : <>20일 평균 대비 <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}배</span> 수준 — 거래량 소폭 증가</>
-                              : volRatio >= 5
-                                ? <>Volume surged <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}x</span> above average — possible institutional activity</>
-                                : volRatio >= 3
-                                ? <>Volume spiked <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}x</span> vs 20D avg — strong inflow detected</>
-                                : volRatio >= 2
-                                ? <>Volume rose <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}x</span> vs 20D avg — trading {volRatio.toFixed(1)}x more than usual</>
-                                : <>Volume at <span className="font-mono font-bold text-white">{volRatio.toFixed(1)}x</span> vs 20D avg — slight increase</>
-                            }
-                          </p>
-                          <div className="relative h-2 w-full overflow-hidden rounded-sm bg-[#1e1e1e] mt-2.5">
-                            <div
-                              className={`absolute inset-y-0 left-0 rounded-sm ${volRatio >= 5 ? "bg-yellow-400" : volRatio >= 3 ? "bg-gain" : "bg-accent"}`}
-                              style={{ width: `${barPct}%` }}
-                            />
-                          </div>
-                          <p className="mt-2 text-[10px] text-[#666]">
-                            {lang === "kr"
-                              ? <>오늘 <span className="font-mono text-white">{formatVol(fomo.volume)}</span>주 거래 / 20일 평균 <span className="font-mono text-[#888]">{formatVol(avgVol)}</span>주</>
-                              : <>Today <span className="font-mono text-white">{formatVol(fomo.volume)}</span> / 20D avg <span className="font-mono text-[#888]">{formatVol(avgVol)}</span></>
-                            }
-                          </p>
-                        </div>
-
-                        {/* PRICE MOMENTUM */}
-                        <div className="border-b border-[#1e1e1e] py-3">
-                          <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
-                            PRICE MOMENTUM
-                          </p>
-                          <div className="space-y-1.5">
-                            {([["1D", selected.metrics.chg1d], ["5D", selected.metrics.chg5d], ["20D", selected.metrics.chg20d]] as const).map(([label, val]) => (
-                              <div key={label} className="flex items-center justify-between">
-                                <span className="w-8 text-[10px] font-mono text-[#666]">{label}</span>
-                                <div className="flex items-center gap-1.5">
-                                  <span className={`text-[10px] ${val >= 0 ? "text-gain" : "text-loss"}`}>
-                                    {val >= 0 ? "\u25B2" : "\u25BC"}
-                                  </span>
-                                  <span className={`font-mono text-[11px] font-medium tabular-nums ${val >= 0 ? "text-gain" : "text-loss"}`}>
-                                    {val >= 0 ? "+" : ""}{val.toFixed(2)}%
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* SIGNAL TYPE */}
-                        <div className="py-3">
-                          <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">
-                            SIGNAL TYPE
-                          </p>
-                          <div className="flex items-start gap-2.5">
-                            <span className={`shrink-0 rounded px-2 py-0.5 text-[9px] font-bold ${TAG_COLORS[signalTag] || "bg-muted/20 text-muted"}`}>
-                              {signalTag}
-                            </span>
-                            <p className="text-[10px] leading-relaxed text-[#888]">
-                              {lang === "kr" ? explanation.kr : explanation.en}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  {/* Financials section */}
-                  {detailFinLoading && (
-                    <div className="border-t border-white/10 pt-4 mt-4">
-                      <p className="text-xs animate-pulse" style={{ color: "#555" }}>Loading...</p>
+                  {filtered.length === 0 && consensusItems.length > 0 ? (
+                    <div className="py-8 text-center space-y-2">
+                      <p className="text-[10px] text-muted">조건에 맞는 종목 없음</p>
+                      <button
+                        onClick={() => {
+                          setConsensusSectorFilter("ALL");
+                          setConsensusRatingFilter("ALL");
+                          setConsensusUpsideFilter("ALL");
+                          setConsensusAnalystFilter("ALL");
+                        }}
+                        className="rounded bg-card-border/50 px-3 py-1 text-[10px] text-muted hover:text-foreground"
+                      >필터 초기화</button>
                     </div>
+                  ) : (
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-card-border">
+                          <th className={`${TH} w-6`}>#</th>
+                          <th className={TH}>SYMBOL</th>
+                          <th className={TH}>NAME</th>
+                          <th className={TH}>SECTOR</th>
+                          <th className={`${TH} text-right`}>현재가</th>
+                          <th className={`${TH} text-right`}>목표주가</th>
+                          <th className={`${TH} text-right`}>상승여력%</th>
+                          <th className={`${TH} text-right`}>애널리스트</th>
+                          <th className={TH}>컨센서스</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map((item, i) => (
+                          <tr
+                            key={item.symbol}
+                            onClick={() => { window.location.href = `/financials?ticker=${item.symbol}`; }}
+                            className="cursor-pointer border-b border-card-border/40 hover:bg-card-border/20 transition-colors"
+                          >
+                            <td className={`${TD} text-muted/40 tabular-nums`}>{i + 1}</td>
+                            <td className={`${TD} text-accent font-mono font-semibold`}>{item.symbol}</td>
+                            <td className={`${TD} max-w-[160px] truncate text-foreground/80`}>{item.name}</td>
+                            <td className={`${TD} max-w-[120px] truncate text-muted/70 text-[10px]`}>{item.sector || "—"}</td>
+                            <td className={`${TD} text-right tabular-nums font-mono`}>
+                              {item.price != null ? `$${item.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                            </td>
+                            <td className={`${TD} text-right tabular-nums font-mono font-medium`}>
+                              {item.targetConsensus != null ? `$${item.targetConsensus.toFixed(2)}` : "—"}
+                            </td>
+                            <td className={`${TD} text-right tabular-nums font-mono font-bold`}>
+                              <span className={upsideGradient(item.upside)}>
+                                {item.upside != null ? `${item.upside > 0 ? "+" : ""}${item.upside.toFixed(1)}%` : "—"}
+                              </span>
+                            </td>
+                            <td className={`${TD} text-right tabular-nums font-mono`}>
+                              {item.analystCount > 0 ? item.analystCount : "—"}
+                            </td>
+                            <td className={TD}>
+                              <span className={`inline-block rounded px-1.5 py-px text-[9px] font-medium ${RATING_COLORS[item.rating] ?? RATING_COLORS["N/A"]}`}>
+                                {item.rating === "Strong Buy" ? "강력매수"
+                                  : item.rating === "Buy" ? "매수"
+                                  : item.rating === "Hold" ? "중립"
+                                  : item.rating === "Sell" ? "매도"
+                                  : item.rating === "Strong Sell" ? "강력매도"
+                                  : item.rating}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   )}
-                  {detailFin && !detailFinLoading && (() => {
-                    const isKR = detailFin.market === "KR";
-                    const unit = isKR ? (lang === "kr" ? "억원" : "KRW 100M") : "$M";
-                    const q = detailFin.quarterly || [];
-                    // Market cap display
-                    const mcap = detailFin.marketCap;
-                    let mcapStr = "—";
-                    if (mcap != null) {
-                      if (isKR) {
-                        const jo = Math.floor(mcap / 10000);
-                        const eok = mcap % 10000;
-                        mcapStr = jo > 0
-                          ? `${jo}조 ${eok.toLocaleString()}억원`
-                          : `${eok.toLocaleString()}억원`;
-                      } else {
-                        mcapStr = mcap >= 1000 ? `$${(mcap / 1000).toFixed(1)}B` : `$${mcap.toLocaleString()}M`;
-                      }
-                    }
-                    const fmtVal = (v: number | null) => {
-                      if (v == null) return "—";
-                      const val = isKR ? v / 1e8 : v;
-                      const abs = Math.abs(val);
-                      const f = abs.toLocaleString(undefined, { maximumFractionDigits: 0 });
-                      return val < 0 ? `(${f})` : f;
-                    };
-                    return (
-                      <div className="border-t border-white/10 pt-4 mt-4 space-y-3">
-                        {/* Market cap */}
-                        <div>
-                          <span className="text-[10px]" style={{ color: "#6b7280" }}>
-                            {lang === "kr" ? "시가총액" : "Market Cap"}
-                          </span>
-                          <p className="text-sm font-mono" style={{ color: "#e8e8e8" }}>{mcapStr}</p>
-                        </div>
-                        {/* Quarterly table */}
-                        {q.length > 0 && (
-                          <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "#6b7280" }}>
-                              {lang === "kr" ? "FINANCIALS · 최근 4분기" : "FINANCIALS · Last 4Q"}
-                            </p>
-                            <div className="overflow-x-auto rounded" style={{ border: "1px solid #222" }}>
-                              <table className="w-full font-mono text-xs" style={{ background: "#080c12" }}>
-                                <thead>
-                                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
-                                    <th className="py-1.5 pl-2 pr-3 text-left text-[9px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>&nbsp;</th>
-                                    {q.map((qi, i) => (
-                                      <th key={i} className="py-1.5 px-2 text-right text-[9px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>
-                                        {qi.label}
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {/* Revenue */}
-                                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(255,255,255,0.03)" }}>
-                                    <td className="py-1 pl-2 pr-3 text-[10px] font-medium" style={{ color: "#e8e8e8" }}>
-                                      {lang === "kr" ? "매출액" : "Revenue"}
-                                    </td>
-                                    {q.map((qi, i) => (
-                                      <td key={i} className="py-1 px-2 text-right tabular-nums" style={{ color: qi.revenue != null && qi.revenue < 0 ? "#f87171" : "#e8e8e8" }}>
-                                        {fmtVal(qi.revenue)}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                  {/* Operating Income */}
-                                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                                    <td className="py-1 pl-2 pr-3 text-[10px]" style={{ color: "#9ca3af" }}>
-                                      {lang === "kr" ? "영업이익" : "Operating Income"}
-                                    </td>
-                                    {q.map((qi, i) => (
-                                      <td key={i} className="py-1 px-2 text-right tabular-nums" style={{ color: qi.operatingIncome != null && qi.operatingIncome < 0 ? "#f87171" : "#9ca3af" }}>
-                                        {fmtVal(qi.operatingIncome)}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                  {/* OP QoQ */}
-                                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                                    <td className="py-1 pl-4 pr-3 text-[9px]" style={{ color: "#555" }}>
-                                      {lang === "kr" ? "영업이익 QoQ" : "OP QoQ"}
-                                    </td>
-                                    {q.map((qi, i) => {
-                                      if (i === 0) return <td key={i} className="py-1 px-2 text-right text-[9px]" style={{ color: "#555" }}>—</td>;
-                                      const cur = qi.operatingIncome;
-                                      const prev = q[i - 1].operatingIncome;
-                                      const qoq = cur != null && prev != null && prev !== 0 ? ((cur - prev) / Math.abs(prev)) * 100 : null;
-                                      return (
-                                        <td key={i} className="py-1 px-2 text-right tabular-nums text-[9px]" style={{ color: qoq == null ? "#555" : qoq >= 0 ? "#4ade80" : "#f87171" }}>
-                                          {qoq != null ? `${qoq >= 0 ? "+" : ""}${qoq.toFixed(1)}%` : "—"}
-                                        </td>
-                                      );
-                                    })}
-                                  </tr>
-                                  {/* OPM */}
-                                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                                    <td className="py-1 pl-4 pr-3 text-[9px]" style={{ color: "#555" }}>
-                                      {lang === "kr" ? "영업이익률%" : "OP Margin"}
-                                    </td>
-                                    {q.map((qi, i) => {
-                                      const opm = qi.revenue && qi.operatingIncome ? (qi.operatingIncome / qi.revenue) * 100 : null;
-                                      return (
-                                        <td key={i} className="py-1 px-2 text-right tabular-nums text-[9px]" style={{ color: opm != null && opm < 0 ? "#f87171" : "#555" }}>
-                                          {opm != null ? `${opm.toFixed(1)}%` : "—"}
-                                        </td>
-                                      );
-                                    })}
-                                  </tr>
-                                  {/* Net Income */}
-                                  <tr style={{ background: "rgba(255,255,255,0.03)" }}>
-                                    <td className="py-1 pl-2 pr-3 text-[10px] font-medium" style={{ color: "#e8e8e8" }}>
-                                      {lang === "kr" ? "당기순이익" : "Net Income"}
-                                    </td>
-                                    {q.map((qi, i) => (
-                                      <td key={i} className="py-1 px-2 text-right tabular-nums" style={{ color: qi.netIncome != null && qi.netIncome < 0 ? "#f87171" : "#e8e8e8" }}>
-                                        {fmtVal(qi.netIncome)}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
-                            <p className="mt-1 text-[9px] text-right" style={{ color: "#555" }}>{unit}</p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
                 </div>
               )}
-            </section>
-          </div>
-        )}
+            </div>
+          );
+        })()}
       </main>
     </div>
   );

@@ -9,6 +9,7 @@ interface Holding {
   value: number; // in $1000s (normalized)
   weight: number; // % of portfolio
   cusip: string;
+  putCall: string | null;
 }
 
 interface GuruData {
@@ -184,6 +185,7 @@ async function fetch13F(cik: string): Promise<{
           value: parseInt(valueMatch[1].replace(/,/g, "")) || 0,
           shares: parseInt(sharesMatch?.[1]?.replace(/,/g, "") || "0") || 0,
           weight: 0,
+          putCall: putCallMatch ? putCallMatch[1].trim().toUpperCase() : null,
         });
       }
     }
@@ -191,7 +193,7 @@ async function fetch13F(cik: string): Promise<{
     // Aggregate by company+cusip (some filers split holdings by manager)
     const aggregated = new Map<string, Holding>();
     for (const h of holdings) {
-      const key = h.cusip || h.company;
+      const key = `${h.cusip || h.company}:${h.putCall || "SH"}`;
       const existing = aggregated.get(key);
       if (existing) {
         existing.value += h.value;

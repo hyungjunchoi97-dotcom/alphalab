@@ -10,7 +10,6 @@ export async function POST(
   try {
     const { id } = await params;
 
-    // Admin auth via PB_ADMIN_TOKEN
     const authHeader = req.headers.get("authorization");
     const token = authHeader?.replace("Bearer ", "");
     const adminToken = process.env.PB_ADMIN_TOKEN;
@@ -29,7 +28,6 @@ export async function POST(
       );
     }
 
-    // Verify prediction exists and is not already resolved
     const { data: pred, error: fetchErr } = await supabaseAdmin
       .from("predictions")
       .select("id, status")
@@ -39,12 +37,11 @@ export async function POST(
     if (fetchErr || !pred) {
       return NextResponse.json({ ok: false, error: "Prediction not found" }, { status: 404 });
     }
-
     if (pred.status === "resolved") {
       return NextResponse.json({ ok: false, error: "Already resolved" }, { status: 400 });
     }
 
-    // Resolve the prediction
+    // Mark prediction resolved
     const { error: updateErr } = await supabaseAdmin
       .from("predictions")
       .update({
@@ -58,23 +55,54 @@ export async function POST(
       return NextResponse.json({ ok: false, error: updateErr.message }, { status: 500 });
     }
 
-    // Count correct/incorrect votes
-    const { data: votes } = await supabaseAdmin
-      .from("prediction_votes")
-      .select("option_id")
-      .eq("prediction_id", id);
+    // Payout winners: actual_payout = betAmount + sharesReceived * (1 - 0.05)
+    const { data: bets } = await supabaseAdmin
+      .from("prediction_bets")
+      .select("id, user_id, side, points_wagered, shares_received, potential_payout")
+      .eq("prediction_id", id)
+      .eq("status", "pending");
 
-    let correct = 0;
-    let incorrect = 0;
-    for (const v of votes || []) {
-      if (v.option_id === resolved_option_id) correct++;
-      else incorrect++;
+    let winnersCount = 0;
+    let totalPaidOut = 0;
+
+    for (const bet of bets ?? []) {
+      if (bet.side === resolved_option_id) {
+        // Use stored potential_payout (= betAmount + shares * 0.95, calculated at bet time)
+        const payout = Math.round(Number(bet.potential_payout) * 100) / 100;
+
+        await supabaseAdmin.from("prediction_bets").update({
+          status: "won",
+          actual_payout: payout,
+        }).eq("id", bet.id);
+
+        const { data: pts } = await supabaseAdmin
+          .from("user_points")
+          .select("balance, total_won")
+          .eq("user_id", bet.user_id)
+          .single();
+
+        if (pts) {
+          await supabaseAdmin.from("user_points").update({
+            balance: Number(pts.balance) + payout,
+            total_won: Number(pts.total_won) + payout,
+            updated_at: new Date().toISOString(),
+          }).eq("user_id", bet.user_id);
+        }
+
+        winnersCount++;
+        totalPaidOut += payout;
+      } else {
+        await supabaseAdmin.from("prediction_bets").update({
+          status: "lost",
+          actual_payout: 0,
+        }).eq("id", bet.id);
+      }
     }
 
     return NextResponse.json({
       ok: true,
       resolved_option_id,
-      votes: { correct, incorrect, total: correct + incorrect },
+      bets: { winners_count: winnersCount, total_paid_out: Math.round(totalPaidOut) },
     });
   } catch (err) {
     return NextResponse.json(

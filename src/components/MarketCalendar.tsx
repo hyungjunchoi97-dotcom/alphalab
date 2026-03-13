@@ -186,17 +186,13 @@ export default function MarketCalendar() {
 
   if (loading) {
     return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between mb-3">
-          <div className="h-5 w-32 rounded bg-card-border/30 animate-pulse" />
-          <div className="flex gap-2">
-            <div className="h-5 w-12 rounded bg-card-border/20 animate-pulse" />
-            <div className="h-5 w-12 rounded bg-card-border/20 animate-pulse" />
-          </div>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between mb-1">
+          <div className="h-4 w-24 rounded bg-card-border/30 animate-pulse" />
         </div>
         <div className="grid grid-cols-7 gap-px">
           {Array.from({ length: 35 }).map((_, i) => (
-            <div key={i} className="h-16 rounded bg-card-border/10 animate-pulse" />
+            <div key={i} className="h-9 rounded bg-card-border/10 animate-pulse" />
           ))}
         </div>
       </div>
@@ -206,22 +202,22 @@ export default function MarketCalendar() {
   return (
     <div>
       {/* Month navigation */}
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="font-mono text-sm font-bold text-foreground tracking-wide">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="font-mono text-xs font-bold text-foreground tracking-wide">
           {MONTH_NAMES[viewMonth]} {viewYear}
         </h3>
         <div className="flex gap-0">
           <button
             onClick={goPrev}
-            className="px-3 py-1 text-[10px] font-mono font-bold text-[#555] border border-[#1a1a1a] hover:text-[#888] hover:border-[#333] transition-colors"
+            className="px-2 py-0.5 text-[9px] font-mono font-bold text-[#555] border border-[#1a1a1a] hover:text-[#888] hover:border-[#333] transition-colors"
           >
-            &lt; PREV
+            &lt;
           </button>
           <button
             onClick={goNext}
-            className="px-3 py-1 text-[10px] font-mono font-bold text-[#555] border border-[#1a1a1a] border-l-0 hover:text-[#888] hover:border-[#333] transition-colors"
+            className="px-2 py-0.5 text-[9px] font-mono font-bold text-[#555] border border-[#1a1a1a] border-l-0 hover:text-[#888] hover:border-[#333] transition-colors"
           >
-            NEXT &gt;
+            &gt;
           </button>
         </div>
       </div>
@@ -229,7 +225,7 @@ export default function MarketCalendar() {
       {/* Weekday headers */}
       <div className="grid grid-cols-7 gap-px mb-px">
         {WEEKDAYS.map((wd) => (
-          <div key={wd} className="py-1 text-center text-[9px] font-mono font-bold tracking-widest text-[#444]">
+          <div key={wd} className="py-0.5 text-center text-[8px] font-mono font-bold tracking-widest text-[#444]">
             {wd}
           </div>
         ))}
@@ -268,13 +264,13 @@ export default function MarketCalendar() {
               onClick={() => {
                 if (dayEvents.length > 0) setSelectedDay(isSelected ? null : key);
               }}
-              className={`relative min-h-[60px] md:min-h-[72px] p-1 border ${cellBorder} ${cellBg} transition-colors ${
+              className={`relative min-h-[36px] p-0.5 border ${cellBorder} ${cellBg} transition-colors ${
                 inMonth ? "" : "opacity-30"
               } ${dayEvents.length > 0 ? "cursor-pointer hover:bg-[#161616]" : ""}`}
             >
               {/* Day number */}
               <span
-                className={`block text-[10px] font-mono mb-0.5 ${
+                className={`block text-[9px] font-mono leading-tight ${
                   isToday ? "text-amber-400 font-bold" : "text-[#555]"
                 } ${date.getDay() === 0 ? "text-red-400/60" : ""} ${date.getDay() === 6 ? "text-blue-400/60" : ""}`}
               >
@@ -282,19 +278,19 @@ export default function MarketCalendar() {
               </span>
 
               {/* Event badges */}
-              <div className="flex flex-wrap gap-0.5">
+              <div className="flex flex-wrap gap-px mt-px">
                 {visibleBadges.map((ev) => (
                   <span
                     key={ev.id}
-                    className={`inline-block px-1 py-px text-[8px] font-mono font-bold leading-tight ${
+                    className={`inline-block px-0.5 text-[7px] font-mono font-bold leading-tight ${
                       BADGE_COLORS[ev.category] || "bg-[#222] text-[#666]"
                     }`}
                   >
-                    {BADGE_LABELS[ev.category] || ev.category.toUpperCase().slice(0, 4)}
+                    {BADGE_LABELS[ev.category] || ev.category.toUpperCase().slice(0, 3)}
                   </span>
                 ))}
                 {extraCount > 0 && (
-                  <span className="text-[8px] font-mono text-[#555]">+{extraCount}</span>
+                  <span className="text-[7px] font-mono text-[#555]">+{extraCount}</span>
                 )}
               </div>
 

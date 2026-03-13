@@ -40,6 +40,26 @@ body {
   outline-offset: 1px;
 }
 
+/* Thin scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+}
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 2px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
 @keyframes ticker-scroll {
   0% {
     transform: translateX(0);

@@ -125,6 +125,7 @@ export const messages = {
     macroPro: "Commodity",
     liquidityNav: "Liquidity",
     gurus: "Gurus",
+    realestate: "Real Estate",
     // Flow page
     flowInvestorNetFlow: "Investor Net Flow",
     flowDaily: "Daily",
@@ -333,6 +334,7 @@ export const messages = {
     macroPro: "원자재",
     liquidityNav: "유동성",
     gurus: "구루",
+    realestate: "부동산",
     // Flow page
     flowInvestorNetFlow: "투자자별 순매수",
     flowDaily: "일별",

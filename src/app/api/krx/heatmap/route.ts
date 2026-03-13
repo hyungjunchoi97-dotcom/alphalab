@@ -90,7 +90,7 @@ const STOCKS: StockDef[] = [
 
 // ── Cache ─────────────────────────────────────────────────────
 
-const CACHE_TTL = 10 * 60 * 1000;
+const CACHE_TTL = 60 * 1000;
 let cache: { data: SectorResult[]; cachedAt: number; asOf: string } | null = null;
 
 // ── Yahoo Finance fetcher ─────────────────────────────────────

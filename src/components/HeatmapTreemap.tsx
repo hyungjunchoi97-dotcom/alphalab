@@ -118,6 +118,7 @@ export default function HeatmapTreemap() {
   const [activeMarket, setActiveMarket] = useState<Market>("KR");
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(400);
   const containerRef = useRef<HTMLDivElement>(null);
   const { lang } = useLang();
 
@@ -137,73 +138,109 @@ export default function HeatmapTreemap() {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const update = () => setContainerWidth(el.clientWidth);
+    const update = () => { setContainerWidth(el.clientWidth); setContainerHeight(el.clientHeight || 400); };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
-  // Fetch live KR heatmap data
+  // Per-market error + consecutive failure tracking
+  const [krError, setKrError] = useState(false);
+  const [usError, setUsError] = useState(false);
+  const [jpError, setJpError] = useState(false);
+  const krFail = useRef(0);
+  const usFail = useRef(0);
+  const jpFail = useRef(0);
+
+  // KR heatmap – 60s, AbortController, backoff after 3 failures
   useEffect(() => {
-    let cancelled = false;
-    async function fetchKr() {
+    let abortCtrl: AbortController | null = null;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    async function run() {
+      abortCtrl = new AbortController();
       try {
-        const res = await fetch("/api/krx/heatmap");
+        const res = await fetch("/api/krx/heatmap", { signal: abortCtrl.signal });
         const json = await res.json();
-        if (!cancelled && json.ok) {
+        if (json.ok) {
           setKrSectors(json.sectors);
           setKrAsOf(json.asOf);
-        }
-      } catch { /* */ }
-      finally { if (!cancelled) setKrLoading(false); }
+          setKrError(false);
+          krFail.current = 0;
+        } else { throw new Error(); }
+      } catch (e) {
+        if ((e as Error).name === "AbortError") return;
+        krFail.current++;
+        setKrError(true);
+      } finally {
+        setKrLoading(false);
+        timeoutId = setTimeout(run, krFail.current >= 3 ? 5 * 60 * 1000 : 60 * 1000);
+      }
     }
-    fetchKr();
-    const id = setInterval(fetchKr, 10 * 60 * 1000);
-    return () => { cancelled = true; clearInterval(id); };
+    run();
+    return () => { abortCtrl?.abort(); clearTimeout(timeoutId); };
   }, []);
 
-  // Fetch live US heatmap data
+  // US heatmap – 60s, AbortController, backoff after 3 failures
   useEffect(() => {
-    let cancelled = false;
-    async function fetchUs() {
+    let abortCtrl: AbortController | null = null;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    async function run() {
+      abortCtrl = new AbortController();
       try {
-        const res = await fetch("/api/heatmap?market=us");
+        const res = await fetch("/api/heatmap?market=us", { signal: abortCtrl.signal });
         const json = await res.json();
-        if (!cancelled && json.ok) {
+        if (json.ok) {
           setUsSectors(json.sectors);
           setUsAsOf(json.asOf);
-        }
-      } catch { /* */ }
-      finally { if (!cancelled) setUsLoading(false); }
+          setUsError(false);
+          usFail.current = 0;
+        } else { throw new Error(); }
+      } catch (e) {
+        if ((e as Error).name === "AbortError") return;
+        usFail.current++;
+        setUsError(true);
+      } finally {
+        setUsLoading(false);
+        timeoutId = setTimeout(run, usFail.current >= 3 ? 5 * 60 * 1000 : 60 * 1000);
+      }
     }
-    fetchUs();
-    const id = setInterval(fetchUs, 60 * 1000);
-    return () => { cancelled = true; clearInterval(id); };
+    run();
+    return () => { abortCtrl?.abort(); clearTimeout(timeoutId); };
   }, []);
 
-  // Fetch live JP heatmap data
+  // JP heatmap – 60s, AbortController, backoff after 3 failures
   useEffect(() => {
-    let cancelled = false;
-    async function fetchJp() {
+    let abortCtrl: AbortController | null = null;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    async function run() {
+      abortCtrl = new AbortController();
       try {
-        const res = await fetch("/api/heatmap?market=jp");
+        const res = await fetch("/api/heatmap?market=jp", { signal: abortCtrl.signal });
         const json = await res.json();
-        if (!cancelled && json.ok) {
+        if (json.ok) {
           setJpSectors(json.sectors);
           setJpAsOf(json.asOf);
-        }
-      } catch { /* */ }
-      finally { if (!cancelled) setJpLoading(false); }
+          setJpError(false);
+          jpFail.current = 0;
+        } else { throw new Error(); }
+      } catch (e) {
+        if ((e as Error).name === "AbortError") return;
+        jpFail.current++;
+        setJpError(true);
+      } finally {
+        setJpLoading(false);
+        timeoutId = setTimeout(run, jpFail.current >= 3 ? 5 * 60 * 1000 : 60 * 1000);
+      }
     }
-    fetchJp();
-    const id = setInterval(fetchJp, 60 * 1000);
-    return () => { cancelled = true; clearInterval(id); };
+    run();
+    return () => { abortCtrl?.abort(); clearTimeout(timeoutId); };
   }, []);
 
   const sectors = activeMarket === "KR" ? krSectors : activeMarket === "US" ? usSectors : jpSectors;
   const asOf = activeMarket === "KR" ? krAsOf : activeMarket === "US" ? usAsOf : jpAsOf;
   const isLoading = activeMarket === "KR" ? krLoading : activeMarket === "US" ? usLoading : jpLoading;
+  const hasError = activeMarket === "KR" ? krError : activeMarket === "US" ? usError : jpError;
 
   const sectorCaps = sectors.map((s) => ({
     cap: s.stocks.reduce((sum, st) => sum + st.cap, 0),
@@ -225,8 +262,8 @@ export default function HeatmapTreemap() {
   }, []);
 
   return (
-    <div>
-      <div className="mb-3 flex items-center justify-between">
+    <div className="flex flex-col h-full">
+      <div className="mb-2 flex items-center justify-between shrink-0">
         <div className="inline-flex gap-px rounded bg-card-border p-px">
           {(["KR", "US", "JP"] as const).map((m) => (
             <button
@@ -242,14 +279,19 @@ export default function HeatmapTreemap() {
             </button>
           ))}
         </div>
-        {asOf && (
-          <span className="text-[9px] text-muted tabular-nums">
-            {new Date(asOf).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {hasError && (
+            <span className="text-[9px] font-medium" style={{ color: "#f87171" }}>⚠ 업데이트 실패</span>
+          )}
+          {asOf && (
+            <span className="text-[9px] tabular-nums" style={{ color: hasError ? "#666" : undefined, opacity: hasError ? 0.6 : 1 }}>
+              {new Date(asOf).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </div>
       </div>
 
-      <div ref={containerRef} className="relative select-none" style={{ height: 400 }}>
+      <div ref={containerRef} className="relative select-none flex-1 min-h-0">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
             <div className="flex flex-col items-center gap-2">
@@ -279,7 +321,7 @@ export default function HeatmapTreemap() {
             sectors={sectors}
             sectorCaps={sectorCaps}
             width={containerWidth}
-            height={400}
+            height={containerHeight - 32}
             lang={lang}
             onHover={handleMouseMove}
             onLeave={handleMouseLeave}
@@ -308,7 +350,7 @@ export default function HeatmapTreemap() {
         )}
       </div>
 
-      <div className="mt-2 flex justify-end">
+      <div className="mt-1 flex justify-end shrink-0">
         <div className="flex items-center gap-1.5 text-[9px] text-muted">
           <span>-3%</span>
           <div className="flex items-center gap-px">
@@ -387,9 +429,18 @@ function SectorTreemap({
               const r = stockRects[idx];
               if (!r || r.w < 1 || r.h < 1) return null;
 
-              const showName = r.w > 30 && r.h > 18;
-              const showChg = r.w > 30 && r.h > 30;
+              // Dynamic font sizing based on tile pixel dimensions
+              const area = r.w * r.h;
+              const isLarge = area > 4000 && r.w > 60 && r.h > 40;
+              const isMedium = area > 1200 && r.w > 35 && r.h > 24;
+              const isSmall = r.w > 20 && r.h > 14;
+
+              const showName = isMedium;
+              const showChg = isSmall;
               const displayName = lang === "kr" && stock.nameKr ? stock.nameKr : stock.name;
+
+              const nameFontSize = isLarge ? 12 : isMedium ? 9 : 8;
+              const chgFontSize = isLarge ? 12 : isMedium ? 10 : 8;
 
               return (
                 <g
@@ -417,10 +468,10 @@ function SectorTreemap({
                   {showName && (
                     <text
                       x={r.x + r.w / 2}
-                      y={r.y + r.h / 2 + (showChg ? -4 : 4)}
+                      y={r.y + r.h / 2 + (showChg ? -3 : 4)}
                       textAnchor="middle"
                       fill="#fff"
-                      fontSize={r.w > 70 ? 10 : 8}
+                      fontSize={nameFontSize}
                       fontWeight={700}
                       fontFamily="ui-sans-serif, system-ui, sans-serif"
                     >
@@ -430,11 +481,11 @@ function SectorTreemap({
                   {showChg && (
                     <text
                       x={r.x + r.w / 2}
-                      y={r.y + r.h / 2 + (showName ? 8 : 4)}
+                      y={r.y + r.h / 2 + (showName ? (isLarge ? 11 : 8) : 4)}
                       textAnchor="middle"
-                      fill="rgba(255,255,255,0.9)"
-                      fontSize={r.w > 60 ? 10 : 8}
-                      fontWeight={600}
+                      fill="#fff"
+                      fontSize={chgFontSize}
+                      fontWeight={700}
                       fontFamily="ui-monospace, monospace"
                     >
                       {stock.chg >= 0 ? "+" : ""}{stock.chg.toFixed(1)}%

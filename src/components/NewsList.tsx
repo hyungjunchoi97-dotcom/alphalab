@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLang } from "@/lib/LangContext";
 
 interface NewsItem {
@@ -40,26 +40,37 @@ function timeAgo(ts: number): string {
   return `${Math.floor(diff / 86400)}d`;
 }
 
+function updatedAgoKr(ts: number): string {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 60) return "방금 업데이트";
+  if (diff < 3600) return `${Math.floor(diff / 60)}분 전 업데이트`;
+  return `${Math.floor(diff / 3600)}시간 전 업데이트`;
+}
+
 // ── Component ─────────────────────────────────────────────────
+
+const AUTO_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 
 export default function NewsList() {
   const { lang } = useLang();
   const [activeTab, setActiveTab] = useState("breaking");
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastFetched, setLastFetched] = useState<number | null>(null);
+  const autoRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchNews = useCallback(async (tab: Tab) => {
-    setLoading(true);
+  const fetchNews = useCallback(async (tab: Tab, silent = false) => {
+    if (!silent) setLoading(true);
     try {
-      let url: string;
-      if (tab.type === "us") {
-        url = "/api/news";
-      } else {
-        url = `/api/news/kr?category=${tab.category || "breaking"}`;
-      }
+      const url = tab.type === "us"
+        ? "/api/news"
+        : `/api/news/kr?category=${tab.category || "breaking"}`;
       const res = await fetch(url);
       const json = await res.json();
-      if (json.news) setNews(json.news);
+      if (json.news) {
+        setNews(json.news);
+        setLastFetched(Date.now());
+      }
     } catch {
       // silent
     } finally {
@@ -67,9 +78,20 @@ export default function NewsList() {
     }
   }, []);
 
+  // Fetch on tab change
   useEffect(() => {
     const tab = TABS.find((t) => t.key === activeTab) || TABS[0];
     fetchNews(tab);
+
+    // Auto-refresh every 5 min for the active tab
+    if (autoRefreshRef.current) clearInterval(autoRefreshRef.current);
+    autoRefreshRef.current = setInterval(() => {
+      fetchNews(tab, true /* silent */);
+    }, AUTO_REFRESH_MS);
+
+    return () => {
+      if (autoRefreshRef.current) clearInterval(autoRefreshRef.current);
+    };
   }, [activeTab, fetchNews]);
 
   const handleTabClick = (key: string) => {
@@ -81,56 +103,63 @@ export default function NewsList() {
 
   return (
     <div>
-      {/* Tabs */}
-      <div className="mb-3 flex gap-px overflow-x-auto rounded bg-card-border/50 p-px">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => handleTabClick(tab.key)}
-            className={`flex-1 text-center px-3 py-1.5 text-[11px] font-medium transition-colors ${
-              activeTab === tab.key
-                ? "bg-accent text-white"
-                : "bg-card-bg text-muted hover:text-foreground"
-            }`}
-          >
-            {lang === "kr" ? tab.labelKr : tab.labelEn}
-          </button>
-        ))}
+      {/* Tabs + timestamp */}
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex gap-px overflow-x-auto rounded bg-card-border/50 p-px flex-1">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => handleTabClick(tab.key)}
+              className={`flex-1 text-center px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                activeTab === tab.key
+                  ? "bg-accent text-white"
+                  : "bg-card-bg text-muted hover:text-foreground"
+              }`}
+            >
+              {lang === "kr" ? tab.labelKr : tab.labelEn}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* Last updated */}
+      {lastFetched && (
+        <div className="mb-1.5 text-right">
+          <span className="text-[9px]" style={{ color: "#555" }}>
+            {lang === "kr" ? updatedAgoKr(lastFetched) : `Updated ${timeAgo(lastFetched)} ago`}
+          </span>
+        </div>
+      )}
+
       {/* News list */}
-      <div className="min-h-[200px]">
+      <div>
         {loading && news.length === 0 && (
           <div className="space-y-0">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="animate-pulse border-b border-card-border/20 py-2">
-                <div className="h-3.5 w-full rounded bg-card-border/30" />
-                <div className="mt-1 flex gap-2">
-                  <div className="h-2.5 w-16 rounded bg-card-border/20" />
-                  <div className="h-2.5 w-8 rounded bg-card-border/20" />
-                </div>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <div key={i} className="animate-pulse border-b border-card-border/20 py-1.5">
+                <div className="h-3 w-full rounded bg-card-border/30" />
               </div>
             ))}
           </div>
         )}
 
         {!loading && news.length === 0 && (
-          <p className="py-6 text-center text-[10px] text-muted">
+          <p className="py-4 text-center text-[10px] text-muted">
             {lang === "kr" ? "뉴스를 불러올 수 없습니다" : "No news available"}
           </p>
         )}
 
-        {news.slice(0, 10).map((item) => (
+        {news.slice(0, 12).map((item) => (
           <a
             key={item.id}
             href={item.url}
             target={item.url !== "#" ? "_blank" : undefined}
             rel={item.url !== "#" ? "noopener noreferrer" : undefined}
-            className="flex items-start gap-3 border-b border-card-border/20 py-2 transition-colors hover:bg-card-border/10"
+            className="flex items-start gap-2 border-b border-card-border/20 py-1.5 transition-colors hover:bg-card-border/10"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-xs leading-tight line-clamp-2">{item.headline}</p>
-              <div className="mt-0.5 flex items-center gap-2 text-[9px] text-muted">
+              <p className="text-[13px] leading-snug line-clamp-1">{item.headline}</p>
+              <div className="flex items-center gap-2 text-[9px] text-muted">
                 <span>{item.source}</span>
                 <span>{timeAgo(item.datetime)}</span>
               </div>

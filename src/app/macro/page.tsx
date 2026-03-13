@@ -1,6 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ReferenceLine,
+  ResponsiveContainer,
+  ReferenceArea,
+} from "recharts";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 
@@ -173,8 +184,8 @@ function fmtChange(v: number, unit: string): string {
   return sign + v.toFixed(2);
 }
 
-function filterByRange(obs: Observation[], range: Range): Observation[] {
-  if (obs.length === 0) return obs;
+function filterByRange(obs: Observation[] | undefined, range: Range): Observation[] {
+  if (!obs || obs.length === 0) return obs ?? [];
   const now = new Date();
   const months = range === "6M" ? 6 : range === "1Y" ? 12 : range === "2Y" ? 24 : 60;
   const cutoff = new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
@@ -224,7 +235,7 @@ function Sparkline({
   height?: number;
   id?: string;
 }) {
-  if (data.length < 2) return null;
+  if (!data || data.length < 2) return null;
   const min = Math.min(...data);
   const max = Math.max(...data);
   const range = max - min || 1;
@@ -586,9 +597,9 @@ function DetailModal({
                 <span className="text-lg font-bold" style={{ color: "#e8e8e8" }}>
                   {fmt(series.latest, indicator.unit)}
                 </span>
-                <span className="text-xs font-medium" style={{ color: series.change >= 0 ? "#4ade80" : "#f87171" }}>
-                  {fmtChange(series.change, indicator.unit)} ({series.changePercent >= 0 ? "+" : ""}
-                  {series.changePercent.toFixed(2)}%)
+                <span className="text-xs font-medium" style={{ color: (series.change ?? 0) >= 0 ? "#4ade80" : "#f87171" }}>
+                  {fmtChange(series.change ?? 0, indicator.unit)} ({(series.changePercent ?? 0) >= 0 ? "+" : ""}
+                  {(series.changePercent ?? 0).toFixed(2)}%)
                 </span>
               </div>
             </div>
@@ -665,8 +676,8 @@ function DetailModal({
 
 // ── Sparkline Area (full-width chart for cards) ──────────────
 
-function CardSparkline({ data, id }: { data: { date: string; value: number }[]; id: string }) {
-  if (data.length < 2) return <div className="h-[100px]" />;
+function CardSparkline({ data, id }: { data: { date: string; value: number }[] | undefined; id: string }) {
+  if (!data || data.length < 2) return <div className="h-[100px]" />;
   const vals = data.map((d) => d.value);
   const min = Math.min(...vals);
   const max = Math.max(...vals);
@@ -707,11 +718,11 @@ function MetricCard({
   lang: string;
   onClick: () => void;
 }) {
-  const animated = useCountUp(series.latest);
-  const isUp = series.changePercent >= 0;
-  const status = indicator.getStatus(series.latest);
+  const animated = useCountUp(series.latest ?? 0);
+  const isUp = (series.changePercent ?? 0) >= 0;
+  const status = indicator.getStatus(series.latest ?? 0);
   const interpretation = indicator.getInterpretation(status.label);
-  const valueColor = indicator.negativeIsRed && series.latest < 0 ? "#ef4444" : "#e8e8e8";
+  const valueColor = indicator.negativeIsRed && (series.latest ?? 0) < 0 ? "#ef4444" : "#e8e8e8";
 
   return (
     <button
@@ -742,7 +753,7 @@ function MetricCard({
             border: `1px solid ${isUp ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
           }}
         >
-          {isUp ? "+" : ""}{series.changePercent.toFixed(2)}%
+          {isUp ? "+" : ""}{(series.changePercent ?? 0).toFixed(2)}%
         </span>
       </div>
 
@@ -758,13 +769,13 @@ function MetricCard({
           )}
         </div>
         <div className="mt-0.5 text-[11px] font-medium tabular-nums" style={{ color: "#666" }}>
-          {fmtChange(series.change, indicator.unit)}
+          {fmtChange(series.change ?? 0, indicator.unit)}
         </div>
       </div>
 
       {/* Sparkline — full width, fills remaining space */}
       <div className="mt-2 flex-1 w-full">
-        <CardSparkline data={series.observations} id={indicator.id} />
+        <CardSparkline data={series.observations ?? []} id={indicator.id} />
       </div>
 
       {/* Interpretation */}
@@ -1081,7 +1092,7 @@ function SkeletonCard({ large }: { large?: boolean }) {
 // ── Mini Sparkline ───────────────────────────────────────────
 
 function MiniSparkline({ data, color, width = 80, height = 28 }: { data: number[]; color: string; width?: number; height?: number }) {
-  if (data.length < 2) return null;
+  if (!data || data.length < 2) return null;
   const min = Math.min(...data);
   const max = Math.max(...data);
   const range = max - min || 1;
@@ -1118,7 +1129,8 @@ function FxChartModal({
         // For now, show sparkline data as a placeholder
         // Actually let's just show what we have - the sparkline is 7 points
         // We can display it larger
-        setHistory(pair.sparkline.map((v, i) => ({ date: `D-${pair.sparkline.length - 1 - i}`, value: v })));
+        const sl = pair.sparkline ?? [];
+        setHistory(sl.map((v, i) => ({ date: `D-${sl.length - 1 - i}`, value: v })));
       } catch { /* */ } finally {
         setLoading(false);
       }
@@ -1186,6 +1198,378 @@ function FxChartModal({
   );
 }
 
+// ── PER Chart ─────────────────────────────────────────────────
+
+type PeRange = "1Y" | "3Y" | "5Y" | "MAX";
+const PE_RANGES: PeRange[] = ["1Y", "3Y", "5Y", "MAX"];
+
+interface PeEntry {
+  date: string;
+  pe: number;
+}
+
+function filterPeByRange(data: PeEntry[], range: PeRange): PeEntry[] {
+  if (range === "MAX") return data;
+  const months = range === "1Y" ? 12 : range === "3Y" ? 36 : 60;
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - months);
+  const cutStr = cutoff.toISOString().slice(0, 10);
+  return data.filter((d) => d.date >= cutStr);
+}
+
+function getPeStatus(pe: number): { label: string; color: string } {
+  if (pe > 25) return { label: "고평가", color: "#f87171" };
+  if (pe >= 15) return { label: "적정", color: "#facc15" };
+  return { label: "저평가", color: "#4ade80" };
+}
+
+function PERChart({
+  title,
+  data,
+  lang,
+}: {
+  title: string;
+  data: PeEntry[];
+  lang: string;
+}) {
+  const [range, setRange] = useState<PeRange>("5Y");
+  const filtered = filterPeByRange(data, range);
+  const current = filtered.length > 0 ? filtered[filtered.length - 1].pe : null;
+  const avg = filtered.length > 0 ? Math.round((filtered.reduce((s, d) => s + d.pe, 0) / filtered.length) * 10) / 10 : null;
+  const status = current != null ? getPeStatus(current) : null;
+
+  // Thin out data for performance (max 300 pts)
+  const step = Math.max(1, Math.floor(filtered.length / 300));
+  const chartData = filtered.filter((_, i) => i % step === 0 || i === filtered.length - 1);
+
+  const yMin = chartData.length > 0 ? Math.floor(Math.min(...chartData.map((d) => d.pe)) - 2) : 0;
+  const yMax = chartData.length > 0 ? Math.ceil(Math.max(...chartData.map((d) => d.pe)) + 2) : 50;
+
+  const xLabels = chartData
+    .filter((_, i) => {
+      const total = chartData.length;
+      const step2 = Math.max(1, Math.floor(total / 5));
+      return i % step2 === 0;
+    })
+    .map((d) => d.date.slice(0, 7));
+
+  return (
+    <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+      {/* Header */}
+      <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <h3 className="text-xs font-semibold" style={{ color: "#ccc" }}>{title}</h3>
+          {current != null && (
+            <span className="text-xl font-bold tabular-nums" style={{ color: "#e8e8e8" }}>
+              {current.toFixed(1)}x
+            </span>
+          )}
+          {status && (
+            <span
+              className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+              style={{ background: `${status.color}22`, color: status.color, border: `1px solid ${status.color}55` }}
+            >
+              {status.label}
+            </span>
+          )}
+        </div>
+        <div className="flex gap-1">
+          {PE_RANGES.map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className="rounded px-2 py-0.5 text-[10px] font-medium transition-colors"
+              style={{
+                color: range === r ? "#e8e8e8" : "#555",
+                borderBottom: range === r ? "1px solid #e8e8e8" : "1px solid transparent",
+              }}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chart */}
+      {chartData.length < 2 ? (
+        <div className="flex h-[180px] items-center justify-center" style={{ color: "#555" }}>
+          <span className="text-xs">{lang === "kr" ? "데이터 없음" : "No data"}</span>
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={180}>
+          <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+            {/* Color zones */}
+            <ReferenceArea y1={yMin} y2={15} fill="rgba(74,222,128,0.05)" />
+            <ReferenceArea y1={15} y2={25} fill="rgba(250,204,21,0.03)" />
+            <ReferenceArea y1={25} y2={yMax} fill="rgba(248,113,113,0.05)" />
+
+            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={(v: string) => v.slice(0, 7)}
+              ticks={xLabels}
+              tick={{ fill: "#444", fontSize: 9 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              domain={[yMin, yMax]}
+              tick={{ fill: "#444", fontSize: 9 }}
+              axisLine={false}
+              tickLine={false}
+              width={28}
+              tickFormatter={(v: number) => `${v}x`}
+            />
+            <Tooltip
+              contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 6, fontSize: 11 }}
+              labelStyle={{ color: "#888" }}
+              formatter={(value: number | undefined) => value != null ? [`${value.toFixed(1)}x`, lang === "kr" ? "현재 PER" : "P/E"] : ["—", lang === "kr" ? "현재 PER" : "P/E"]}
+            />
+            {/* Historical average dashed line */}
+            {avg != null && (
+              <ReferenceLine
+                y={avg}
+                stroke="#555"
+                strokeDasharray="6 3"
+                label={{ value: `${lang === "kr" ? "역사적 평균" : "Avg"} ${avg}x`, fill: "#666", fontSize: 9, position: "insideTopRight" }}
+              />
+            )}
+            {/* Zone reference lines */}
+            <ReferenceLine y={15} stroke="rgba(74,222,128,0.3)" strokeDasharray="4 3" />
+            <ReferenceLine y={25} stroke="rgba(248,113,113,0.3)" strokeDasharray="4 3" />
+            <Line
+              type="monotone"
+              dataKey="pe"
+              stroke="#60a5fa"
+              strokeWidth={1.5}
+              dot={false}
+              activeDot={{ r: 3, fill: "#60a5fa" }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+
+      {/* Legend */}
+      <div className="mt-2 flex gap-4 flex-wrap">
+        <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "#666" }}>
+          <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#4ade80" }} />
+          {lang === "kr" ? "저평가 (<15x)" : "Undervalued (<15x)"}
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "#666" }}>
+          <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#facc15" }} />
+          {lang === "kr" ? "적정 (15-25x)" : "Fair (15-25x)"}
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "#666" }}>
+          <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#f87171" }} />
+          {lang === "kr" ? "고평가 (>25x)" : "Overvalued (>25x)"}
+        </div>
+        {avg != null && (
+          <div className="flex items-center gap-1.5 text-[10px]" style={{ color: "#666" }}>
+            <span className="inline-block h-[1px] w-4" style={{ background: "#555", borderTop: "1px dashed #555" }} />
+            {lang === "kr" ? `역사적 평균 ${avg}x` : `Hist. Avg ${avg}x`}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── CAPE Chart ────────────────────────────────────────────────
+
+type CapeRange = "5Y" | "10Y" | "30Y" | "MAX";
+const CAPE_RANGES: CapeRange[] = ["5Y", "10Y", "30Y", "MAX"];
+
+interface CapeEntry {
+  date: string;
+  cape: number;
+}
+
+function filterCapeByRange(data: CapeEntry[], range: CapeRange): CapeEntry[] {
+  if (range === "MAX") return data;
+  const years = range === "5Y" ? 5 : range === "10Y" ? 10 : 30;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - years);
+  const cutStr = cutoff.toISOString().slice(0, 10);
+  return data.filter((d) => d.date >= cutStr);
+}
+
+function getCapeStatus(cape: number): { label: string; color: string } {
+  if (cape > 35) return { label: "버블 경고", color: "#f87171" };
+  if (cape > 25) return { label: "고평가", color: "#fb923c" };
+  if (cape >= 15) return { label: "적정", color: "#facc15" };
+  return { label: "저평가", color: "#4ade80" };
+}
+
+function CAPEChart({
+  data,
+  average,
+  lang,
+}: {
+  data: CapeEntry[];
+  average: number | null;
+  lang: string;
+}) {
+  const [range, setRange] = useState<CapeRange>("MAX");
+  const filtered = filterCapeByRange(data, range);
+  const current = filtered.length > 0 ? filtered[filtered.length - 1].cape : null;
+  const localAvg = filtered.length > 0
+    ? Math.round((filtered.reduce((s, d) => s + d.cape, 0) / filtered.length) * 10) / 10
+    : null;
+  const histAvg = average ?? localAvg;
+  const status = current != null ? getCapeStatus(current) : null;
+  const pctVsAvg = current != null && histAvg != null && histAvg > 0
+    ? Math.round(((current - histAvg) / histAvg) * 1000) / 10
+    : null;
+
+  // Thin data for performance
+  const step = Math.max(1, Math.floor(filtered.length / 400));
+  const chartData = filtered.filter((_, i) => i % step === 0 || i === filtered.length - 1);
+
+  const yMin = chartData.length > 0 ? Math.floor(Math.min(...chartData.map((d) => d.cape)) - 2) : 0;
+  const yMax = chartData.length > 0 ? Math.ceil(Math.max(...chartData.map((d) => d.cape)) + 2) : 50;
+
+  const xLabelCount = 7;
+  const xStep = Math.max(1, Math.floor(chartData.length / xLabelCount));
+  const xTicks = chartData.filter((_, i) => i % xStep === 0).map((d) => d.date);
+
+  return (
+    <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+      {/* Header */}
+      <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h3 className="text-xs font-semibold" style={{ color: "#ccc" }}>
+            {lang === "kr" ? "실러 CAPE (경기조정 PER)" : "Shiller CAPE Ratio"}
+          </h3>
+          {current != null && (
+            <span className="text-xl font-bold tabular-nums" style={{ color: "#e8e8e8" }}>
+              {current.toFixed(1)}x
+            </span>
+          )}
+          {status && (
+            <span
+              className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+              style={{ background: `${status.color}22`, color: status.color, border: `1px solid ${status.color}55` }}
+            >
+              {status.label}
+            </span>
+          )}
+        </div>
+        <div className="flex gap-1">
+          {CAPE_RANGES.map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className="rounded px-2 py-0.5 text-[10px] font-medium transition-colors"
+              style={{
+                color: range === r ? "#e8e8e8" : "#555",
+                borderBottom: range === r ? "1px solid #e8e8e8" : "1px solid transparent",
+              }}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chart */}
+      {chartData.length < 2 ? (
+        <div className="flex h-[220px] items-center justify-center" style={{ color: "#555" }}>
+          <span className="text-xs">{lang === "kr" ? "데이터 없음" : "No data"}</span>
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+            {/* Color zones */}
+            <ReferenceArea y1={yMin} y2={15} fill="rgba(74,222,128,0.05)" />
+            <ReferenceArea y1={15} y2={25} fill="rgba(255,255,255,0.01)" />
+            <ReferenceArea y1={25} y2={35} fill="rgba(251,146,60,0.05)" />
+            <ReferenceArea y1={35} y2={yMax} fill="rgba(248,113,113,0.07)" />
+
+            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+            <XAxis
+              dataKey="date"
+              ticks={xTicks}
+              tickFormatter={(v: string) => v.slice(0, 7)}
+              tick={{ fill: "#444", fontSize: 9 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              domain={[yMin, yMax]}
+              tick={{ fill: "#444", fontSize: 9 }}
+              axisLine={false}
+              tickLine={false}
+              width={28}
+              tickFormatter={(v: number) => `${v}x`}
+            />
+            <Tooltip
+              contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 6, fontSize: 11 }}
+              labelStyle={{ color: "#888" }}
+              formatter={(value: number | undefined) => {
+                if (value == null) return ["—", "CAPE"];
+                const diff = histAvg != null && histAvg > 0
+                  ? ` (평균 대비 ${value > histAvg ? "+" : ""}${Math.round(((value - histAvg) / histAvg) * 1000) / 10}%)`
+                  : "";
+                return [`${value.toFixed(1)}x${diff}`, lang === "kr" ? "실러 CAPE" : "Shiller CAPE"];
+              }}
+            />
+            {/* Historical average */}
+            {histAvg != null && (
+              <ReferenceLine
+                y={histAvg}
+                stroke="#555"
+                strokeDasharray="6 3"
+                label={{ value: `${lang === "kr" ? "역사적 평균" : "Hist. Avg"} ${histAvg}x`, fill: "#666", fontSize: 9, position: "insideTopRight" }}
+              />
+            )}
+            {/* Zone boundaries */}
+            <ReferenceLine y={15} stroke="rgba(74,222,128,0.3)" strokeDasharray="4 3" />
+            <ReferenceLine y={25} stroke="rgba(251,146,60,0.25)" strokeDasharray="4 3" />
+            <ReferenceLine y={35} stroke="rgba(248,113,113,0.35)" strokeDasharray="4 3" />
+            <Line
+              type="monotone"
+              dataKey="cape"
+              stroke="#a78bfa"
+              strokeWidth={1.5}
+              dot={false}
+              activeDot={{ r: 3, fill: "#a78bfa" }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+
+      {/* Legend */}
+      <div className="mt-2 flex gap-4 flex-wrap">
+        {[
+          { color: "#4ade80", label: lang === "kr" ? "저평가 (<15x)" : "Undervalued (<15x)" },
+          { color: "#facc15", label: lang === "kr" ? "적정 (15-25x)" : "Fair (15-25x)" },
+          { color: "#fb923c", label: lang === "kr" ? "고평가 (25-35x)" : "Elevated (25-35x)" },
+          { color: "#f87171", label: lang === "kr" ? "버블 경고 (>35x)" : "Bubble (>35x)" },
+        ].map((z) => (
+          <div key={z.label} className="flex items-center gap-1.5 text-[10px]" style={{ color: "#666" }}>
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: z.color }} />
+            {z.label}
+          </div>
+        ))}
+      </div>
+
+      {/* Info box */}
+      {current != null && histAvg != null && (
+        <div
+          className="mt-3 rounded-lg p-3"
+          style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.12)", borderLeft: "3px solid rgba(167,139,250,0.3)" }}
+        >
+          <p className="text-[11px] leading-[1.7]" style={{ color: "#999" }}>
+            {lang === "kr"
+              ? `CAPE(실러 PER)는 인플레이션 조정 후 10년 평균 이익 기준 밸류에이션 지표입니다. 역사적 평균은 약 ${histAvg}배이며, 현재 ${current.toFixed(1)}배는 평균 대비 ${pctVsAvg != null ? (pctVsAvg > 0 ? "+" : "") + pctVsAvg + "%" : "—"} 수준입니다.`
+              : `The CAPE (Shiller P/E) measures valuation using inflation-adjusted 10-year average earnings. The historical average is ~${histAvg}x; the current ${current.toFixed(1)}x is ${pctVsAvg != null ? (pctVsAvg > 0 ? "+" : "") + pctVsAvg + "% vs average" : "—"}.`}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────
 
 export default function MacroPage() {
@@ -1206,6 +1590,10 @@ export default function MacroPage() {
   const [comTooltip, setComTooltip] = useState<string | null>(null);
   const [liveUsdKrw, setLiveUsdKrw] = useState<number | null>(null);
   const [comparisonUpdatedAt, setComparisonUpdatedAt] = useState<string>("");
+  const [peData, setPeData] = useState<{ sp500: PeEntry[]; nasdaq: PeEntry[] } | null>(null);
+  const [peLoading, setPeLoading] = useState(true);
+  const [capeData, setCapeData] = useState<{ data: CapeEntry[]; current: number | null; average: number | null } | null>(null);
+  const [capeLoading, setCapeLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1218,6 +1606,30 @@ export default function MacroPage() {
       // silent
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const fetchMarketPE = useCallback(async () => {
+    try {
+      const res = await fetch("/api/macro/market-pe");
+      const json = await res.json();
+      if (json.ok) {
+        setPeData({ sp500: json.sp500 || [], nasdaq: json.nasdaq || [] });
+      }
+    } catch { /* silent */ } finally {
+      setPeLoading(false);
+    }
+  }, []);
+
+  const fetchCape = useCallback(async () => {
+    try {
+      const res = await fetch("/api/macro/cape");
+      const json = await res.json();
+      if (json.ok) {
+        setCapeData({ data: json.data || [], current: json.current ?? null, average: json.average ?? null });
+      }
+    } catch { /* silent */ } finally {
+      setCapeLoading(false);
     }
   }, []);
 
@@ -1349,7 +1761,9 @@ export default function MacroPage() {
     fetchFearGreed();
     fetchFx();
     fetchCommodities();
-  }, [fetchData, fetchBok, fetchFearGreed, fetchFx, fetchCommodities]);
+    fetchMarketPE();
+    fetchCape();
+  }, [fetchData, fetchBok, fetchFearGreed, fetchFx, fetchCommodities, fetchMarketPE, fetchCape]);
 
   // Auto-refresh FX rates every 60 seconds (same interval as ticker tape)
   useEffect(() => {
@@ -1417,8 +1831,8 @@ export default function MacroPage() {
                   <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
                     {lang === "kr" ? "30일 추이" : "30-Day History"}
                   </h3>
-                  {fearGreed.history.length > 1 ? (
-                    <FearGreedHistoryChart history={fearGreed.history} />
+                  {(fearGreed.history ?? []).length > 1 ? (
+                    <FearGreedHistoryChart history={fearGreed.history ?? []} />
                   ) : (
                     <div className="flex h-[200px] items-center justify-center" style={{ color: "#555" }}>
                       <span className="text-xs">{lang === "kr" ? "히스토리 데이터 없음" : "No history data"}</span>
@@ -1490,6 +1904,61 @@ export default function MacroPage() {
                   />
                 );
               })
+            )}
+          </div>
+        </div>
+
+        {/* ── Market Valuation (PER) Section ─────────────────── */}
+        <div className="mb-6">
+          <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
+            {lang === "kr" ? "시장 밸류에이션 (PER)" : "Market Valuation (P/E Ratio)"}
+          </h2>
+
+          {peLoading ? (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {[0, 1].map((i) => (
+                <div key={i} className="rounded-xl p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="h-3 w-24 rounded" style={{ background: "#1a1a1a" }} />
+                    <div className="h-6 w-14 rounded" style={{ background: "#1a1a1a" }} />
+                  </div>
+                  <div className="h-[180px] rounded-lg" style={{ background: "#0d0d0d" }} />
+                </div>
+              ))}
+            </div>
+          ) : peData ? (
+            <div className={`grid grid-cols-1 gap-4 ${peData.nasdaq.length > 0 ? "lg:grid-cols-2" : ""}`}>
+              <PERChart title="S&P 500 P/E" data={peData.sp500} lang={lang} />
+              {peData.nasdaq.length > 0 && (
+                <PERChart title="NASDAQ P/E" data={peData.nasdaq} lang={lang} />
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl p-6 text-center" style={{ background: "#111", border: "1px solid #222" }}>
+              <span className="text-xs" style={{ color: "#666" }}>
+                {lang === "kr" ? "PER 데이터를 불러올 수 없습니다." : "Unable to load P/E data."}
+              </span>
+            </div>
+          )}
+
+          {/* CAPE full-width below */}
+          <div className="mt-4">
+            {capeLoading ? (
+              <div className="rounded-xl p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="h-3 w-40 rounded" style={{ background: "#1a1a1a" }} />
+                  <div className="h-6 w-14 rounded" style={{ background: "#1a1a1a" }} />
+                </div>
+                <div className="h-[220px] rounded-lg" style={{ background: "#0d0d0d" }} />
+              </div>
+            ) : capeData ? (
+              <CAPEChart data={capeData.data} average={capeData.average} lang={lang} />
+            ) : (
+              <div className="rounded-xl p-6 text-center" style={{ background: "#111", border: "1px solid #222" }}>
+                <span className="text-xs" style={{ color: "#666" }}>
+                  {lang === "kr" ? "CAPE 데이터를 불러올 수 없습니다." : "Unable to load CAPE data."}
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -1649,7 +2118,7 @@ export default function MacroPage() {
                       </span>
                     </div>
                     <div className="mt-2 text-lg font-bold" style={{ color: "#e8e8e8" }}>
-                      {pair.current >= 100 ? pair.current.toLocaleString(undefined, { maximumFractionDigits: 0 }) : pair.current.toFixed(4)}
+                      {pair?.current != null ? (pair.current >= 100 ? pair.current.toLocaleString(undefined, { maximumFractionDigits: 0 }) : pair.current.toFixed(4)) : "—"}
                     </div>
                     <div className="mt-0.5 flex items-center gap-1.5">
                       <span className="text-[10px]" style={{ color: "#555" }}>
@@ -1658,7 +2127,7 @@ export default function MacroPage() {
                     </div>
                     <div className="mt-2">
                       <MiniSparkline
-                        data={pair.sparkline}
+                        data={pair.sparkline ?? []}
                         color={pair.changePercent >= 0 ? "#f87171" : "#4ade80"}
                       />
                     </div>
@@ -1733,12 +2202,12 @@ export default function MacroPage() {
                           <div className="mt-1.5 flex items-end justify-between">
                             <div>
                               <div className="text-xl font-bold" style={{ color: "#e8e8e8" }}>
-                                ${com.current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {com?.current != null ? `$${com.current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
                               </div>
                             </div>
                             <div className="shrink-0">
                               <MiniSparkline
-                                data={com.sparkline}
+                                data={com.sparkline ?? []}
                                 color={com.changePercent >= 0 ? "#f87171" : "#4ade80"}
                               />
                             </div>

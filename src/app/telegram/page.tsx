@@ -70,8 +70,7 @@ function linkifyText(text: string) {
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          style={{ color: "#60a5fa" }}
-          className="hover:underline break-all"
+          className="text-sm text-blue-400 hover:text-blue-300 underline break-all"
         >
           {truncateUrl(part)}
         </a>
@@ -95,8 +94,7 @@ function MessageText({ text }: { text: string }) {
   return (
     <div>
       <p
-        className="whitespace-pre-wrap"
-        style={{ fontSize: "14px", color: "#e8e8e8", lineHeight: "1.8" }}
+        className="whitespace-pre-wrap text-sm text-gray-100 leading-relaxed"
       >
         {linkifyText(displayText)}
         {isLong && !expanded && (
@@ -367,11 +365,11 @@ export default function TelegramPage() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <span className="inline-block h-2 w-2 rounded-full bg-[#f59e0b] animate-pulse" />
-                <span style={{ color: "#888888", fontSize: "12px" }}>
+                <span className="text-xs text-gray-400">
                   {lang === "kr" ? "마지막 업데이트" : "Last updated"}: {formatTime(lastUpdate)}
                 </span>
               </div>
-              <span style={{ color: "#555555", fontSize: "11px" }} className="tabular-nums">
+              <span className="text-xs text-gray-400 tabular-nums">
                 {lang === "kr" ? `다음 새로고침: ${countdownDisplay}` : `Next refresh: ${countdownDisplay}`}
               </span>
             </div>
@@ -380,8 +378,7 @@ export default function TelegramPage() {
                 setLoading(true);
                 fetchFeed();
               }}
-              className="rounded-md px-3 py-1 text-xs transition-colors hover:bg-white/5"
-              style={{ color: "#60a5fa", border: "1px solid #222222" }}
+              className="text-xs bg-gray-800 text-gray-200 px-3 py-1 rounded hover:bg-gray-700 transition-colors"
             >
               {lang === "kr" ? "새로고침" : "Refresh"}
             </button>
@@ -391,41 +388,38 @@ export default function TelegramPage() {
         <div className="flex gap-4">
           {/* Left sidebar */}
           <aside className="hidden w-56 shrink-0 md:block">
-            <div className="sticky top-4 rounded-xl p-3" style={{ background: "#0d0d0d", border: "1px solid #1a1a1a" }}>
+            <div className="sticky top-4 rounded-xl p-3 overflow-y-auto max-h-[calc(100vh-120px)] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-track]:bg-transparent" style={{ background: "#0d0d0d", border: "1px solid #1a1a1a" }}>
               <button
                 onClick={() => setActiveChannel(null)}
-                className="w-full rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-colors"
-                style={{
-                  background: activeChannel === null ? "rgba(96,165,250,0.1)" : "transparent",
-                  color: activeChannel === null ? "#60a5fa" : "#888888",
-                  borderLeft: activeChannel === null ? "2px solid #60a5fa" : "2px solid transparent",
-                }}
+                className={`w-full rounded-lg py-2.5 px-3 text-left transition-colors ${
+                  activeChannel === null
+                    ? "bg-gray-800 border-l-2 border-yellow-500 text-white font-semibold text-sm"
+                    : "border-l-2 border-transparent text-sm font-medium text-gray-200 hover:bg-gray-800/50"
+                }`}
               >
                 <span className="flex items-center justify-between">
                   <span>{lang === "kr" ? "전체보기" : "All Channels"}</span>
-                  <span style={{ fontSize: "10px", color: "#555" }}>{allMessages.length}</span>
+                  <span className="text-xs bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded-full">{allMessages.length}</span>
                 </span>
               </button>
 
               <div className="mt-2 space-y-0.5">
                 {channels.map((ch) => {
                   const isActive = activeChannel === ch.username;
-                  const color = CHANNEL_COLORS[ch.username];
                   const isEmpty = emptyChannels.has(ch.username);
                   return (
                     <button
                       key={ch.username}
                       onClick={() => setActiveChannel(ch.username)}
-                      className="w-full rounded-lg px-3 py-2 text-left text-[12px] transition-all"
-                      style={{
-                        background: isActive ? "rgba(96,165,250,0.08)" : "transparent",
-                        color: isActive ? (color?.text || "#60a5fa") : isEmpty ? "#444" : "#777777",
-                        borderLeft: isActive ? `2px solid ${color?.text || "#60a5fa"}` : "2px solid transparent",
-                      }}
+                      className={`w-full rounded-lg py-2.5 px-3 text-left transition-all ${
+                        isActive
+                          ? "bg-gray-800 border-l-2 border-yellow-500 text-white font-semibold text-sm"
+                          : `border-l-2 border-transparent text-sm font-medium hover:bg-gray-800/50 ${isEmpty ? "text-gray-600 line-through" : "text-gray-200"}`
+                      }`}
                     >
                       <span className="flex items-center justify-between">
-                        <span className={isEmpty ? "line-through opacity-50" : ""}>{ch.title}</span>
-                        <span style={{ fontSize: "10px", color: isEmpty ? "#333" : "#444" }}>
+                        <span>{ch.title}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${isEmpty ? "bg-gray-800 text-gray-600" : "bg-gray-700 text-gray-300"}`}>
                           {channelCounts.get(ch.username) || 0}
                         </span>
                       </span>
@@ -475,7 +469,7 @@ export default function TelegramPage() {
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="#60a5fa">
                 <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
               </svg>
-              <h2 className="text-sm font-semibold" style={{ color: "#e8e8e8" }}>
+              <h2 className="text-base font-semibold text-white">
                 {activeChannel
                   ? channels.find((c) => c.username === activeChannel)?.title || activeChannel
                   : lang === "kr"
@@ -492,7 +486,7 @@ export default function TelegramPage() {
 
             {/* Messages */}
             <div
-              className="max-h-[calc(100vh-220px)] overflow-y-auto rounded-b-xl"
+              className="max-h-[calc(100vh-220px)] overflow-y-auto rounded-b-xl [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-track]:bg-transparent"
               style={{ background: "#111111", border: "1px solid #222222", borderTop: "none" }}
             >
               {loading && allMessages.length === 0 && (
@@ -515,33 +509,23 @@ export default function TelegramPage() {
                 </div>
               )}
 
-              {displayMessages.map((msg) => {
-                const color = CHANNEL_COLORS[msg.channel];
-                return (
+              {displayMessages.map((msg) => (
                   <div
                     key={`${msg.channel}-${msg.id}`}
-                    className="px-5 py-4 transition-colors hover:bg-white/[0.02]"
-                    style={{ borderBottom: "1px solid #1e1e1e" }}
+                    className="border border-gray-800 rounded-lg p-4 mb-3 mx-3 mt-3 bg-gray-900 hover:bg-[#1a1f2e] transition-colors"
                   >
                     <div className="mb-2 flex items-center gap-2.5">
-                      <span
-                        className="rounded-md px-2 py-0.5 text-[10px] font-medium"
-                        style={{
-                          background: color?.bg || "rgba(120,120,120,0.15)",
-                          color: color?.text || "#888",
-                        }}
-                      >
+                      <span className="text-sm font-bold text-yellow-400">
                         {msg.channelTitle}
                       </span>
-                      <span style={{ fontSize: "11px", color: "#888888" }}>
+                      <span className="text-xs text-gray-400">
                         {msg.date ? timeAgo(msg.date) : ""}
                       </span>
                       <a
                         href={msg.link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="ml-auto text-[10px] transition-colors hover:opacity-80"
-                        style={{ color: "#555" }}
+                        className="ml-auto text-xs text-yellow-500 hover:text-yellow-400 transition-colors"
                       >
                         {lang === "kr" ? "원문" : "Link"} &rarr;
                       </a>
@@ -564,8 +548,7 @@ export default function TelegramPage() {
                       </div>
                     )}
                   </div>
-                );
-              })}
+                ))}
 
               {hasMore && (
                 <button

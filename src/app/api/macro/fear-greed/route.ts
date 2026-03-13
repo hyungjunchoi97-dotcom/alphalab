@@ -16,7 +16,7 @@ interface CacheEntry {
   cachedAt: number;
 }
 
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 let cache: CacheEntry | null = null;
 
 function getRating(score: number): string {
@@ -35,19 +35,21 @@ export async function GET() {
   try {
     const res = await fetch("https://production.dataviz.cnn.io/index/fearandgreed/graphdata", {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Referer": "https://edition.cnn.com/",
+        "Origin": "https://edition.cnn.com",
       },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!res.ok) {
       console.error(`[fear-greed] HTTP ${res.status}`);
-      return NextResponse.json({ ok: false, error: `CNN API HTTP ${res.status}` }, { status: 502 });
+      if (cache) return NextResponse.json({ ok: true, data: cache.data, stale: true });
+      return NextResponse.json({ ok: false, error: `CNN Fear & Greed API HTTP ${res.status}` }, { status: 502 });
     }
 
     const json = await res.json();
-
     const fg = json.fear_and_greed;
     const score = Math.round(fg?.score ?? 0);
     const previousClose = Math.round(fg?.previous_close ?? 0);
@@ -63,34 +65,21 @@ export async function GET() {
         const ts = point.x;
         const val = point.y;
         if (typeof ts === "number" && typeof val === "number") {
-          const d = new Date(ts);
-          history.push({
-            date: d.toISOString().slice(0, 10),
-            score: Math.round(val),
-          });
+          history.push({ date: new Date(ts).toISOString().slice(0, 10), score: Math.round(val) });
         }
       }
-      // Keep last 30 days
       history.sort((a, b) => a.date.localeCompare(b.date));
-      if (history.length > 30) {
-        history.splice(0, history.length - 30);
-      }
+      if (history.length > 30) history.splice(0, history.length - 30);
     }
 
-    const result: FearGreedResult = {
-      score,
-      rating,
-      previousClose,
-      oneWeekAgo,
-      oneMonthAgo,
-      history,
-    };
-
+    const result: FearGreedResult = { score, rating, previousClose, oneWeekAgo, oneMonthAgo, history };
     cache = { data: result, cachedAt: Date.now() };
     return NextResponse.json({ ok: true, data: result }, {
-      headers: { "Cache-Control": "s-maxage=900, stale-while-revalidate=1800" },
+      headers: { "Cache-Control": "s-maxage=1800, stale-while-revalidate=3600" },
     });
   } catch (err) {
+    console.error("[fear-greed] fetch error:", err);
+    if (cache) return NextResponse.json({ ok: true, data: cache.data, stale: true });
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 }

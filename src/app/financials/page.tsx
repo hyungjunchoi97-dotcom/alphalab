@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLang } from "@/lib/LangContext";
 import { messages } from "@/lib/i18n";
 import AppHeader from "@/components/AppHeader";
@@ -36,23 +37,6 @@ interface ProfileInfo {
 interface NextEarnings {
   date: string | null;
   epsEstimate: number | null;
-}
-
-interface InstitutionalHolder {
-  holder: string | null;
-  shares: number | null;
-  pct: number | null;
-  value: number | null;
-  change: number | null;
-}
-
-interface InsiderTrade {
-  date: string | null;
-  name: string | null;
-  title: string | null;
-  type: string | null;
-  shares: number | null;
-  value: number | null;
 }
 
 interface GradesSummary {
@@ -93,8 +77,6 @@ interface FinResponse {
   valuation?: QuarterData[];
   profile?: ProfileInfo | null;
   nextEarnings?: NextEarnings | null;
-  insider?: InsiderTrade[];
-  institutional?: InstitutionalHolder[];
   gradesSummary?: GradesSummary | null;
   recentGrades?: RecentGrade[];
   earningsSurprises?: EarningsSurprise[];
@@ -109,7 +91,7 @@ interface TickerResult {
   exchange: string;
 }
 
-type TabKey = "overview" | "pl" | "bs" | "cf" | "keyMetrics" | "valuation" | "ownership" | "breakdown";
+type TabKey = "overview" | "pl" | "bs" | "cf" | "keyMetrics" | "valuation" | "breakdown";
 type PeriodKey = "quarterly" | "annual";
 
 interface RowDef {
@@ -227,7 +209,7 @@ const FIN_I18N = {
   en: {
     // tabs
     overview: "OVERVIEW", pl: "P&L", bs: "B/S", cf: "C/F",
-    keyMetrics: "KEY METRICS", valuation: "VALUATION", ownership: "OWNERSHIP", breakdown: "BREAKDOWN",
+    keyMetrics: "KEY METRICS", valuation: "VALUATION", breakdown: "BREAKDOWN",
     // sections
     bsHealth: "Balance Sheet Health", analystRatings: "Analyst Ratings",
     currentPrice: "Current Price", wallStTarget: "Wall St. Target", upside: "Upside",
@@ -268,7 +250,6 @@ const FIN_I18N = {
     // misc
     expandAll: "EXPAND ALL", collapseAll: "COLLAPSE ALL",
     mktCap: "Mkt Cap", employees: "Employees",
-    instOwnership: "Institutional Ownership", insiderTrading: "Insider Trading",
     earningsSurprise: "Earnings Surprise",
     revenueQoQ: "Revenue", opIncomeQoQ: "Op. Income", opmLatest: "OPM (Latest)",
     comingSoonKR: "Coming soon for Korean stocks",
@@ -279,13 +260,13 @@ const FIN_I18N = {
     valEvRevenue: "EV/Revenue", valPeg: "PEG", valPocf: "P/OCF", valPfcf: "P/FCF",
     valDivYield: "Dividend Yield",
     priceChart: "PRICE CHART",
-    searchPlaceholder: "Company name or ticker (e.g. Samsung, AAPL, 005930.KS)",
-    searchHint: "Korean stocks: enter English name or code (e.g. 005930.KS, 000660.KS)",
+    searchPlaceholder: "US stock symbol (e.g. AAPL, NVDA, MSFT)",
+    searchHint: "Currently only US stocks are supported. Korean stocks coming soon.",
     searchEmpty: "Search a ticker to view financial statements",
   },
   kr: {
     overview: "개요", pl: "손익", bs: "재무상태", cf: "현금흐름",
-    keyMetrics: "핵심지표", valuation: "밸류에이션", ownership: "소유구조", breakdown: "브레이크다운",
+    keyMetrics: "핵심지표", valuation: "밸류에이션", breakdown: "브레이크다운",
     bsHealth: "재무건전성", analystRatings: "애널리스트 평가",
     currentPrice: "현재가", wallStTarget: "목표주가", upside: "상승여력",
     nextEarnings: "다음 실적발표",
@@ -319,7 +300,6 @@ const FIN_I18N = {
     dividendsPaid: "배당금 지급",
     expandAll: "전체 펼치기", collapseAll: "전체 접기",
     mktCap: "시가총액", employees: "직원수",
-    instOwnership: "기관 보유현황", insiderTrading: "내부자 거래",
     earningsSurprise: "어닝 서프라이즈",
     revenueQoQ: "매출", opIncomeQoQ: "영업이익", opmLatest: "영업이익률 (최근)",
     comingSoonKR: "한국 종목은 준비 중입니다",
@@ -329,13 +309,13 @@ const FIN_I18N = {
     valEvRevenue: "EV/매출", valPeg: "PEG", valPocf: "P/OCF", valPfcf: "P/FCF",
     valDivYield: "배당수익률",
     priceChart: "주가 차트",
-    searchPlaceholder: "회사명(영문) 또는 종목코드 (예: Samsung, AAPL, 005930.KS)",
-    searchHint: "한국 주식: 영문명 또는 종목코드 입력 (예: 005930.KS, 000660.KS)",
+    searchPlaceholder: "미국 주식 심볼 입력 (예: AAPL, NVDA, MSFT)",
+    searchHint: "현재 미국 주식만 지원합니다. 한국 주식은 준비 중입니다.",
     searchEmpty: "종목을 검색하여 재무제표를 확인하세요",
   },
 } as const;
 
-export default function FinancialsPage() {
+function FinancialsPageInner() {
   const { lang } = useLang();
   const t = messages[lang as "en" | "kr"] || messages.en;
   const isKO = lang === "kr";
@@ -412,6 +392,20 @@ export default function FinancialsPage() {
       setFinLoading(false);
     }
   }, []);
+
+  // Auto-load ticker from URL query param
+  const searchParams = useSearchParams();
+  const urlTickerHandled = useRef(false);
+  useEffect(() => {
+    if (urlTickerHandled.current) return;
+    const urlTicker = searchParams.get("ticker");
+    if (urlTicker && urlTicker.trim()) {
+      urlTickerHandled.current = true;
+      setQuery(urlTicker.trim().toUpperCase());
+      selectedRef.current = { ticker: urlTicker.trim().toUpperCase(), market: "US" };
+      fetchFinancials(urlTicker.trim().toUpperCase(), "US", period);
+    }
+  }, [searchParams, fetchFinancials, period]);
 
   const selectResult = (r: TickerResult) => {
     setQuery(`${r.ticker} — ${r.name}`);
@@ -555,7 +549,6 @@ export default function FinancialsPage() {
   const ALL_TABS: { key: TabKey; label: string }[] = [
     { key: "overview", label: f.overview },
     ...TABLE_TABS,
-    { key: "ownership", label: f.ownership },
     { key: "breakdown", label: f.breakdown },
   ];
 
@@ -978,106 +971,6 @@ export default function FinancialsPage() {
     );
   }
 
-  // ── Ownership tab ──────────────────────────────────────────
-
-  function renderOwnership() {
-    if (isKR) {
-      return (
-        <div className="py-12 text-center">
-          <div className="text-[11px] font-mono" style={{ color: "#4b5563" }}>{f.comingSoonKR}</div>
-        </div>
-      );
-    }
-
-    const institutional = finData?.institutional || [];
-    const insider = finData?.insider || [];
-
-    return (
-      <div className="space-y-6">
-        {/* Institutional Ownership */}
-        <div>
-          <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "rgba(251,191,36,0.6)" }}>{f.instOwnership}</div>
-          {institutional.length === 0 ? (
-            <div className="py-6 text-center text-[11px]" style={{ color: "#4b5563" }}>No institutional data available</div>
-          ) : (
-            <div className="fin-table overflow-x-auto rounded-lg" style={{ border: "1px solid #222" }}>
-              <table className="w-full font-mono text-xs" style={{ background: "#080c12" }}>
-                <thead>
-                  <tr style={{ background: "#0d1117", borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
-                    <th className="py-2 pl-3 pr-4 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>Holder</th>
-                    <th className="py-2 px-4 text-right text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>Shares</th>
-                    <th className="py-2 px-4 text-right text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>%</th>
-                    <th className="py-2 px-4 text-right text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>Value</th>
-                    <th className="py-2 px-4 text-right text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>Change</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {institutional.map((h, i) => (
-                    <tr key={i} className="transition-colors hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                      <td className="py-1.5 pl-3 pr-4 text-left" style={{ color: "#e8e8e8", fontSize: "12px" }}>{h.holder ?? "—"}</td>
-                      <td className="py-1.5 px-4 text-right tabular-nums" style={{ color: "#f3f4f6", fontSize: "12px" }}>{h.shares != null ? h.shares.toLocaleString() : "—"}</td>
-                      <td className="py-1.5 px-4 text-right tabular-nums" style={{ color: "#9ca3af", fontSize: "11px" }}>{h.pct != null ? `${h.pct.toFixed(2)}%` : "—"}</td>
-                      <td className="py-1.5 px-4 text-right tabular-nums" style={{ color: "#f3f4f6", fontSize: "12px" }}>{h.value != null ? `$${Math.round(h.value / 1e6).toLocaleString()}M` : "—"}</td>
-                      <td className="py-1.5 px-4 text-right tabular-nums" style={{ color: h.change != null && h.change > 0 ? "#4ade80" : h.change != null && h.change < 0 ? "#f87171" : "#6b7280", fontSize: "12px" }}>
-                        {h.change != null ? `${h.change > 0 ? "▲" : h.change < 0 ? "▼" : ""}${Math.abs(h.change).toLocaleString()}` : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Insider Trading */}
-        <div>
-          <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "rgba(251,191,36,0.6)" }}>{f.insiderTrading}</div>
-          {insider.length === 0 ? (
-            <div className="py-6 text-center text-[11px]" style={{ color: "#4b5563" }}>No insider trading data available</div>
-          ) : (
-            <div className="fin-table overflow-x-auto rounded-lg" style={{ border: "1px solid #222" }}>
-              <table className="w-full font-mono text-xs" style={{ background: "#080c12" }}>
-                <thead>
-                  <tr style={{ background: "#0d1117", borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
-                    <th className="py-2 pl-3 pr-4 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>Date</th>
-                    <th className="py-2 px-4 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>Insider</th>
-                    <th className="py-2 px-4 text-left text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>Title</th>
-                    <th className="py-2 px-4 text-center text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>Type</th>
-                    <th className="py-2 px-4 text-right text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>Shares</th>
-                    <th className="py-2 px-4 text-right text-[10px] font-medium uppercase tracking-wider" style={{ color: "#6b7280" }}>Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {insider.map((t, i) => {
-                    const isBuy = t.type?.toLowerCase().includes("purchase") || t.type?.toLowerCase().includes("buy") || t.type?.toLowerCase() === "p-purchase";
-                    const isSell = t.type?.toLowerCase().includes("sale") || t.type?.toLowerCase().includes("sell") || t.type?.toLowerCase() === "s-sale";
-                    return (
-                      <tr key={i} className="transition-colors hover:bg-white/[0.02]" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <td className="py-1.5 pl-3 pr-4 text-left" style={{ color: "#9ca3af", fontSize: "11px" }}>{t.date ?? "—"}</td>
-                        <td className="py-1.5 px-4 text-left" style={{ color: "#e8e8e8", fontSize: "12px" }}>{t.name ?? "—"}</td>
-                        <td className="py-1.5 px-4 text-left" style={{ color: "#6b7280", fontSize: "11px" }}>{t.title ?? "—"}</td>
-                        <td className="py-1.5 px-4 text-center">
-                          <span className="inline-block rounded px-1.5 py-0.5 text-[9px] font-bold" style={{
-                            background: isBuy ? "rgba(74,222,128,0.1)" : isSell ? "rgba(248,113,113,0.1)" : "rgba(107,114,128,0.1)",
-                            color: isBuy ? "#4ade80" : isSell ? "#f87171" : "#6b7280",
-                          }}>
-                            {isBuy ? "BUY" : isSell ? "SELL" : (t.type ?? "—")}
-                          </span>
-                        </td>
-                        <td className="py-1.5 px-4 text-right tabular-nums" style={{ color: "#f3f4f6", fontSize: "12px" }}>{t.shares != null ? Math.abs(t.shares).toLocaleString() : "—"}</td>
-                        <td className="py-1.5 px-4 text-right tabular-nums" style={{ color: "#f3f4f6", fontSize: "12px" }}>{t.value != null ? `$${Math.abs(t.value).toLocaleString()}` : "—"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   // ── Breakdown (Sankey) tab ─────────────────────────────────
 
   function fmtSankey(v: number): string {
@@ -1262,7 +1155,12 @@ export default function FinancialsPage() {
       <AppHeader active="financials" />
 
       <main className="mx-auto max-w-[1400px] px-4 py-4 space-y-4">
-        <h1 className="text-sm font-bold" style={{ color: "#e8e8e8" }}>{t.finFinancials}</h1>
+        <div>
+          <h1 className="text-sm font-bold" style={{ color: "#e8e8e8" }}>{t.finFinancials}</h1>
+          <p className="text-xs mt-0.5" style={{ color: "#6b7280" }}>
+            {isKO ? "미국 주식 재무제표 조회 (FMP 데이터 기반)" : "US stock financial statements (FMP data)"}
+          </p>
+        </div>
 
         {/* Search + Period toggle */}
         <div className="flex flex-wrap items-start gap-4">
@@ -1440,8 +1338,8 @@ export default function FinancialsPage() {
               );
             })()}
 
-            {/* Price Chart (P&L tab) */}
-            {activeTab === "pl" && (() => {
+            {/* Price Chart (P&L tab + Valuation tab) */}
+            {(activeTab === "pl" || activeTab === "valuation") && (() => {
               const allPriceData = (finData?.priceHistory || []).filter(
                 (p): p is { date: string; close: number } => p.date != null && p.close != null
               );
@@ -1549,8 +1447,6 @@ export default function FinancialsPage() {
             {activeTab === "keyMetrics" && renderKeyMetricsTab()}
             {activeTab === "valuation" && renderValuationTab()}
 
-            {activeTab === "ownership" && renderOwnership()}
-
             {activeTab === "breakdown" && renderBreakdown()}
 
             {/* C/F Capex Bar Chart */}
@@ -1583,5 +1479,13 @@ export default function FinancialsPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function FinancialsPage() {
+  return (
+    <Suspense>
+      <FinancialsPageInner />
+    </Suspense>
   );
 }

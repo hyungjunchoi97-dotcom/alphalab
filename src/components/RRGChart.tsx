@@ -130,23 +130,20 @@ function generateSummary(sectors: SectorData[], lang: "en" | "kr"): string {
 
   const name = (s: SectorData) => lang === "kr" ? s.nameKr : s.name;
 
-  const parts: string[] = [];
+  const segments: { label: string; color: string; names: string[] }[] = [];
 
   if (grouped.leading.length > 0) {
-    const names = grouped.leading.slice(0, 3).map(name).join(" / ");
-    parts.push(`OVERWEIGHT  ${names}`);
+    segments.push({ label: "OVERWEIGHT", color: "#4ade80", names: grouped.leading.slice(0, 3).map(name) });
   }
   if (grouped.lagging.length > 0) {
-    const names = grouped.lagging.slice(0, 3).map(name).join(" / ");
-    parts.push(`UNDERWEIGHT  ${names}`);
+    segments.push({ label: "UNDERWEIGHT", color: "#f87171", names: grouped.lagging.slice(0, 3).map(name) });
   }
   if (grouped.improving.length > 0) {
-    const names = grouped.improving.slice(0, 2).map(name).join(" / ");
-    parts.push(`WATCH  ${names}`);
+    segments.push({ label: "WATCH", color: "#fbbf24", names: grouped.improving.slice(0, 2).map(name) });
   }
 
-  if (parts.length === 0) return lang === "kr" ? "Analyzing..." : "Analyzing...";
-  return parts.join("   |   ");
+  if (segments.length === 0) return lang === "kr" ? "Analyzing..." : "Analyzing...";
+  return JSON.stringify(segments);
 }
 
 // ── Tooltip interpretation ──────────────────────────────────
@@ -353,7 +350,7 @@ function RRGScatterPlot({
           const pts = s.trail.slice(-TRAIL_DISPLAY);
           const isHighlighted = highlighted === s.ticker;
           const dimmed = highlighted !== null && !isHighlighted;
-          if (pts.length < 2 || dimmed) return null;
+          if (pts.length < 2) return null;
 
           // Build tapering trail segments (thicker toward present)
           const mapped = pts.map(p => ({ x: scaleX(p.rsRatio), y: scaleY(p.rsMomentum) }));
@@ -379,7 +376,7 @@ function RRGScatterPlot({
           const splinePath = catmullRomPath(mapped, 0.4);
 
           return (
-            <g key={`trail-${s.ticker}`}>
+            <g key={`trail-${s.ticker}`} opacity={dimmed ? 0.15 : 1} style={{ transition: "opacity 0.2s" }}>
               {segments}
               <path
                 d={splinePath}
@@ -524,7 +521,7 @@ function RRGInfoPanel({ lang }: { lang: "en" | "kr" }) {
         onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
-        <span className="text-xs font-semibold tracking-wider text-[#888]">
+        <span className="text-base font-semibold text-white border-l-2 border-yellow-500 pl-2">
           {lang === "kr" ? "Relative Rotation Graph (RRG) — 방법론" : "Relative Rotation Graph (RRG) — Methodology"}
         </span>
         <span className="text-[10px] text-[#555] font-mono">
@@ -535,57 +532,51 @@ function RRGInfoPanel({ lang }: { lang: "en" | "kr" }) {
       {open && (
         <div className="border-t border-[#1a1a1a] px-4 pb-4 pt-3 space-y-5">
           <div>
-            <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">METHODOLOGY</h4>
-            <p className="text-[11px] text-[#999] leading-relaxed">
+            <h4 className="text-xs font-bold text-yellow-400 tracking-widest uppercase mb-2 mt-4">METHODOLOGY</h4>
+            <p className="text-sm text-gray-100 leading-relaxed">
               {lang === "kr"
                 ? "RRG는 각 섹터의 상대강도(RS-Ratio)와 그 변화율(RS-Momentum)을 2차원 평면에 시각화한 지표입니다. 단순 수익률이 아닌 벤치마크 대비 상대적 포지셔닝과 방향성을 동시에 파악할 수 있어, 섹터 로테이션 전략 수립 시 활용됩니다."
                 : "RRG visualizes each sector's relative strength (RS-Ratio) and its rate of change (RS-Momentum) on a two-dimensional plane. Unlike simple returns, it captures both relative positioning versus benchmark and directional momentum, making it a standard tool for sector rotation strategy."}
             </p>
           </div>
           <div>
-            <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">HOW TO READ</h4>
-            <div className="space-y-1.5 text-[11px]">
-              <div className="flex gap-3 py-1.5 border-b border-[#151515]">
-                <span className="shrink-0 font-mono text-[#555] w-24">X-Axis</span>
-                <span className="text-[#999]"><span className="text-[#ccc] font-medium">RS-Ratio</span> — {lang === "kr" ? "벤치마크 대비 상대강도. 100 기준, 초과 시 시장 대비 강세." : "Relative strength vs benchmark. 100 = neutral, above = outperforming."}</span>
+            <h4 className="text-xs font-bold text-yellow-400 tracking-widest uppercase mb-2 mt-4">HOW TO READ</h4>
+            <div className="space-y-0">
+              <div className="flex gap-4 items-start py-1.5 border-b border-gray-800">
+                <span className="shrink-0 text-xs font-semibold text-yellow-400 w-16">X-Axis</span>
+                <span className="text-sm text-gray-100"><span className="font-medium text-white">RS-Ratio</span> — {lang === "kr" ? "벤치마크 대비 상대강도. 100 기준, 초과 시 시장 대비 강세." : "Relative strength vs benchmark. 100 = neutral, above = outperforming."}</span>
               </div>
-              <div className="flex gap-3 py-1.5 border-b border-[#151515]">
-                <span className="shrink-0 font-mono text-[#555] w-24">Y-Axis</span>
-                <span className="text-[#999]"><span className="text-[#ccc] font-medium">RS-Momentum</span> — {lang === "kr" ? "상대강도의 변화율. 100 초과 시 강도 개선 중." : "Rate of change in RS. Above 100 = strength improving."}</span>
+              <div className="flex gap-4 items-start py-1.5 border-b border-gray-800">
+                <span className="shrink-0 text-xs font-semibold text-yellow-400 w-16">Y-Axis</span>
+                <span className="text-sm text-gray-100"><span className="font-medium text-white">RS-Momentum</span> — {lang === "kr" ? "상대강도의 변화율. 100 초과 시 강도 개선 중." : "Rate of change in RS. Above 100 = strength improving."}</span>
               </div>
-              <div className="flex gap-3 py-1.5">
-                <span className="shrink-0 font-mono text-[#555] w-24">Trail</span>
-                <span className="text-[#999]">{lang === "kr" ? "최근 4주 이동 경로. 시계 방향 순환이 일반적 패턴." : "Last 4 weeks path. Clockwise rotation is the typical pattern."}</span>
+              <div className="flex gap-4 items-start py-1.5">
+                <span className="shrink-0 text-xs font-semibold text-yellow-400 w-16">Trail</span>
+                <span className="text-sm text-gray-100">{lang === "kr" ? "최근 4주 이동 경로. 시계 방향 순환이 일반적 패턴." : "Last 4 weeks path. Clockwise rotation is the typical pattern."}</span>
               </div>
             </div>
           </div>
           <div>
-            <h4 className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">QUADRANT DEFINITIONS</h4>
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="border-b border-[#222]">
-                  <th className="text-left py-1.5 font-mono text-[#555] font-medium w-28">{lang === "kr" ? "구간" : "Quadrant"}</th>
-                  <th className="text-left py-1.5 font-mono text-[#555] font-medium w-28">RS-Ratio</th>
-                  <th className="text-left py-1.5 font-mono text-[#555] font-medium w-28">RS-Mom</th>
-                  <th className="text-left py-1.5 font-mono text-[#555] font-medium">{lang === "kr" ? "포지셔닝" : "Positioning"}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {QUADRANT_ORDER.map(q => (
-                  <tr key={q} className="border-b border-[#151515]">
-                    <td className="py-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="inline-block h-2 w-2 rounded-sm" style={{ background: Q[q].color }} />
-                        <span className="font-medium" style={{ color: Q[q].color }}>{Q[q].en} / {Q[q].kr}</span>
-                      </div>
-                    </td>
-                    <td className="py-1.5 font-mono text-[#888]">{q === "leading" || q === "weakening" ? "> 100" : "< 100"}</td>
-                    <td className="py-1.5 font-mono text-[#888]">{q === "leading" || q === "improving" ? "> 100" : "< 100"}</td>
-                    <td className="py-1.5 text-[#888]">{lang === "kr" ? Q[q].descKr : Q[q].descEn}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <h4 className="text-xs font-bold text-yellow-400 tracking-widest uppercase mb-2 mt-4">QUADRANT DEFINITIONS</h4>
+            <div className="space-y-0">
+              <div className="grid grid-cols-4 gap-3 py-2 border-b border-gray-800">
+                <span className="text-xs text-gray-400 uppercase tracking-wide">{lang === "kr" ? "구간" : "Quadrant"}</span>
+                <span className="text-xs text-gray-400 uppercase tracking-wide">RS-Ratio</span>
+                <span className="text-xs text-gray-400 uppercase tracking-wide">RS-Mom</span>
+                <span className="text-xs text-gray-400 uppercase tracking-wide">{lang === "kr" ? "포지셔닝" : "Positioning"}</span>
+              </div>
+              {QUADRANT_ORDER.map(q => (
+                <div key={q} className="grid grid-cols-4 gap-3 py-2 border-b border-gray-800 items-center">
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: Q[q].color }} />
+                    <span className="text-sm font-medium" style={{ color: Q[q].color }}>{Q[q].en} / {Q[q].kr}</span>
+                  </div>
+                  <span className="text-sm font-mono text-gray-200">{q === "leading" || q === "weakening" ? "> 100" : "< 100"}</span>
+                  <span className="text-sm font-mono text-gray-200">{q === "leading" || q === "improving" ? "> 100" : "< 100"}</span>
+                  <span className="text-sm text-gray-100">{lang === "kr" ? Q[q].descKr : Q[q].descEn}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -851,10 +842,9 @@ export default function RRGChart() {
   const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [animFrame, setAnimFrame] = useState(0);
-  const animRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const animRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [chartOpen, setChartOpen] = useState(false); // collapsed by default
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
+  const [visibleSectors, setVisibleSectors] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch("/api/ideas/rrg")
@@ -870,38 +860,37 @@ export default function RRGChart() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Fetch AI analysis when market changes and data is available
-  useEffect(() => {
-    const hasData = market === "KR" ? krData.length > 0 : usData.length > 0;
-    if (!hasData) return;
-
-    const currentSectors = market === "KR" ? krData : usData;
-    setAiLoading(true);
-    setAiAnalysis(null);
-    fetch("/api/analyze-sectors", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        market,
-        sectors: currentSectors.map(s => ({
-          name: s.name,
-          nameKr: s.nameKr,
-          quadrant: s.quadrant,
-          rsRatio: s.current.rsRatio,
-          rsMomentum: s.current.rsMomentum,
-          chg5d: s.chg5d,
-        })),
-      }),
-    })
-      .then(r => r.json())
-      .then(json => {
-        if (json.ok && json.analysis) setAiAnalysis(json.analysis);
-      })
-      .catch(() => {})
-      .finally(() => setAiLoading(false));
-  }, [market, krData, usData]);
-
   const sectors = market === "KR" ? krData : usData;
+
+  // Initialize visibleSectors when data loads or market changes
+  useEffect(() => {
+    if (sectors.length > 0 && visibleSectors.size === 0) {
+      setVisibleSectors(new Set(sectors.map(s => s.ticker)));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectors]);
+
+  const filteredSectors = useMemo(
+    () => sectors.filter(s => visibleSectors.has(s.ticker)),
+    [sectors, visibleSectors]
+  );
+
+  const toggleSectorVisibility = useCallback((ticker: string) => {
+    setVisibleSectors(prev => {
+      const next = new Set(prev);
+      if (next.has(ticker)) next.delete(ticker);
+      else next.add(ticker);
+      return next;
+    });
+  }, []);
+
+  const setAllVisible = useCallback(() => {
+    setVisibleSectors(new Set(sectors.map(s => s.ticker)));
+  }, [sectors]);
+
+  const setNoneVisible = useCallback(() => {
+    setVisibleSectors(new Set());
+  }, []);
 
   const grouped = useMemo(() => {
     const g: Record<string, SectorData[]> = { leading: [], improving: [], lagging: [], weakening: [] };
@@ -922,7 +911,7 @@ export default function RRGChart() {
 
   const togglePlay = () => {
     if (playing) {
-      if (animRef.current) clearInterval(animRef.current);
+      if (animRef.current) clearTimeout(animRef.current);
       animRef.current = null;
       setPlaying(false);
       setAnimFrame(0);
@@ -932,21 +921,22 @@ export default function RRGChart() {
     setAnimFrame(0);
     const maxFrames = Math.max(...sectors.map(s => s.trail.length));
     let frame = 0;
-    animRef.current = setInterval(() => {
+    function step() {
       frame++;
       if (frame >= maxFrames) {
-        if (animRef.current) clearInterval(animRef.current);
         animRef.current = null;
         setPlaying(false);
         setAnimFrame(0);
         return;
       }
       setAnimFrame(frame);
-    }, 1200);
+      animRef.current = setTimeout(step, 1200);
+    }
+    animRef.current = setTimeout(step, 1200);
   };
 
   useEffect(() => {
-    return () => { if (animRef.current) clearInterval(animRef.current); };
+    return () => { if (animRef.current) clearTimeout(animRef.current); };
   }, []);
 
   const handleSectorClick = useCallback((ticker: string) => {
@@ -1058,79 +1048,30 @@ export default function RRGChart() {
 
   return (
     <div className="space-y-3">
-      {/* AI Sector Analysis Panel */}
-      <div className="rounded border border-[#222] bg-[#0d0d0d] p-4">
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Left: Analysis text (70%) */}
-          <div className="lg:w-[70%]">
-            <h3 className="text-xs font-semibold uppercase tracking-widest text-amber-400 mb-1">
-              SECTOR ANALYSIS
-            </h3>
-            <p className="text-[10px] text-[#555] mb-3 font-mono">
-              AI-Generated · {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {market === "KR" ? "KR" : "US"} 8W RRG {lang === "kr" ? "기반" : "based"}
-            </p>
-            {aiLoading ? (
-              <div className="flex items-center gap-2 py-3">
-                <div className="h-3 w-3 animate-spin rounded-full border border-[#333] border-t-amber-400" />
-                <span className="text-[11px] text-[#555] font-mono">Generating analysis...</span>
-              </div>
-            ) : aiAnalysis ? (
-              <p className="text-[12px] text-[#bbb] leading-relaxed">{aiAnalysis}</p>
-            ) : (
-              <p className="text-[11px] text-[#444] italic">
-                {lang === "kr" ? "분석 데이터를 불러오는 중입니다." : "Loading analysis data."}
-              </p>
-            )}
-          </div>
-
-          {/* Right: Quadrant legend (30%) */}
-          <div className="lg:w-[30%] lg:border-l lg:border-[#222] lg:pl-4">
-            <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555] mb-2">
-              {lang === "kr" ? "RRG 4분면" : "RRG QUADRANTS"}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded border border-[#1a2a1a] bg-[#0a120a] px-2.5 py-2">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="inline-block h-2 w-2 rounded-sm bg-[#22c55e]" />
-                  <span className="text-[10px] font-semibold text-[#22c55e]">Leading</span>
-                </div>
-                <p className="text-[9px] text-[#666]">{lang === "kr" ? "강세 유지" : "Strength sustained"}</p>
-              </div>
-              <div className="rounded border border-[#2a2a1a] bg-[#12120a] px-2.5 py-2">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="inline-block h-2 w-2 rounded-sm bg-[#eab308]" />
-                  <span className="text-[10px] font-semibold text-[#eab308]">Improving</span>
-                </div>
-                <p className="text-[9px] text-[#666]">{lang === "kr" ? "강세 전환" : "Turning bullish"}</p>
-              </div>
-              <div className="rounded border border-[#2a1a0a] bg-[#120d0a] px-2.5 py-2">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="inline-block h-2 w-2 rounded-sm bg-[#f97316]" />
-                  <span className="text-[10px] font-semibold text-[#f97316]">Weakening</span>
-                </div>
-                <p className="text-[9px] text-[#666]">{lang === "kr" ? "약세 전환" : "Turning bearish"}</p>
-              </div>
-              <div className="rounded border border-[#2a1a1a] bg-[#120a0a] px-2.5 py-2">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="inline-block h-2 w-2 rounded-sm bg-[#ef4444]" />
-                  <span className="text-[10px] font-semibold text-[#ef4444]">Lagging</span>
-                </div>
-                <p className="text-[9px] text-[#666]">{lang === "kr" ? "약세 유지" : "Weakness sustained"}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Methodology Panel */}
       <RRGInfoPanel lang={lang} />
 
       {/* Summary bar */}
-      <div className="rounded border border-[#1a1a1a] bg-[#0a0a0a] px-4 py-2">
-        <p className="text-[11px] font-mono text-[#888] tracking-wide">
-          <span className="text-[#555] mr-2">CURRENT SECTOR POSITIONING</span>
-          <span className="text-[#ccc]">{summary}</span>
-        </p>
+      <div className="rounded border border-[#1a1a1a] bg-[#0a0a0a] px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mr-1">CURRENT SECTOR POSITIONING</span>
+          {(() => {
+            try {
+              const segments = JSON.parse(summary) as { label: string; color: string; names: string[] }[];
+              return segments.map((seg, i) => (
+                <span key={i} className="flex items-center gap-1.5">
+                  {i > 0 && <span className="text-gray-700 mx-1">|</span>}
+                  <span className="text-xs font-bold font-mono" style={{ color: seg.color }}>{seg.label}</span>
+                  {seg.names.map((n, j) => (
+                    <span key={j} className="inline-block rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-medium text-white">{n}</span>
+                  ))}
+                </span>
+              ));
+            } catch {
+              return <span className="text-xs text-gray-300">{summary}</span>;
+            }
+          })()}
+        </div>
       </div>
 
       {/* Controls */}
@@ -1139,7 +1080,7 @@ export default function RRGChart() {
           {(["KR", "US"] as const).map(m => (
             <button
               key={m}
-              onClick={() => { setMarket(m); setSelectedSector(null); }}
+              onClick={() => { setMarket(m); setSelectedSector(null); setVisibleSectors(new Set()); }}
               className={`px-3 py-1 text-xs font-medium transition-colors ${
                 market === m ? "bg-accent text-white" : "bg-card-bg text-muted hover:text-foreground"
               }`}
@@ -1177,11 +1118,75 @@ export default function RRGChart() {
         )}
       </div>
 
+      {/* Sector filter buttons */}
+      {chartOpen && sectors.length > 0 && (
+        <div className="rounded border border-[#1a1a1a] bg-[#0a0a0a] px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#555]">
+              {lang === "kr" ? "섹터 필터" : "SECTOR FILTER"}
+            </span>
+            <button
+              onClick={setAllVisible}
+              className="rounded px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider bg-[#1a1a1a] text-[#888] hover:text-white transition-colors"
+            >
+              ALL
+            </button>
+            <button
+              onClick={setNoneVisible}
+              className="rounded px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider bg-[#1a1a1a] text-[#888] hover:text-white transition-colors"
+            >
+              NONE
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {sectors.map(s => {
+              const isVisible = visibleSectors.has(s.ticker);
+              return (
+                <button
+                  key={s.ticker}
+                  onClick={() => toggleSectorVisibility(s.ticker)}
+                  onMouseEnter={() => setHighlighted(s.ticker)}
+                  onMouseLeave={() => setHighlighted(null)}
+                  className="rounded px-2.5 py-1 text-[11px] font-medium transition-all border"
+                  style={isVisible ? {
+                    background: `${s.color}20`,
+                    borderColor: `${s.color}50`,
+                    color: s.color,
+                  } : {
+                    background: "#111",
+                    borderColor: "#222",
+                    color: "#555",
+                  }}
+                >
+                  <span className="inline-block h-1.5 w-1.5 rounded-full mr-1.5" style={{ background: isVisible ? s.color : "#444" }} />
+                  {lang === "kr" ? s.nameKr : s.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Collapsible RRG Chart */}
       {chartOpen && (
         <div className={CARD}>
+          {/* Single sector name overlay */}
+          {visibleSectors.size === 1 && (() => {
+            const solo = sectors.find(s => visibleSectors.has(s.ticker));
+            return solo ? (
+              <div className="flex items-center gap-2 mb-2">
+                <span className="inline-block h-3 w-3 rounded-full" style={{ background: solo.color }} />
+                <span className="text-sm font-bold" style={{ color: solo.color }}>
+                  {lang === "kr" ? solo.nameKr : solo.name}
+                </span>
+                <span className="text-[10px] font-mono text-[#555] uppercase" style={{ color: Q[solo.quadrant].color }}>
+                  {Q[solo.quadrant].en}
+                </span>
+              </div>
+            ) : null;
+          })()}
           <RRGScatterPlot
-            sectors={playing ? animatedSectors : sectors}
+            sectors={playing ? animatedSectors.filter(s => visibleSectors.has(s.ticker)) : filteredSectors}
             highlighted={highlighted}
             onHover={setHighlighted}
             onClick={handleSectorClick}

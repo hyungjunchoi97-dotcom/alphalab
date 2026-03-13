@@ -3,6 +3,10 @@
     {
       "path": "/api/usd-hegemony",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/etf/holdings?action=snapshot",
+      "schedule": "0 23 * * *"
     }
   ]
 }

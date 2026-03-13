@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 import { supabase } from "@/lib/supabaseClient";
+import { calculateAMM } from "@/lib/amm";
 
 export const runtime = "nodejs";
 
@@ -17,12 +18,13 @@ interface PredictionRow {
   closes_at: string;
   created_at: string;
   resolved_option_id: string | null;
+  yes_pool: number | null;
+  no_pool: number | null;
 }
 
 // ── Seed data ────────────────────────────────────────────────
 
 const SEEDS = [
-  // ── Stocks ──
   {
     title_en: "March: KOSPI 2,800 reached?",
     title_kr: "3월: 코스피 2,800 도달?",
@@ -47,7 +49,6 @@ const SEEDS = [
     category: "stocks",
     closes_at: new Date(Date.now() + 26 * 86400000).toISOString(),
   },
-  // ── Politics ──
   {
     title_en: "Korea snap election called before July?",
     title_kr: "7월 전 한국 조기선거 실시?",
@@ -64,7 +65,6 @@ const SEEDS = [
     category: "politics",
     closes_at: new Date(Date.now() + 40 * 86400000).toISOString(),
   },
-  // ── Economy ──
   {
     title_en: "Seoul apartments +5% in H1 2026?",
     title_kr: "2026 상반기 서울 아파트 5%+ 상승?",
@@ -81,7 +81,6 @@ const SEEDS = [
     category: "economy",
     closes_at: new Date(Date.now() + 90 * 86400000).toISOString(),
   },
-  // ── Entertainment ──
   {
     title_en: "BTS full group comeback in 2026?",
     title_kr: "BTS 완전체 컴백 2026년 내?",
@@ -90,7 +89,6 @@ const SEEDS = [
     category: "entertainment",
     closes_at: new Date(Date.now() + 270 * 86400000).toISOString(),
   },
-  // ── Crypto ──
   {
     title_en: "Bitcoin breaks $120k before May?",
     title_kr: "비트코인 $120k 돌파 5월 전?",
@@ -99,7 +97,6 @@ const SEEDS = [
     category: "crypto",
     closes_at: new Date(Date.now() + 56 * 86400000).toISOString(),
   },
-  // ── Other ──
   {
     title_en: "USD/KRW below 1,350 by end of March?",
     title_kr: "3월까지 달러/원 1,350 이하?",
@@ -121,11 +118,14 @@ async function seedIfEmpty() {
       ...s,
       status: "open",
       resolved_option_id: null,
+      yes_pool: 100,
+      no_pool: 100,
+      k_constant: 10000,
     }))
   );
 }
 
-// ── GET: fetch all predictions + vote counts ─────────────────
+// ── GET: fetch all predictions with AMM stats ─────────────────
 
 export async function GET() {
   try {
@@ -133,56 +133,32 @@ export async function GET() {
 
     const { data: rows, error } = await supabaseAdmin
       .from("predictions")
-      .select("*")
+      .select("id, title_en, title_kr, description_en, description_kr, category, status, closes_at, created_at, resolved_option_id, yes_pool, no_pool")
       .order("created_at", { ascending: false });
 
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
-    // Get all bets and aggregate per prediction+choice
-    const { data: allBets } = await supabaseAdmin
-      .from("predictions_bets")
-      .select("market_id, choice, points");
+    // Participant counts from prediction_bets
+    const { data: betCounts } = await supabaseAdmin
+      .from("prediction_bets")
+      .select("prediction_id, side, user_id");
 
-    const betMap: Record<string, { yesPoints: number; noPoints: number; yesCount: number; noCount: number }> = {};
-    if (allBets) {
-      for (const b of allBets) {
-        if (!betMap[b.market_id]) betMap[b.market_id] = { yesPoints: 0, noPoints: 0, yesCount: 0, noCount: 0 };
-        if (b.choice === "yes") {
-          betMap[b.market_id].yesPoints += b.points;
-          betMap[b.market_id].yesCount++;
-        } else {
-          betMap[b.market_id].noPoints += b.points;
-          betMap[b.market_id].noCount++;
-        }
-      }
-    }
-
-    // Fallback: also count old prediction_votes for backwards compat
-    const { data: allVotes } = await supabaseAdmin
-      .from("prediction_votes")
-      .select("prediction_id, option_id");
-
-    const voteMap: Record<string, { yes: number; no: number }> = {};
-    if (allVotes) {
-      for (const v of allVotes) {
-        if (!voteMap[v.prediction_id]) voteMap[v.prediction_id] = { yes: 0, no: 0 };
-        if (v.option_id === "yes") voteMap[v.prediction_id].yes++;
-        if (v.option_id === "no") voteMap[v.prediction_id].no++;
-      }
+    const countMap: Record<string, { yesCount: number; noCount: number; participants: Set<string> }> = {};
+    for (const b of betCounts ?? []) {
+      if (!countMap[b.prediction_id]) countMap[b.prediction_id] = { yesCount: 0, noCount: 0, participants: new Set() };
+      if (b.side === "yes") countMap[b.prediction_id].yesCount++;
+      else countMap[b.prediction_id].noCount++;
+      countMap[b.prediction_id].participants.add(b.user_id);
     }
 
     const predictions = (rows as PredictionRow[]).map((r) => {
-      const bets = betMap[r.id];
-      const votes = voteMap[r.id];
-      // Prefer bets data if available, fallback to votes
-      const yesPoints = bets?.yesPoints ?? 0;
-      const noPoints = bets?.noPoints ?? 0;
-      const totalPoints = yesPoints + noPoints;
-      const yesCount = (bets?.yesCount ?? 0) + (votes?.yes ?? 0);
-      const noCount = (bets?.noCount ?? 0) + (votes?.no ?? 0);
-      const participants = yesCount + noCount;
+      const yesPool = Number(r.yes_pool) || 100;
+      const noPool = Number(r.no_pool) || 100;
+      const amm = calculateAMM(yesPool, noPool);
+      const counts = countMap[r.id];
+
       return {
         id: r.id,
         title: { en: r.title_en, kr: r.title_kr },
@@ -193,12 +169,17 @@ export async function GET() {
         createdAt: r.created_at,
         resolvedOptionId: r.resolved_option_id,
         stats: {
-          yesCount,
-          noCount,
-          participants,
-          yesPct: totalPoints > 0 ? Math.round((yesPoints / totalPoints) * 100) : 50,
-          noPct: totalPoints > 0 ? Math.round((noPoints / totalPoints) * 100) : 50,
-          volume: totalPoints,
+          yesPool,
+          noPool,
+          totalPool: yesPool + noPool,
+          yesPct: Math.round(amm.yesProbability * 100),
+          noPct: Math.round(amm.noProbability * 100),
+          yesOdds: amm.yesOdds,
+          noOdds: amm.noOdds,
+          yesCount: counts?.yesCount ?? 0,
+          noCount: counts?.noCount ?? 0,
+          participants: counts?.participants.size ?? 0,
+          volume: Math.round((yesPool + noPool - 200) * 10) / 10, // pts wagered = pool growth from initial 200
         },
       };
     });
@@ -244,6 +225,9 @@ export async function POST(req: NextRequest) {
       status: "open",
       closes_at: closes_at || new Date(Date.now() + 7 * 86400000).toISOString(),
       resolved_option_id: null,
+      yes_pool: 100,
+      no_pool: 100,
+      k_constant: 10000,
     }).select().single();
 
     if (error) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 
@@ -12,6 +12,7 @@ interface Holding {
   shares: number;
   value: number;
   weight: number;
+  putCall: string | null;
 }
 
 interface GuruData {
@@ -115,63 +116,6 @@ export default function GurusPage() {
   const selected = selectedId ? guruMap.get(selectedId) || null : null;
   const meta = selectedId ? GURU_META[selectedId] : null;
 
-  // ── Smart Money aggregation ──
-  const { consensus, largestPositions, multiGuruTickers } = useMemo(() => {
-    if (gurus.length === 0) return { consensus: [], largestPositions: [], multiGuruTickers: new Set<string>() };
-
-    // Count guru holders per stock (by company name as key)
-    const stockMap = new Map<string, {
-      ticker: string;
-      company: string;
-      guruIds: string[];
-      totalValue: number;
-    }>();
-
-    for (const guru of gurus) {
-      for (const h of guru.holdings) {
-        const key = h.company.toUpperCase();
-        const existing = stockMap.get(key);
-        if (existing) {
-          if (!existing.guruIds.includes(guru.id)) {
-            existing.guruIds.push(guru.id);
-          }
-          existing.totalValue += h.value;
-          if (!existing.ticker && h.ticker) existing.ticker = h.ticker;
-        } else {
-          stockMap.set(key, {
-            ticker: h.ticker,
-            company: h.company,
-            guruIds: [guru.id],
-            totalValue: h.value,
-          });
-        }
-      }
-    }
-
-    const allStocks = Array.from(stockMap.values());
-
-    // Multi-Guru Consensus: top 10 by guru count
-    const consensus = [...allStocks]
-      .filter((s) => s.guruIds.length >= 2)
-      .sort((a, b) => b.guruIds.length - a.guruIds.length || b.totalValue - a.totalValue)
-      .slice(0, 10);
-
-    // Largest Positions: top 5 by total value
-    const largestPositions = [...allStocks]
-      .sort((a, b) => b.totalValue - a.totalValue)
-      .slice(0, 5);
-
-    // Set of tickers held by 3+ gurus (for badge in detail panel)
-    const multiGuruTickers = new Set<string>();
-    for (const s of allStocks) {
-      if (s.guruIds.length >= 3 && s.ticker) {
-        multiGuruTickers.add(s.ticker.toUpperCase());
-      }
-    }
-
-    return { consensus, largestPositions, multiGuruTickers };
-  }, [gurus]);
-
   return (
     <div style={{ background: "#0a0a0a", minHeight: "100vh", color: "#e5e5e5" }}>
       <AppHeader active="gurus" />
@@ -234,146 +178,6 @@ export default function GurusPage() {
           </div>
         ) : (
           <>
-            {/* ── Smart Money Overview ── */}
-            {gurus.length > 0 && (
-              <div style={{ marginBottom: 32 }}>
-                <div style={{ marginBottom: 16 }}>
-                  <h3 style={{ fontSize: 12, fontWeight: 600, color: "#666", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>
-                    Smart Money Overview
-                  </h3>
-                  <p style={{ fontSize: 11, color: "#555", marginTop: 4 }}>
-                    Q4 2025 · SEC 13F 기준 · 15개 펀드 집계
-                  </p>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="overview-grid">
-                  {/* Left: Multi-Guru Consensus */}
-                  <div style={{ background: "#111", border: "1px solid #222", borderRadius: 8, overflow: "hidden" }}>
-                    <div style={{ padding: "14px 16px", borderBottom: "1px solid #222" }}>
-                      <h4 style={{ fontSize: 11, fontWeight: 600, color: "#888", letterSpacing: "0.05em", textTransform: "uppercase", margin: 0 }}>
-                        {lang === "kr" ? "멀티 구루 컨센서스" : "Multi-Guru Consensus"}
-                      </h4>
-                    </div>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                      <thead>
-                        <tr style={{ borderBottom: "1px solid #1a1a1a" }}>
-                          <th style={{ padding: "8px 16px", textAlign: "left", color: "#555", fontWeight: 500, fontSize: 10 }}>TICKER</th>
-                          <th style={{ padding: "8px 16px", textAlign: "left", color: "#555", fontWeight: 500, fontSize: 10 }}>COMPANY</th>
-                          <th style={{ padding: "8px 16px", textAlign: "center", color: "#555", fontWeight: 500, fontSize: 10 }}>
-                            {lang === "kr" ? "보유 구루 수" : "GURU COUNT"}
-                          </th>
-                          <th style={{ padding: "8px 16px", textAlign: "right", color: "#555", fontWeight: 500, fontSize: 10 }}>
-                            {lang === "kr" ? "구루 목록" : "GURUS"}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {consensus.map((s, i) => (
-                          <tr
-                            key={i}
-                            style={{ borderBottom: "1px solid #1a1a1a" }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = "#1a1a1a")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                          >
-                            <td style={{ padding: "8px 16px", fontWeight: 600, color: "#fff", fontFamily: "monospace" }}>
-                              {s.ticker || "—"}
-                            </td>
-                            <td style={{ padding: "8px 16px", color: "#888", fontSize: 11 }}>
-                              {s.company}
-                            </td>
-                            <td style={{ padding: "8px 16px", textAlign: "center" }}>
-                              <span style={{ color: s.guruIds.length >= 5 ? "#22c55e" : s.guruIds.length >= 3 ? "#60a5fa" : "#888", fontWeight: 600 }}>
-                                {s.guruIds.length}/15
-                              </span>
-                            </td>
-                            <td style={{ padding: "8px 16px", textAlign: "right" }}>
-                              <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                                {s.guruIds.slice(0, 6).map((gid) => {
-                                  const m = GURU_META[gid];
-                                  return (
-                                    <span
-                                      key={gid}
-                                      style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        width: 22,
-                                        height: 22,
-                                        borderRadius: "50%",
-                                        background: `${m?.accent || "#888"}22`,
-                                        border: `1px solid ${m?.accent || "#888"}55`,
-                                        fontSize: 8,
-                                        fontWeight: 700,
-                                        color: m?.accent || "#888",
-                                      }}
-                                      title={guruMap.get(gid)?.name || gid}
-                                    >
-                                      {m?.initials || "?"}
-                                    </span>
-                                  );
-                                })}
-                                {s.guruIds.length > 6 && (
-                                  <span style={{ fontSize: 9, color: "#555", alignSelf: "center" }}>
-                                    +{s.guruIds.length - 6}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Right: Largest Positions */}
-                  <div style={{ background: "#111", border: "1px solid #222", borderRadius: 8, overflow: "hidden" }}>
-                    <div style={{ padding: "14px 16px", borderBottom: "1px solid #222" }}>
-                      <h4 style={{ fontSize: 11, fontWeight: 600, color: "#888", letterSpacing: "0.05em", textTransform: "uppercase", margin: 0 }}>
-                        {lang === "kr" ? "최대 보유 종목" : "Largest Positions"}
-                      </h4>
-                    </div>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                      <thead>
-                        <tr style={{ borderBottom: "1px solid #1a1a1a" }}>
-                          <th style={{ padding: "8px 16px", textAlign: "left", color: "#555", fontWeight: 500, fontSize: 10 }}>TICKER</th>
-                          <th style={{ padding: "8px 16px", textAlign: "left", color: "#555", fontWeight: 500, fontSize: 10 }}>COMPANY</th>
-                          <th style={{ padding: "8px 16px", textAlign: "right", color: "#555", fontWeight: 500, fontSize: 10 }}>
-                            {lang === "kr" ? "총 보유가치" : "TOTAL VALUE"}
-                          </th>
-                          <th style={{ padding: "8px 16px", textAlign: "right", color: "#555", fontWeight: 500, fontSize: 10 }}>
-                            {lang === "kr" ? "구루 수" : "GURUS"}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {largestPositions.map((s, i) => (
-                          <tr
-                            key={i}
-                            style={{ borderBottom: "1px solid #1a1a1a" }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = "#1a1a1a")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                          >
-                            <td style={{ padding: "8px 16px", fontWeight: 600, color: "#fff", fontFamily: "monospace" }}>
-                              {s.ticker || "—"}
-                            </td>
-                            <td style={{ padding: "8px 16px", color: "#888", fontSize: 11 }}>
-                              {s.company}
-                            </td>
-                            <td style={{ padding: "8px 16px", textAlign: "right", color: "#fff", fontWeight: 600 }}>
-                              {formatValue(s.totalValue)}
-                            </td>
-                            <td style={{ padding: "8px 16px", textAlign: "right", color: "#888" }}>
-                              {s.guruIds.length}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Category sections */}
             {CATEGORIES.map((cat) => (
               <div key={cat.id} style={{ marginBottom: 28 }}>
@@ -398,6 +202,8 @@ export default function GurusPage() {
                   {cat.guruIds.map((gid) => {
                     const guru = guruMap.get(gid);
                     const m = GURU_META[gid] || { initials: "??", accent: "#888", styleKr: "", styleEn: "" };
+                    // Hide cards with no data (AUM N/A and 0 holdings)
+                    if (guru && guru.totalValue <= 0 && guru.holdings.length === 0) return null;
                     const isSelected = selectedId === gid;
                     return (
                       <button
@@ -636,46 +442,36 @@ export default function GurusPage() {
                           <th style={{ padding: "10px 16px", textAlign: "right", color: "#666", fontWeight: 500, fontSize: 11 }}>
                             {lang === "kr" ? "비중" : "Weight"}
                           </th>
-                          <th style={{ padding: "10px 16px", textAlign: "center", color: "#666", fontWeight: 500, fontSize: 11 }}></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {selected.holdings.map((h, i) => (
+                        {selected.holdings.map((h, i) => {
+                          const hasTicker = !!(h.ticker && h.ticker !== "—");
+                          return (
                           <tr
                             key={`${h.company}-${i}`}
                             style={{
                               borderBottom: "1px solid #1a1a1a",
-                              transition: "background 0.15s",
                             }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = "#1a1a1a")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                           >
                             <td style={{ padding: "10px 16px", color: "#555", fontSize: 12 }}>{i + 1}</td>
                             <td style={{ padding: "10px 16px" }}>
-                              <a
-                                href={`/ideas?ticker=${encodeURIComponent(h.ticker || h.company)}`}
-                                style={{ textDecoration: "none" }}
-                              >
-                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                  <span style={{ fontWeight: 600, color: "#fff" }}>
-                                    {h.ticker || "—"}
-                                  </span>
-                                  {h.ticker && multiGuruTickers.has(h.ticker.toUpperCase()) && (
-                                    <span style={{
-                                      padding: "1px 5px",
-                                      borderRadius: 3,
-                                      fontSize: 9,
-                                      fontWeight: 600,
-                                      background: "#1e3a5f",
-                                      color: "#93c5fd",
-                                      whiteSpace: "nowrap",
-                                    }}>
-                                      MULTI-GURU
-                                    </span>
-                                  )}
-                                </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                {hasTicker ? (
+                                  <span style={{ fontWeight: 600, color: "#fff" }}>{h.ticker}</span>
+                                ) : (
+                                  <span style={{ fontWeight: 600, color: "#fff" }}>{h.company}</span>
+                                )}
+                                {h.putCall === "PUT" && (
+                                  <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 600, background: "#7f1d1d", color: "#fca5a5" }}>PUT</span>
+                                )}
+                                {h.putCall === "CALL" && (
+                                  <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 600, background: "#14532d", color: "#86efac" }}>CALL</span>
+                                )}
+                              </div>
+                              {hasTicker && (
                                 <div style={{ fontSize: 11, color: "#888", marginTop: 1 }}>{h.company}</div>
-                              </a>
+                              )}
                             </td>
                             <td style={{ padding: "10px 16px", textAlign: "right", color: "#ccc" }}>
                               {formatShares(h.shares)}
@@ -691,16 +487,9 @@ export default function GurusPage() {
                                 <WeightBar weight={h.weight} color={meta.accent} />
                               </div>
                             </td>
-                            <td style={{ padding: "10px 16px", textAlign: "center" }}>
-                              <a
-                                href={`/ideas?ticker=${encodeURIComponent(h.ticker || h.company)}`}
-                                style={{ fontSize: 11, color: meta.accent, textDecoration: "none", opacity: 0.7 }}
-                              >
-                                {"→"}
-                              </a>
-                            </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
+import { getYahooCache, setYahooCache } from "@/lib/yahooQuoteCache";
 
 export const runtime = "nodejs";
 
@@ -40,6 +41,9 @@ const MARKET_SYMBOLS: Omit<MarketItem, "value" | "changePct">[] = [
   { type: "CRYPTO", label: "Ethereum", symbol: "ETH-USD" },
   // Bonds
   { type: "BOND", label: "US 10Y", symbol: "^TNX" },
+  // Volatility
+  { type: "INDEX", label: "VIX", symbol: "^VIX" },
+  { type: "FX", label: "DXY", symbol: "DX-Y.NYB" },
 ];
 
 // ── Cache ───────────────────────────────────────────────────
@@ -56,6 +60,8 @@ let marketCache: Cache<MarketItem[]> | null = null;
 // ── Yahoo Finance fetcher ───────────────────────────────────
 
 async function fetchYahooQuote(symbol: string): Promise<{ price: number; changePct: number } | null> {
+  const cached = getYahooCache(symbol);
+  if (cached) return cached;
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
     const res = await fetchWithTimeout(url, {
@@ -75,6 +81,8 @@ async function fetchYahooQuote(symbol: string): Promise<{ price: number; changeP
       ? ((price - prevClose) / prevClose) * 100
       : 0;
 
+    const change = prevClose ? price - prevClose : 0;
+    setYahooCache(symbol, price, change, changePct);
     return { price, changePct };
   } catch {
     return null;

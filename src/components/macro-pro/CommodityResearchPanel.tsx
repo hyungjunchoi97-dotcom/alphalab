@@ -80,9 +80,9 @@ export default function CommodityResearchPanel({
         onClick={toggleCollapse}
         style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}
       >
-        <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: "#6b7280" }}>
+        <h3 className="text-base font-semibold text-white border-l-2 border-yellow-500 pl-2">
           {tx.structuralAnalysis}
-        </span>
+        </h3>
         <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: "#4b5563" }}>
           {collapsed ? tx.expand : tx.collapse}
         </span>
@@ -94,13 +94,13 @@ export default function CommodityResearchPanel({
           {sections.map((s, i) => (
             <div
               key={i}
-              className="grid grid-cols-[160px_1fr] gap-4 py-4"
-              style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+              className="grid grid-cols-[140px_1fr] gap-4 items-start py-3"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}
             >
-              <span className="text-[10px] uppercase tracking-widest font-mono pt-0.5" style={{ color: "#6b7280" }}>
+              <span className="text-sm font-semibold text-yellow-400">
                 {s.label}
               </span>
-              <p className="text-sm leading-relaxed" style={{ color: "#d1d5db" }}>
+              <p className="text-sm text-gray-100 leading-relaxed">
                 {s.text}
               </p>
             </div>

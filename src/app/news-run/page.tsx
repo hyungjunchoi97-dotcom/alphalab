@@ -160,12 +160,6 @@ function fmtPrice(v: number, digits = 2) {
   return v.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
-function chgColor(v: number) {
-  if (v > 0) return "text-green-400";
-  if (v < 0) return "text-red-400";
-  return "text-[#666]";
-}
-
 function fgColor(rating: string) {
   const r = rating.toLowerCase();
   if (r.includes("extreme fear")) return "text-red-500";
@@ -175,95 +169,75 @@ function fgColor(rating: string) {
   return "text-[#999]";
 }
 
-function SnapshotRow({ label, item, digits = 2 }: { label: string; item: SnapshotItem | null; digits?: number }) {
+
+function SidebarMarketRow({ label, item, digits = 2 }: { label: string; item: LiveMarketItem | null; digits?: number }) {
   if (!item) return (
-    <div className="flex items-center justify-between py-1">
-      <span className="text-[9px] text-[#555]">{label}</span>
-      <span className="text-[10px] font-mono text-[#444]">—</span>
+    <div className="flex items-center justify-between py-2 border-b border-gray-800">
+      <span className="text-xs text-gray-400">{label}</span>
+      <span className="text-sm font-mono text-gray-600">—</span>
     </div>
   );
+  const pos = item.changePct >= 0;
   return (
-    <div className="flex items-center justify-between py-1">
-      <span className="text-[9px] text-[#555]">{label}</span>
+    <div className="flex items-center justify-between py-2 border-b border-gray-800">
+      <span className="text-xs text-gray-400">{label}</span>
       <div className="flex items-baseline gap-1.5">
-        <span className="text-[11px] font-mono text-white">{fmtPrice(item.price, digits)}</span>
-        <span className={`text-[10px] font-mono ${chgColor(item.change)}`}>
-          {item.change > 0 ? "+" : ""}{item.change.toFixed(2)}%
+        <span className="text-sm font-mono text-white">{fmtPrice(item.price, digits)}</span>
+        <span className={`text-[10px] font-mono ${pos ? "text-green-400" : "text-red-400"}`}>
+          {pos ? "+" : ""}{item.changePct.toFixed(2)}%
         </span>
       </div>
     </div>
   );
 }
 
-function SnapshotSidebar({ snapshot }: { snapshot: MarketSnapshot }) {
+function LiveMarketSidebar({ data }: { data: LiveMarket }) {
+  const fgScore = data.fearGreed.score;
+  const fgRat = data.fearGreed.rating;
+  const fgPositive = fgScore > 50;
   return (
     <div className="border-t border-white/10 pt-4 mt-4">
-      <p className="text-[9px] font-mono uppercase tracking-widest text-[#555] mb-2">Market</p>
+      <p className="text-xs text-gray-500 uppercase tracking-widest mb-2 font-semibold">Market</p>
       <div>
-        <SnapshotRow label="S&P 500" item={snapshot.sp500} />
-        <SnapshotRow label="NASDAQ" item={snapshot.nasdaq} />
-        <SnapshotRow label="USD/KRW" item={snapshot.usdkrw} />
-        <SnapshotRow label="DXY" item={snapshot.dxy} />
-        <SnapshotRow label="GOLD" item={snapshot.gold} />
-        <SnapshotRow label="SILVER" item={snapshot.silver} />
-        <SnapshotRow label="WTI" item={snapshot.oil} />
-        <SnapshotRow label="BTC" item={snapshot.btc} digits={0} />
-        <SnapshotRow label="ETH" item={snapshot.eth} digits={0} />
+        <SidebarMarketRow label="S&P 500" item={data.sp500} />
+        <SidebarMarketRow label="NASDAQ" item={data.nasdaq} />
+        <SidebarMarketRow label="USD/KRW" item={data.usdkrw} />
+        <SidebarMarketRow label="DXY" item={data.dxy} />
+        <SidebarMarketRow label="GOLD" item={data.gold} />
+        <SidebarMarketRow label="SILVER" item={data.silver} />
+        <SidebarMarketRow label="WTI" item={data.wti} />
+        <SidebarMarketRow label="BTC" item={data.btc} digits={0} />
+        <SidebarMarketRow label="ETH" item={data.eth} digits={0} />
         {/* Fear & Greed */}
-        <div className="flex items-center justify-between py-1 mt-1 border-t border-white/[0.06] pt-2">
-          <span className="text-[9px] text-[#555]">Fear & Greed</span>
-          <span className={`text-[11px] font-mono font-bold ${fgColor(snapshot.fearGreed.rating)}`}>
-            {snapshot.fearGreed.value || "—"}
-          </span>
+        <div className="flex items-center justify-between py-2">
+          <span className="text-xs text-gray-400">Fear & Greed</span>
+          <div className="flex items-center gap-1.5">
+            <span className={`text-sm font-mono font-bold ${fgPositive ? "text-green-400" : "text-red-400"}`}>
+              {fgScore || "—"}
+            </span>
+            {fgRat && (
+              <span className={`rounded px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase ${
+                fgPositive ? "bg-green-400/10 text-green-400" : "bg-red-400/10 text-red-400"
+              }`}>
+                {fgRat}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Live Market Bar ──────────────────────────────────────────
-
-function LiveMarketTicker({ label, item }: { label: string; item: LiveMarketItem | null }) {
-  if (!item) return null;
-  const pos = item.changePct >= 0;
-  return (
-    <div className="flex items-baseline gap-1.5 shrink-0">
-      <span className="text-[9px] text-[#555] uppercase">{label}</span>
-      <span className="text-[11px] font-mono text-white">{item.price.toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>
-      <span className={`text-[10px] font-mono ${pos ? "text-emerald-400" : "text-red-400"}`}>
-        {pos ? "+" : ""}{item.changePct.toFixed(2)}%
-      </span>
-    </div>
-  );
-}
-
-function LiveMarketBar({ data }: { data: LiveMarket }) {
-  return (
-    <div className="mb-6 rounded border border-white/[0.08] bg-white/[0.015] px-4 py-2.5 overflow-x-auto">
-      <div className="flex items-center gap-5 min-w-max">
-        <LiveMarketTicker label="S&P 500" item={data.sp500} />
-        <LiveMarketTicker label="NASDAQ" item={data.nasdaq} />
-        <LiveMarketTicker label="USD/KRW" item={data.usdkrw} />
-        <LiveMarketTicker label="DXY" item={data.dxy} />
-        <LiveMarketTicker label="GOLD" item={data.gold} />
-        <LiveMarketTicker label="SILVER" item={data.silver} />
-        <LiveMarketTicker label="WTI" item={data.wti} />
-        <LiveMarketTicker label="BTC" item={data.btc} />
-        <LiveMarketTicker label="ETH" item={data.eth} />
-        {data.fearGreed.score > 0 && (
-          <div className="flex items-baseline gap-1.5 shrink-0 border-l border-white/[0.08] pl-5">
-            <span className="text-[9px] text-[#555] uppercase">F&G</span>
-            <span className={`text-[11px] font-mono font-bold ${fgColor(data.fearGreed.rating)}`}>
-              {data.fearGreed.score}
-            </span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ── Component ──────────────────────────────────────────────────
+
+// KST today string
+function todayKST(): string {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
+}
 
 export default function NewsRunPage() {
   const [dates, setDates] = useState<string[]>([]);
@@ -272,10 +246,11 @@ export default function NewsRunPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
-  const [snapshot, setSnapshot] = useState<MarketSnapshot | null>(null);
   const [liveMarket, setLiveMarket] = useState<LiveMarket | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [todayExists, setTodayExists] = useState(true);
 
-  // Fetch dates on mount
+  // Fetch dates on mount → default to today (KST)
   useEffect(() => {
     (async () => {
       try {
@@ -283,27 +258,22 @@ export default function NewsRunPage() {
         const json = await res.json();
         const list: string[] = Array.isArray(json?.dates) ? json.dates : [];
         setDates(list);
-        if (list.length > 0) setSelected(list[0]);
+        const today = todayKST();
+        if (list.includes(today)) {
+          setSelected(today);
+          setTodayExists(true);
+        } else {
+          setTodayExists(false);
+          // Select today anyway so the user can generate, or fall back to latest
+          setSelected(today);
+        }
       } catch {
         /* noop */
       }
     })();
   }, []);
 
-  // Fetch live market snapshot on mount (sidebar)
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/market-snapshot");
-        const json = await res.json();
-        if (json?.ok && json.snapshot) setSnapshot(json.snapshot);
-      } catch {
-        /* noop */
-      }
-    })();
-  }, []);
-
-  // Fetch live market bar (auto-refresh every 5 min)
+  // Fetch live market (sidebar + top bar), auto-refresh every 5 min
   useEffect(() => {
     const fetchLive = async () => {
       try {
@@ -323,16 +293,26 @@ export default function NewsRunPage() {
   const fetchReport = useCallback(async (date: string) => {
     setLoading(true);
     setError(null);
+    setReport(null);
     try {
       const res = await fetch(`/api/news-run?date=${date}`);
       const json = await res.json();
       if (json?.ok) {
-        setReport(normalize(json));
+        const normalized = normalize(json);
+        setReport(normalized);
+        // Check if this is an empty/placeholder response
+        const today = todayKST();
+        if (date === today) {
+          const hasContent = (normalized.keyIssues?.length ?? 0) > 0 ||
+            (normalized.securities?.length ?? 0) > 0 ||
+            (normalized.realEstate?.length ?? 0) > 0;
+          setTodayExists(hasContent);
+        }
       } else {
-        setError(json?.error || "브리핑을 불러올 수 없습니다");
+        setError("브리핑을 불러올 수 없습니다");
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "네트워크 오류");
+    } catch {
+      setError("네트워크 오류가 발생했습니다");
     } finally {
       setLoading(false);
     }
@@ -342,31 +322,69 @@ export default function NewsRunPage() {
     if (selected) fetchReport(selected);
   }, [selected, fetchReport]);
 
+  // Generate today's brief
+  const handleGenerate = useCallback(async () => {
+    const today = todayKST();
+    setGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/news-run?date=${today}&refresh=true`);
+      const json = await res.json();
+      if (json?.ok) {
+        setReport(normalize(json));
+        setTodayExists(true);
+        setSelected(today);
+        // Add today to dates list if not there
+        setDates((prev) => prev.includes(today) ? prev : [today, ...prev]);
+      } else {
+        setError("브리핑 생성에 실패했습니다");
+      }
+    } catch {
+      setError("네트워크 오류가 발생했습니다");
+    } finally {
+      setGenerating(false);
+    }
+  }, []);
+
   const ki = report?.keyIssues ?? [];
   const sec = report?.securities ?? [];
   const re = report?.realEstate ?? [];
   const hasData = ki.length > 0 || sec.length > 0 || re.length > 0;
 
   // ── Date list (shared) ──
+  const today = todayKST();
+  const displayDates = dates.includes(today) ? dates : [today, ...dates];
+
   const dateList = (
     <div className="space-y-0.5">
-      {dates.map((d) => (
-        <button
-          key={d}
-          onClick={() => { setSelected(d); setArchiveOpen(false); }}
-          className={`flex w-full items-center justify-between rounded px-3 py-2 text-left text-xs font-mono transition-colors ${
-            d === selected
-              ? "border-l-2 border-[#f59e0b] bg-white/[0.03] pl-2.5 text-[#f59e0b] font-medium"
-              : "text-[#666] hover:bg-white/[0.03] hover:text-white"
-          }`}
-        >
-          <span>{fmtShort(d)}</span>
-          <svg className="h-3 w-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      ))}
-      {dates.length === 0 && (
+      {displayDates.map((d) => {
+        const isToday = d === today;
+        const inArchive = dates.includes(d);
+        return (
+          <button
+            key={d}
+            onClick={() => { setSelected(d); setArchiveOpen(false); }}
+            className={`flex w-full items-center justify-between rounded px-3 py-2 text-left text-xs font-mono transition-colors ${
+              d === selected
+                ? "border-l-2 border-[#f59e0b] bg-white/[0.03] pl-2.5 text-[#f59e0b] font-medium"
+                : "text-[#666] hover:bg-white/[0.03] hover:text-white"
+            }`}
+          >
+            <span>
+              {fmtShort(d)}
+              {isToday && <span className="ml-1.5 text-[8px] text-[#f59e0b]/60">TODAY</span>}
+            </span>
+            {!inArchive && isToday ? (
+              <span className="text-[8px] text-[#555]">NEW</span>
+            ) : (
+              <svg className="h-3 w-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            )}
+          </button>
+        );
+      })}
+      {displayDates.length === 0 && (
         <p className="px-3 py-4 text-[10px] font-mono text-[#444]">브리핑 없음</p>
       )}
     </div>
@@ -379,19 +397,54 @@ export default function NewsRunPage() {
 
       {!loading && error && (
         <div className="flex items-center justify-center py-20">
-          <p className="text-xs text-red-400/80 font-mono">{error}</p>
+          <div className="rounded border border-white/[0.06] bg-white/[0.02] px-8 py-6 text-center max-w-md">
+            <p className="text-sm text-[#888] font-mono leading-relaxed">
+              오늘의 브리핑을 불러올 수 없습니다.
+            </p>
+            <p className="text-sm text-[#888] font-mono leading-relaxed">
+              잠시 후 다시 시도해주세요.
+            </p>
+            <button
+              onClick={() => { if (selected) fetchReport(selected); }}
+              className="mt-4 rounded border border-white/[0.08] bg-white/[0.03] px-4 py-1.5 text-xs font-mono text-[#888] hover:text-white hover:bg-white/[0.06] transition-colors"
+            >
+              다시 시도
+            </button>
+          </div>
         </div>
       )}
 
       {!loading && !error && report && !hasData && (
-        <div className="flex items-center justify-center py-20">
-          <p className="text-sm text-[#555] font-mono">오늘의 브리핑을 준비 중입니다</p>
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <p className="text-sm text-[#555] font-mono">
+            {selected === todayKST() ? "오늘의 브리핑이 아직 생성되지 않았습니다" : "해당 날짜의 브리핑이 없습니다"}
+          </p>
+          {selected === todayKST() && !todayExists && (
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="rounded border border-[#f59e0b]/40 bg-[#f59e0b]/10 px-5 py-2.5 text-sm font-mono font-medium text-[#f59e0b] hover:bg-[#f59e0b]/20 transition-colors disabled:opacity-40"
+            >
+              {generating ? "생성 중..." : "브리프 생성"}
+            </button>
+          )}
         </div>
       )}
 
-      {!loading && !error && !report && dates.length === 0 && (
-        <div className="flex items-center justify-center py-20">
-          <p className="text-sm text-[#555] font-mono">아직 생성된 브리핑이 없습니다</p>
+      {!loading && !error && !report && (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <p className="text-sm text-[#555] font-mono">
+            {dates.length === 0 ? "아직 생성된 브리핑이 없습니다" : "브리핑을 불러올 수 없습니다"}
+          </p>
+          {selected === todayKST() && !todayExists && (
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="rounded border border-[#f59e0b]/40 bg-[#f59e0b]/10 px-5 py-2.5 text-sm font-mono font-medium text-[#f59e0b] hover:bg-[#f59e0b]/20 transition-colors disabled:opacity-40"
+            >
+              {generating ? "생성 중..." : "브리프 생성"}
+            </button>
+          )}
         </div>
       )}
 
@@ -539,7 +592,6 @@ export default function NewsRunPage() {
       <AppHeader active="newsRun" />
 
       <div className="mx-auto max-w-[1100px] px-4 py-8">
-        {liveMarket && <LiveMarketBar data={liveMarket} />}
         <div className="flex gap-8">
           {/* Sidebar — desktop only */}
           <aside className="hidden lg:block w-48 shrink-0">
@@ -548,7 +600,7 @@ export default function NewsRunPage() {
                 Archive
               </p>
               {dateList}
-              {snapshot && <SnapshotSidebar snapshot={snapshot} />}
+              {liveMarket && <LiveMarketSidebar data={liveMarket} />}
             </div>
           </aside>
 
