@@ -76,6 +76,7 @@ interface LandmarkTrade {
   area: number;
   price: number;
   priceInBillion: number;
+  aptName: string;
 }
 
 interface LandmarkResult {
@@ -153,6 +154,7 @@ export async function GET(request: NextRequest) {
             area: parseFloat(String(item.excluUseAr ?? "0")) || 0,
             price,
             priceInBillion: Math.round(price / 1000) / 10,
+            aptName: String(item.aptNm ?? "").trim(),
           };
         })
         .filter((t): t is LandmarkTrade => t !== null)
