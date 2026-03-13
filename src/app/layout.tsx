@@ -3,6 +3,7 @@ import { Inter, Geist_Mono, Noto_Sans_KR, Rajdhani, JetBrains_Mono } from "next/
 import { LangProvider } from "@/lib/LangContext";
 import { AuthProvider } from "@/context/AuthContext";
 import AuthModal from "@/components/AuthModal";
+import Script from "next/script";
 import "./globals.css";
 
 const inter = Inter({
@@ -62,6 +63,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <Script async src="https://www.googletagmanager.com/gtag/js?id=G-QYC0DL6BE5" strategy="afterInteractive" />
+        <Script id="gtag-init" strategy="afterInteractive">{`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-QYC0DL6BE5');
+        `}</Script>
+      </head>
       <body
         className={`${inter.variable} ${geistMono.variable} ${notoSansKR.variable} ${rajdhani.variable} ${jetbrainsMono.variable} antialiased`}
       >
