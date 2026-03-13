@@ -11,8 +11,10 @@ const ENDPOINT_STD = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTM
 const CACHE_KEY = "realestate_landmarks_v1";
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
-const LANDMARKS = [
-  { district: "강남구", code: "11680", keywords: ["압구정", "래미안대치팰리스", "도곡렉슬"] },
+type KeywordRule = string | { include: string; exclude?: string; label: string };
+
+const LANDMARKS: { district: string; code: string; keywords: KeywordRule[] }[] = [
+  { district: "강남구", code: "11680", keywords: [{ include: "현대", exclude: "신현대", label: "압구정현대" }, "래미안대치팰리스", "도곡렉슬"] },
   { district: "서초구", code: "11650", keywords: ["아크로리버파크", "래미안퍼스티지", "래미안서초에스티지S"] },
   { district: "송파구", code: "11710", keywords: ["잠실엘스", "헬리오시티", "파크리오", "갤러리아팰리스"] },
   { district: "용산구", code: "11170", keywords: ["용산파크타워", "한남더힐"] },
@@ -134,11 +136,17 @@ export async function GET(request: NextRequest) {
   const landmarks: LandmarkResult[] = [];
 
   for (const { district, code, keywords } of LANDMARKS) {
-    for (const keyword of keywords) {
+    for (const rule of keywords) {
+      const isObj = typeof rule === "object";
+      const includeStr = isObj ? rule.include : rule;
+      const excludeStr = isObj ? rule.exclude : undefined;
+      const label = isObj ? rule.label : rule;
       const items = districtItems[code] ?? [];
       const matched = items.filter(item => {
         const aptName = String(item.aptNm ?? "").trim();
-        return aptName.includes(keyword);
+        if (!aptName.includes(includeStr)) return false;
+        if (excludeStr && aptName.includes(excludeStr)) return false;
+        return true;
       });
 
       const trades: LandmarkTrade[] = matched
@@ -160,7 +168,7 @@ export async function GET(request: NextRequest) {
         .filter((t): t is LandmarkTrade => t !== null)
         .sort((a, b) => b.date.localeCompare(a.date) || b.price - a.price);
 
-      landmarks.push({ name: keyword, district, trades });
+      landmarks.push({ name: label, district, trades });
     }
   }
 
