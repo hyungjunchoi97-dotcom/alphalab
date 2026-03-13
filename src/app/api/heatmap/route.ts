@@ -232,7 +232,7 @@ export async function GET(req: NextRequest) {
     else jpCache = entry;
 
     return NextResponse.json({ ok: true, sectors, asOf: entry.asOf, source: "live" }, {
-      headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" },
+      headers: { "Cache-Control": "no-store, no-cache" },
     });
   } catch (err) {
     // Return stale cache on error

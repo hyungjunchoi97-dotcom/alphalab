@@ -128,7 +128,7 @@ export async function GET() {
       market,
       asOf: new Date().toISOString(),
     }, {
-      headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" },
+      headers: { "Cache-Control": "no-store, no-cache" },
     });
   } catch (err) {
     return NextResponse.json({
