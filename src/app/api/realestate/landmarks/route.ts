@@ -12,11 +12,11 @@ const CACHE_KEY = "realestate_landmarks_v1";
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 const LANDMARKS = [
-  { district: "강남구", code: "11680", keywords: ["압구정현대", "래미안대치팰리스", "도곡렉슬"] },
-  { district: "서초구", code: "11650", keywords: ["아크로리버파크", "반포래미안퍼스티지", "래미안서초에스티지S"] },
+  { district: "강남구", code: "11680", keywords: ["압구정", "래미안대치팰리스", "도곡렉슬"] },
+  { district: "서초구", code: "11650", keywords: ["아크로리버파크", "래미안퍼스티지", "래미안서초에스티지S"] },
   { district: "송파구", code: "11710", keywords: ["잠실엘스", "헬리오시티", "파크리오"] },
   { district: "용산구", code: "11170", keywords: ["용산파크타워", "한남더힐"] },
-  { district: "성동구", code: "11200", keywords: ["트리마제", "갤러리아포레"] },
+  { district: "성동구", code: "11200", keywords: ["트리마제", "갤러리아팰리스"] },
   { district: "마포구", code: "11440", keywords: ["마포래미안푸르지오", "마포그랑자이"] },
 ];
 
