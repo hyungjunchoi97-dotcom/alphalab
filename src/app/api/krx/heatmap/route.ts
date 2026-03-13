@@ -108,7 +108,7 @@ async function fetchYahooQuote(ticker: string): Promise<{ price: number; chg: nu
     if (!meta) return null;
 
     const price = meta.regularMarketPrice || 0;
-    const prevClose = meta.previousClose || meta.chartPreviousClose || price;
+    const prevClose = meta.regularMarketPreviousClose || meta.previousClose || meta.chartPreviousClose || price;
     const chg = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
 
     return { price, chg: Math.round(chg * 100) / 100 };

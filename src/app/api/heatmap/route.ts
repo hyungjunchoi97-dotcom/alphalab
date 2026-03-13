@@ -146,7 +146,7 @@ async function fetchYahooQuote(symbol: string): Promise<{ price: number; changeP
     const price = meta?.regularMarketPrice;
     if (price == null) return null;
 
-    const prevClose = meta?.chartPreviousClose ?? meta?.previousClose;
+    const prevClose = meta?.regularMarketPreviousClose ?? meta?.chartPreviousClose ?? meta?.previousClose;
     const changePct = prevClose && prevClose > 0
       ? ((price - prevClose) / prevClose) * 100
       : 0;
