@@ -6,6 +6,7 @@ import SeoulMap from "./SeoulMap";
 import type { DistrictData } from "./SeoulMap";
 import PriceChart from "./PriceChart";
 import TransactionTable from "./TransactionTable";
+import LandmarkView from "./LandmarkView";
 
 interface Trade {
   date: string;
@@ -40,19 +41,7 @@ interface NewsItem {
   publishedAt: string;
 }
 
-interface LandmarkTrade {
-  date: string;
-  floor: number;
-  area: number;
-  price: number;
-  priceInBillion: number;
-}
-
-interface Landmark {
-  name: string;
-  district: string;
-  trades: LandmarkTrade[];
-}
+type TabKey = "trades" | "landmarks";
 
 function getMonthOptions() {
   const opts: { label: string; value: string }[] = [];
@@ -284,8 +273,7 @@ export default function RealEstateClient() {
   const [newsLoading, setNewsLoading] = useState(false);
   const newsFetchedRef = useRef<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(50);
-  const [landmarks, setLandmarks] = useState<Landmark[]>([]);
-  const [landmarksLoading, setLandmarksLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabKey>("trades");
 
   const sectionHeaderStyle: CSSProperties = {
     display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -351,16 +339,6 @@ export default function RealEstateClient() {
       .catch(() => {})
       .finally(() => setNewsLoading(false));
   }, [selectedDistrict]);
-
-  // Fetch landmarks once on mount
-  useEffect(() => {
-    setLandmarksLoading(true);
-    fetch("/api/realestate/landmarks")
-      .then(r => r.json())
-      .then(j => { if (j.ok) setLandmarks(j.landmarks ?? []); })
-      .catch(() => {})
-      .finally(() => setLandmarksLoading(false));
-  }, []);
 
   // Derived
   const districts = data?.districts ?? [];
@@ -442,9 +420,38 @@ export default function RealEstateClient() {
             </div>
           )}
 
+          {/* ── Tab navigation ── */}
+          <div style={{
+            display: "flex", gap: 0, borderBottom: "1px solid #1e1e1e",
+            background: "#111111", flexShrink: 0,
+          }}>
+            {([
+              { key: "trades" as TabKey, label: "실거래 현황" },
+              { key: "landmarks" as TabKey, label: "랜드마크" },
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  ...S, fontSize: 12, fontWeight: 600, padding: "8px 20px",
+                  cursor: "pointer", background: "transparent", border: "none",
+                  borderBottom: activeTab === tab.key ? "2px solid #f59e0b" : "2px solid transparent",
+                  color: activeTab === tab.key ? "#f59e0b" : "#555",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {/* ── Scrollable body ── */}
           <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
 
+            {activeTab === "landmarks" ? (
+              <LandmarkView />
+            ) : (
+            <>
             {/* [1] Map + Stats */}
             <div style={{ display: "flex", height: 600, borderBottom: "1px solid #1e1e1e" }}>
 
@@ -568,67 +575,6 @@ export default function RealEstateClient() {
               </div>
             )}
 
-            {/* [2.7] Landmark apartments */}
-            <div style={{ borderBottom: "1px solid #1e1e1e", background: "#0d0d0d" }}>
-              <div style={sectionHeaderStyle}>
-                <span style={{ ...sectionTitleStyle, fontSize: 12 }}>랜드마크 아파트 실거래</span>
-              </div>
-              {landmarksLoading ? (
-                <div style={{ padding: "20px 14px", ...S, fontSize: 10, color: "#333" }}>LOADING LANDMARKS…</div>
-              ) : landmarks.length > 0 ? (
-                <div style={{ padding: "0 14px 14px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-                  {landmarks.map(lm => {
-                    const latest = lm.trades[0];
-                    const recent5 = lm.trades.slice(0, 5);
-                    return (
-                      <div key={`${lm.district}-${lm.name}`} style={{
-                        background: "#0e0e0e", border: "1px solid #1e1e1e", padding: 12,
-                      }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-                          <div>
-                            <div style={{ fontSize: 13, fontFamily: "'IBM Plex Sans KR', sans-serif", fontWeight: 600, color: "#f59e0b" }}>
-                              {lm.name}
-                            </div>
-                            <div style={{ fontSize: 10, ...S, color: "#555", marginTop: 1 }}>{lm.district}</div>
-                          </div>
-                          {latest && (
-                            <div style={{ fontSize: 14, ...S, fontWeight: 700, color: "#e0e0e0" }}>
-                              {latest.priceInBillion}억
-                            </div>
-                          )}
-                        </div>
-                        {recent5.length > 0 ? (
-                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10, ...S }}>
-                            <thead>
-                              <tr style={{ borderBottom: "1px solid #1e1e1e" }}>
-                                {["날짜", "면적", "층", "가격"].map(h => (
-                                  <th key={h} style={{ padding: "3px 4px", color: "#444", fontWeight: 400, textAlign: h === "가격" ? "right" : "left" }}>{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {recent5.map((t, i) => (
-                                <tr key={i} style={{ borderBottom: "1px solid #141414" }}>
-                                  <td style={{ padding: "3px 4px", color: "#888" }}>{t.date}</td>
-                                  <td style={{ padding: "3px 4px", color: "#888" }}>{t.area.toFixed(0)}㎡</td>
-                                  <td style={{ padding: "3px 4px", color: "#888" }}>{t.floor}F</td>
-                                  <td style={{ padding: "3px 4px", color: "#e0e0e0", fontWeight: 600, textAlign: "right" }}>{t.priceInBillion}억</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        ) : (
-                          <div style={{ fontSize: 10, ...S, color: "#333", padding: "8px 0" }}>거래 내역 없음</div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={{ padding: "20px 14px", ...S, fontSize: 10, color: "#333" }}>랜드마크 데이터 없음</div>
-              )}
-            </div>
-
             {/* [3] District ranking */}
             {!loading && sortedByPrice.length > 0 && (
               <div style={{ borderBottom: "1px solid #1e1e1e", background: "#0d0d0d" }}>
@@ -706,6 +652,9 @@ export default function RealEstateClient() {
                 </div>
               )}
             </div>
+
+            </>
+            )}
 
           </div>
         </main>
