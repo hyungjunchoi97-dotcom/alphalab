@@ -86,6 +86,14 @@ export default function PriceChart({ months, districts, districtVolumes, selecte
       for (const name of districtNames) {
         row[name] = districtVolumes[name]?.[i] ?? null;
       }
+      // Aggregated total for "전체" mode
+      let total = 0;
+      let hasAny = false;
+      for (const name of districtNames) {
+        const v = districtVolumes[name]?.[i];
+        if (v != null) { total += v; hasAny = true; }
+      }
+      row["서울 전체"] = hasAny ? total : null;
       return row;
     }),
     [months, districtNames, districtVolumes]
@@ -246,25 +254,38 @@ export default function PriceChart({ months, districts, districtVolumes, selecte
                   width={40}
                 />
                 <Tooltip content={<ChartTooltip unit="건" />} />
-                {activeNames.map(name => {
-                  const isHighlit = name === highlighted;
-                  const color = DISTRICT_COLORS[name] ?? "#666";
-                  return (
-                    <Line
-                      key={name}
-                      type="monotone"
-                      dataKey={name}
-                      stroke={color}
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: isHighlit ? 4 : 2, fill: color }}
-                      opacity={1}
-                      connectNulls
-                      onClick={() => onSelect(name)}
-                      style={{ cursor: "pointer" }}
-                    />
-                  );
-                })}
+                {pinned.size === 0 ? (
+                  <Line
+                    key="서울 전체"
+                    type="monotone"
+                    dataKey="서울 전체"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 3, fill: "#f59e0b" }}
+                    connectNulls
+                  />
+                ) : (
+                  activeNames.map(name => {
+                    const isHighlit = name === highlighted;
+                    const color = DISTRICT_COLORS[name] ?? "#666";
+                    return (
+                      <Line
+                        key={name}
+                        type="monotone"
+                        dataKey={name}
+                        stroke={color}
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: isHighlit ? 4 : 2, fill: color }}
+                        opacity={1}
+                        connectNulls
+                        onClick={() => onSelect(name)}
+                        style={{ cursor: "pointer" }}
+                      />
+                    );
+                  })
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>
