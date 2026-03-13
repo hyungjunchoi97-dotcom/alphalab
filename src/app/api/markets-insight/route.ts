@@ -65,15 +65,13 @@ async function fetchYahooQuotes(symbols: string[]): Promise<YahooQuote[]> {
         const json = await res.json();
         const meta = json?.chart?.result?.[0]?.meta;
         const price = meta?.regularMarketPrice;
-        const prevClose = meta?.chartPreviousClose ?? meta?.previousClose;
+        const prevClose = meta?.chartPreviousClose ?? meta?.regularMarketPreviousClose ?? meta?.previousClose;
 
         if (typeof price === "number" && isFinite(price)) {
-          const chg =
-            typeof prevClose === "number" ? price - prevClose : null;
-          const chgPct =
-            chg !== null && prevClose > 0
-              ? (chg / prevClose) * 100
-              : null;
+          const chg = typeof prevClose === "number" ? price - prevClose : null;
+          const chgPct = meta?.regularMarketChangePercent != null
+            ? meta.regularMarketChangePercent
+            : (chg !== null && prevClose > 0 ? (chg / prevClose) * 100 : null);
           results.push({
             symbol,
             price: Math.round(price * 100) / 100,
