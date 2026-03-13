@@ -22,6 +22,12 @@ interface Landmark {
 
 const S: React.CSSProperties = { fontFamily: "'IBM Plex Mono', monospace" };
 const DISTRICT_ORDER = ["강남구", "서초구", "송파구", "용산구", "성동구", "마포구"];
+const PERIODS = [
+  { label: "6M", range: 6 },
+  { label: "1Y", range: 12 },
+  { label: "2Y", range: 24 },
+  { label: "3Y", range: 36 },
+] as const;
 
 function toPyeong(sqm: number): number {
   return Math.round(sqm * 0.3025);
@@ -190,17 +196,20 @@ function LandmarkCard({ lm }: { lm: Landmark }) {
 export default function LandmarkView() {
   const [landmarks, setLandmarks] = useState<Landmark[]>([]);
   const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState(12);
 
-  const fetchLandmarks = (refresh = false) => {
+  const fetchLandmarks = (r: number, refresh = false) => {
     setLoading(true);
-    fetch(`/api/realestate/landmarks${refresh ? "?refresh=true" : ""}`)
-      .then(r => r.json())
+    const params = new URLSearchParams({ range: String(r) });
+    if (refresh) params.set("refresh", "true");
+    fetch(`/api/realestate/landmarks?${params}`)
+      .then(res => res.json())
       .then(j => { if (j.ok) setLandmarks(j.landmarks ?? []); })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchLandmarks(); }, []);
+  useEffect(() => { fetchLandmarks(range); }, []);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Landmark[]>();
@@ -223,13 +232,29 @@ export default function LandmarkView() {
         <div style={{ ...S, fontSize: 12, fontWeight: 700, color: "#e0e0e0", letterSpacing: "0.08em", textTransform: "uppercase" }}>
           랜드마크 아파트 실거래
         </div>
-        <button
-          onClick={() => fetchLandmarks(true)}
-          disabled={loading}
-          style={{ ...S, background: "#161616", border: "1px solid #2a2a2a", color: "#3a3a3a", fontSize: 11, padding: "3px 10px", cursor: "pointer" }}
-        >
-          {loading ? "…" : "↻"}
-        </button>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          {PERIODS.map(({ label, range: r }) => (
+            <button
+              key={label}
+              onClick={() => { setRange(r); fetchLandmarks(r); }}
+              disabled={loading}
+              style={{
+                ...S, fontSize: 10, padding: "2px 8px", cursor: "pointer",
+                border: `1px solid ${range === r ? "#f59e0b60" : "#2a2a2a"}`,
+                background: range === r ? "#f59e0b18" : "#161616",
+                color: range === r ? "#f59e0b" : "#3a3a3a",
+                fontWeight: range === r ? 700 : 400,
+              }}
+            >{label}</button>
+          ))}
+          <button
+            onClick={() => fetchLandmarks(range, true)}
+            disabled={loading}
+            style={{ ...S, background: "#161616", border: "1px solid #2a2a2a", color: "#3a3a3a", fontSize: 11, padding: "2px 10px", cursor: "pointer", marginLeft: 4 }}
+          >
+            {loading ? "…" : "↻"}
+          </button>
+        </div>
       </div>
 
       {/* Loading skeleton */}

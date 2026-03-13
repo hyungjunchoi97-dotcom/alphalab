@@ -8,7 +8,6 @@ export const maxDuration = 60;
 const MOLIT_KEY = process.env.MOLIT_API_KEY ?? "";
 const ENDPOINT_DEV = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev";
 const ENDPOINT_STD = "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade";
-const CACHE_KEY = "realestate_landmarks_v1";
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 type KeywordRule = string | { include: string; exclude?: string; label: string };
@@ -88,14 +87,16 @@ interface LandmarkResult {
 }
 
 export async function GET(request: NextRequest) {
+  const range = Math.min(parseInt(request.nextUrl.searchParams.get("range") ?? "6", 10) || 6, 36);
   const forceRefresh = request.nextUrl.searchParams.get("refresh") === "true";
+  const cacheKey = `realestate_landmarks_v1_${range}`;
 
   if (!forceRefresh) {
     try {
       const { data: cached } = await supabaseAdmin
         .from("legend_screener_cache")
         .select("results, created_at")
-        .eq("cache_key", CACHE_KEY)
+        .eq("cache_key", cacheKey)
         .single();
       if (cached) {
         const age = Date.now() - new Date(cached.created_at).getTime();
@@ -106,7 +107,7 @@ export async function GET(request: NextRequest) {
     } catch { /* cache miss */ }
   }
 
-  const months = getMonths(6);
+  const months = getMonths(range);
 
   // Fetch all items per district across 6 months
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -175,9 +176,9 @@ export async function GET(request: NextRequest) {
   const payload = { landmarks };
 
   try {
-    await supabaseAdmin.from("legend_screener_cache").delete().eq("cache_key", CACHE_KEY);
+    await supabaseAdmin.from("legend_screener_cache").delete().eq("cache_key", cacheKey);
     await supabaseAdmin.from("legend_screener_cache").insert({
-      cache_key: CACHE_KEY,
+      cache_key: cacheKey,
       results: payload,
       created_at: new Date().toISOString(),
     });
