@@ -50,6 +50,15 @@ const GURUS = [
   // Activist
   { id: "ackman", name: "Bill Ackman", fund: "Pershing Square", cik: "0001336528" },
   { id: "griffin", name: "Ken Griffin", fund: "Citadel Advisors", cik: "0001423298" },
+  { id: "peltz", name: "Nelson Peltz", fund: "Trian Partners", cik: "0001418819" },
+  // Value (additional)
+  { id: "greenblatt", name: "Joel Greenblatt", fund: "Gotham Asset Management", cik: "0001418827" },
+  { id: "lilu", name: "Li Lu", fund: "Himalaya Capital", cik: "0001709283" },
+  { id: "spier", name: "Guy Spier", fund: "Aquamarine Fund", cik: "0001159159" },
+  // Growth/Tech (additional)
+  { id: "laffont", name: "Philippe Laffont", fund: "Coatue Management", cik: "0001336917" },
+  { id: "ainslie", name: "Lee Ainslie", fund: "Maverick Capital", cik: "0001061219" },
+  { id: "loeb", name: "Dan Loeb", fund: "Third Point", cik: "0001040273" },
 ];
 
 const SEC_HEADERS = {

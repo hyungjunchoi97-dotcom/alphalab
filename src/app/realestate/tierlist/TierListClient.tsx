@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   LineChart, Line, XAxis, YAxis,
   Tooltip, ResponsiveContainer,
@@ -222,35 +222,42 @@ function LandmarkCard({ lm, accentColor }: { lm: Landmark; accentColor: string }
 export default function TierListClient({ embedded = false }: { embedded?: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [landmarks, setLandmarks] = useState<Landmark[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [range, setRange] = useState(12);
-  const [fetchedRange, setFetchedRange] = useState<number | null>(null);
+  const [fetched, setFetched] = useState(false);
 
-  const fetchLandmarks = useCallback((r: number, force = false) => {
-    if (!force && fetchedRange === r) return;
+  useEffect(() => {
+    if (fetched) return;
     setLoading(true);
-    fetch(`/api/realestate/landmarks?range=${r}&refresh=true`)
+    fetch("/api/realestate/landmarks?range=60")
       .then(res => res.json())
-      .then(j => { if (j.ok) setLandmarks(j.landmarks ?? []); setFetchedRange(r); })
+      .then(j => { if (j.ok) setLandmarks(j.landmarks ?? []); setFetched(true); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [fetchedRange]);
+  }, [fetched]);
 
   const handleSelect = useCallback((district: string) => {
     if (!AVAILABLE_DISTRICTS.has(district)) return;
     setSelected(prev => prev === district ? null : district);
-    fetchLandmarks(range);
-  }, [fetchLandmarks, range]);
+  }, []);
 
-  const handleRangeChange = useCallback((r: number) => {
-    setRange(r);
-    fetchLandmarks(r);
-  }, [fetchLandmarks]);
+  const cutoffDate = useMemo(() => {
+    if (range >= 60) return null; // show all
+    const d = new Date();
+    d.setMonth(d.getMonth() - range);
+    return d.toISOString().slice(0, 10);
+  }, [range]);
 
   const filteredLandmarks = useMemo(() => {
     if (!selected) return [];
-    return landmarks.filter(lm => lm.district === selected);
-  }, [landmarks, selected]);
+    return landmarks
+      .filter(lm => lm.district === selected)
+      .map(lm => {
+        if (!cutoffDate) return lm;
+        const trades = lm.trades.filter(t => t.date >= cutoffDate);
+        return { ...lm, trades };
+      });
+  }, [landmarks, selected, cutoffDate]);
 
   const tierColor = selected ? TIER_COLORS[getTierForDistrict(selected)] : "#f59e0b";
 
@@ -349,7 +356,7 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
               ] as const).map(({ label, r }) => (
                 <button
                   key={label}
-                  onClick={() => handleRangeChange(r)}
+                  onClick={() => setRange(r)}
                   disabled={loading}
                   style={{
                     ...S, fontSize: 10, padding: "3px 10px", cursor: "pointer",

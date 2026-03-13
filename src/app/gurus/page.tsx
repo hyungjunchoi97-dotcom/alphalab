@@ -36,10 +36,10 @@ interface Category {
 }
 
 const CATEGORIES: Category[] = [
-  { id: "value", labelKr: "가치투자", labelEn: "Value", guruIds: ["berkshire", "pabrai", "burry", "einhorn", "klarman"], accent: "#60a5fa" },
+  { id: "value", labelKr: "가치투자", labelEn: "Value", guruIds: ["berkshire", "pabrai", "burry", "einhorn", "klarman", "greenblatt", "lilu", "spier"], accent: "#60a5fa" },
   { id: "macro", labelKr: "매크로/글로벌", labelEn: "Macro/Global", guruIds: ["druckenmiller", "tepper", "cohen", "englander"], accent: "#34d399" },
-  { id: "growth", labelKr: "성장/테크", labelEn: "Growth/Tech", guruIds: ["ark", "coleman", "halvorsen", "twosigma"], accent: "#c084fc" },
-  { id: "activist", labelKr: "행동주의", labelEn: "Activist", guruIds: ["ackman", "griffin"], accent: "#fbbf24" },
+  { id: "growth", labelKr: "성장/테크", labelEn: "Growth/Tech", guruIds: ["ark", "coleman", "halvorsen", "twosigma", "laffont", "ainslie", "loeb"], accent: "#c084fc" },
+  { id: "activist", labelKr: "행동주의", labelEn: "Activist", guruIds: ["ackman", "griffin", "peltz"], accent: "#fbbf24" },
 ];
 
 // ── Guru meta (initials, colors, style tag) ───────────────────
@@ -68,9 +68,18 @@ const GURU_META: Record<string, GuruMeta> = {
   coleman: { initials: "CC", accent: "#c084fc", styleKr: "글로벌 테크", styleEn: "Global Tech" },
   halvorsen: { initials: "AH", accent: "#c084fc", styleKr: "롱숏 펀더멘털", styleEn: "Long/Short Fundamental" },
   twosigma: { initials: "2Σ", accent: "#c084fc", styleKr: "퀀트 시스템", styleEn: "Quant Systematic" },
+  // Value (additional)
+  greenblatt: { initials: "JG", accent: "#60a5fa", styleKr: "마법공식 퀀트밸류", styleEn: "Magic Formula Quant Value" },
+  lilu: { initials: "LL", accent: "#60a5fa", styleKr: "집중 가치투자", styleEn: "Concentrated Value" },
+  spier: { initials: "GS", accent: "#60a5fa", styleKr: "버핏 스타일 가치투자", styleEn: "Buffett-Style Value" },
+  // Growth (additional)
+  laffont: { initials: "PL", accent: "#c084fc", styleKr: "테크 헤지펀드", styleEn: "Tech Hedge Fund" },
+  ainslie: { initials: "LA", accent: "#c084fc", styleKr: "롱숏 에쿼티", styleEn: "Long/Short Equity" },
+  loeb: { initials: "DL", accent: "#c084fc", styleKr: "이벤트 드리븐", styleEn: "Event Driven" },
   // Activist
   ackman: { initials: "BA", accent: "#fbbf24", styleKr: "행동주의 집중투자", styleEn: "Activist Concentrated" },
   griffin: { initials: "KG", accent: "#fbbf24", styleKr: "마켓메이킹 멀티전략", styleEn: "Market Making Multi-Strategy" },
+  peltz: { initials: "NP", accent: "#fbbf24", styleKr: "행동주의 가치투자", styleEn: "Activist Value" },
 };
 
 function formatValue(v: number): string {
@@ -100,7 +109,6 @@ export default function GurusPage() {
   const [gurus, setGurus] = useState<GuruData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"holdings" | "changes">("holdings");
 
   useEffect(() => {
     fetch("/api/gurus/holdings")
@@ -128,8 +136,8 @@ export default function GurusPage() {
           </h2>
           <p style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
             {lang === "kr"
-              ? "SEC 13F 공시 기반 15인의 슈퍼 투자자 포트폴리오 추적"
-              : "Track 15 super investor portfolios via SEC 13F filings"}
+              ? "SEC 13F 공시 기반 22인의 슈퍼 투자자 포트폴리오 추적"
+              : "Track 22 super investor portfolios via SEC 13F filings"}
           </p>
         </div>
 
@@ -208,10 +216,7 @@ export default function GurusPage() {
                     return (
                       <button
                         key={gid}
-                        onClick={() => {
-                          setSelectedId(isSelected ? null : gid);
-                          setTab("holdings");
-                        }}
+                        onClick={() => setSelectedId(isSelected ? null : gid)}
                         style={{
                           background: isSelected ? `${m.accent}08` : "#111",
                           border: `1px solid ${isSelected ? m.accent : "#222"}`,
@@ -382,29 +387,20 @@ export default function GurusPage() {
                     </div>
                   </div>
 
-                  {/* Tabs + Close */}
+                  {/* Close */}
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    {(["holdings", "changes"] as const).map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setTab(t)}
-                        style={{
-                          padding: "6px 14px",
-                          borderRadius: 6,
-                          fontSize: 12,
-                          fontWeight: 500,
-                          border: "none",
-                          cursor: "pointer",
-                          background: tab === t ? meta.accent : "#222",
-                          color: tab === t ? "#000" : "#aaa",
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        {t === "holdings"
-                          ? lang === "kr" ? "보유 종목" : "Holdings"
-                          : lang === "kr" ? "변동사항" : "Changes"}
-                      </button>
-                    ))}
+                    <div
+                      style={{
+                        padding: "6px 14px",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 500,
+                        background: meta.accent,
+                        color: "#000",
+                      }}
+                    >
+                      {lang === "kr" ? "보유 종목" : "Holdings"}
+                    </div>
                     <button
                       onClick={() => setSelectedId(null)}
                       style={{
@@ -424,7 +420,7 @@ export default function GurusPage() {
                 </div>
 
                 {/* Table */}
-                {tab === "holdings" ? (
+                {(
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                       <thead>
@@ -492,23 +488,6 @@ export default function GurusPage() {
                         })}
                       </tbody>
                     </table>
-                  </div>
-                ) : (
-                  <div style={{ padding: "40px 20px", textAlign: "center", color: "#666" }}>
-                    <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}>
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ display: "inline-block" }}>
-                        <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M7 16l4-8 4 4 5-9" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                      {lang === "kr" ? "분기별 변동 분석" : "Quarterly Change Analysis"}
-                    </div>
-                    <div style={{ fontSize: 12 }}>
-                      {lang === "kr"
-                        ? "다음 13F 공시 후 이전 분기 대비 변동사항이 표시됩니다."
-                        : "Changes compared to previous quarter will appear after the next 13F filing."}
-                    </div>
                   </div>
                 )}
 
