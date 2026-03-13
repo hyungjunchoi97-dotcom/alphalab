@@ -122,8 +122,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Build response: districts[name] = array of avgPrice in 억, one per month
+  // Build response: districts[name] = array of median prices, districtVolumes[name] = array of trade counts
   const districts: Record<string, (number | null)[]> = {};
+  const districtVolumes: Record<string, (number | null)[]> = {};
   for (const d of SEOUL_DISTRICTS) {
     districts[d.name] = months.map(ym => {
       const prices = priceMap[d.code][ym] ?? [];
@@ -133,12 +134,16 @@ export async function GET(request: NextRequest) {
       const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
       return Math.round(median / 1000) / 10; // 억 단위 (소수점 1자리)
     });
+    districtVolumes[d.name] = months.map(ym => {
+      const prices = priceMap[d.code][ym] ?? [];
+      return prices.length > 0 ? prices.length : null;
+    });
   }
 
   // Month labels: "25.03" format
   const monthLabels = months.map(ym => `${ym.slice(2, 4)}.${ym.slice(4, 6)}`);
 
-  const payload = { months: monthLabels, districts };
+  const payload = { months: monthLabels, districts, districtVolumes };
 
   try {
     await supabaseAdmin.from("legend_screener_cache").delete().eq("cache_key", cacheKey);

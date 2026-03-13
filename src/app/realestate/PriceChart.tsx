@@ -32,6 +32,7 @@ const PERIODS = [
 interface Props {
   months: string[];
   districts: Record<string, (number | null)[]>;
+  districtVolumes: Record<string, (number | null)[]>;
   selectedDistrict: string | null;
   onSelect: (name: string) => void;
   range: number;
@@ -39,7 +40,7 @@ interface Props {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ChartTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label, unit = "억" }: any) {
   if (!active || !payload?.length) return null;
   const sorted = [...payload]
     .filter((e: { value: number | null }) => e.value != null)
@@ -56,14 +57,14 @@ function ChartTooltip({ active, payload, label }: any) {
       {sorted.map((e: { color: string; name: string; value: number }) => (
         <div key={e.name} style={{ display: "flex", justifyContent: "space-between", gap: 14, marginBottom: 2 }}>
           <span style={{ color: e.color }}>{e.name.replace("구", "")}</span>
-          <span style={{ color: "#e0e0e0", fontWeight: 600 }}>{e.value.toFixed(1)}억</span>
+          <span style={{ color: "#e0e0e0", fontWeight: 600 }}>{unit === "억" ? `${e.value.toFixed(1)}억` : `${e.value}건`}</span>
         </div>
       ))}
     </div>
   );
 }
 
-export default function PriceChart({ months, districts, selectedDistrict, onSelect, range, onRangeChange }: Props) {
+export default function PriceChart({ months, districts, districtVolumes, selectedDistrict, onSelect, range, onRangeChange }: Props) {
   const [pinned, setPinned] = useState<Set<string>>(new Set());
 
   const districtNames = useMemo(() => Object.keys(districts), [districts]);
@@ -77,6 +78,17 @@ export default function PriceChart({ months, districts, selectedDistrict, onSele
       return row;
     }),
     [months, districtNames, districts]
+  );
+
+  const volumeData = useMemo(() =>
+    months.map((m, i) => {
+      const row: Record<string, string | number | null> = { month: m };
+      for (const name of districtNames) {
+        row[name] = districtVolumes[name]?.[i] ?? null;
+      }
+      return row;
+    }),
+    [months, districtNames, districtVolumes]
   );
 
   const highlighted = selectedDistrict ?? (pinned.size === 1 ? [...pinned][0] : null);
@@ -155,7 +167,7 @@ export default function PriceChart({ months, districts, selectedDistrict, onSele
         </div>
       </div>
 
-      {/* Chart */}
+      {/* Price chart */}
       <div style={{ flex: 1, minHeight: 0, padding: "6px 4px 4px 0" }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 2, right: 12, left: 0, bottom: 2 }}>
@@ -196,6 +208,60 @@ export default function PriceChart({ months, districts, selectedDistrict, onSele
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Volume chart */}
+      {Object.keys(districtVolumes).length > 0 && (
+        <>
+          <div style={{
+            padding: "6px 12px 2px",
+            fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
+            color: "#f59e0b", fontWeight: 700, letterSpacing: "0.08em",
+            textTransform: "uppercase", borderTop: "1px solid #1e1e1e",
+          }}>
+            지역별 거래량 추이
+          </div>
+          <div style={{ height: 180, padding: "2px 4px 4px 0" }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={volumeData} margin={{ top: 2, right: 12, left: 0, bottom: 2 }}>
+                <CartesianGrid stroke="#161616" strokeDasharray="0" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 12, fill: "#ffffff", fontFamily: "'IBM Plex Mono', monospace" }}
+                  axisLine={{ stroke: "#1e1e1e" }}
+                  tickLine={false}
+                />
+                <YAxis
+                  tickFormatter={(v) => `${v}`}
+                  tick={{ fontSize: 12, fill: "#ffffff", fontFamily: "'IBM Plex Mono', monospace" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={40}
+                />
+                <Tooltip content={<ChartTooltip unit="건" />} />
+                {activeNames.map(name => {
+                  const isHighlit = name === highlighted;
+                  const color = DISTRICT_COLORS[name] ?? "#666";
+                  return (
+                    <Line
+                      key={name}
+                      type="monotone"
+                      dataKey={name}
+                      stroke={color}
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: isHighlit ? 4 : 2, fill: color }}
+                      opacity={1}
+                      connectNulls
+                      onClick={() => onSelect(name)}
+                      style={{ cursor: "pointer" }}
+                    />
+                  );
+                })}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
     </div>
   );
 }

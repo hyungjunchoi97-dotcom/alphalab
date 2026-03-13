@@ -30,6 +30,7 @@ interface TrendResponse {
   ok: boolean;
   months: string[];
   districts: Record<string, (number | null)[]>;
+  districtVolumes?: Record<string, (number | null)[]>;
 }
 
 interface NewsItem {
@@ -601,6 +602,7 @@ export default function RealEstateClient() {
                     <PriceChart
                       months={trend.months}
                       districts={trend.districts}
+                      districtVolumes={trend.districtVolumes ?? {}}
                       selectedDistrict={selectedData?.name ?? null}
                       onSelect={name => {
                         const code = DISTRICT_NAME_TO_CODE[name];
