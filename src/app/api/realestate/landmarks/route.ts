@@ -14,15 +14,33 @@ type KeywordRule = string | { include: string; exclude?: string; label: string }
 
 const LANDMARKS: { district: string; code: string; keywords: KeywordRule[] }[] = [
   { district: "강남구", code: "11680", keywords: [{ include: "현대", exclude: "신현대", label: "압구정현대" }, "래미안대치팰리스", "도곡렉슬", "은마", "청담자이", "래미안블레스티지", "타워팰리스2", "개포자이프레지던스", "디에이치아너힐즈", "래미안라클래시"] },
-  { district: "서초구", code: "11650", keywords: ["아크로리버파크", "래미안퍼스티지", "래미안서초에스티지S", "반포자이", "래미안원베일리", { include: "래미안 리더스원", label: "래미안리더스원" }, { include: "아크로리버뷰신반포", label: "아크로리버뷰" }] },
+  { district: "서초구", code: "11650", keywords: ["아크로리버파크", "래미안퍼스티지", "래미안서초에스티지S", "반포자이", "래미안원베일리", { include: "래미안 리더스원", label: "래미안리더스원" }, { include: "아크로리버뷰신반포", label: "아크로리버뷰" }, "반포리체", "신반포자이", "서초푸르지오써밋"] },
   { district: "송파구", code: "11710", keywords: ["잠실엘스", "헬리오시티", "파크리오", "갤러리아팰리스", "아시아선수촌", { include: "올림픽훼밀", label: "올림픽훼밀리타운" }] },
-  { district: "용산구", code: "11170", keywords: ["용산파크타워", "한남더힐", { include: "한강(대우)", label: "한강대우" }] },
-  { district: "성동구", code: "11200", keywords: ["트리마제", "서울숲더샵", "서울숲푸르지오"] },
-  { district: "마포구", code: "11440", keywords: ["마포래미안푸르지오", "마포그랑자이", "한강밤섬자이"] },
-  { district: "강동구", code: "11740", keywords: ["고덕그라시움", "올림픽파크포레온"] },
-  { district: "광진구", code: "11215", keywords: ["더샵스타시티"] },
-  { district: "양천구", code: "11470", keywords: ["목동신시가지7", "목동신시가지9", "하이페리온2"] },
-  { district: "영등포구", code: "11560", keywords: ["브라이튼여의도", { include: "시범", label: "여의도시범" }] },
+  { district: "용산구", code: "11170", keywords: ["용산파크타워", "한남더힐", { include: "한강(대우)", label: "한강대우" }, "한가람", "용산시티파크", { include: "현대맨숀", label: "이촌동현대" }, "신동아"] },
+  { district: "성동구", code: "11200", keywords: ["트리마제", "서울숲더샵", "서울숲푸르지오", "옥수하이츠", { include: "래미안 옥수 리버젠", label: "래미안옥수리버젠" }, "서울숲리버뷰자이", { include: "센트라스", label: "왕십리센트라스" }, "금호자이"] },
+  { district: "마포구", code: "11440", keywords: ["마포래미안푸르지오", "마포그랑자이", "한강밤섬자이", "마포현대", "공덕자이", { include: "래미안아트리체", label: "마포래미안아트리체" }, { include: "신촌숲", label: "신촌숲아이파크" }, { include: "염리삼성", label: "염리삼성래미안" }] },
+  { district: "강동구", code: "11740", keywords: ["고덕그라시움", "올림픽파크포레온", "고덕래미안힐스테이트", "고덕아르테온", "고덕숲아이파크", "강동헤리티지자이", "래미안솔베뉴", { include: "명일한신", label: "명일동한신" }, "암사현대"] },
+  { district: "광진구", code: "11215", keywords: ["더샵스타시티", "광진트라팰리스", "e편한세상광진", { include: "자양", label: "자양동현대" }, "구의현대"] },
+  { district: "양천구", code: "11470", keywords: ["목동신시가지7", "목동신시가지9", "하이페리온2", "목동신시가지1", "목동신시가지13", { include: "트라팰리스이스턴", label: "트라팰리스이스턴에비뉴" }] },
+  { district: "영등포구", code: "11560", keywords: ["브라이튼여의도", { include: "시범", label: "여의도시범" }, { include: "리첸시아", label: "여의도자이" }, { include: "광장", label: "광장아파트" }, { include: "미성", label: "여의도미성" }, { include: "대교", label: "영등포대교" }, { include: "삼부", label: "여의도삼부" }, { include: "한양", label: "여의도한양" }] },
+  // C티어
+  { district: "동작구", code: "11590", keywords: ["흑석한강센트레빌", "상도더샵1차", "사당롯데캐슬", "노량진수도아파트", "흑석아크로리버"] },
+  { district: "종로구", code: "11110", keywords: ["경희궁자이", "무악현대", "교남아이파크", "창신쌍용", "종로센트레빌"] },
+  { district: "중구", code: "11140", keywords: ["남산타운", "신당래미안", "약수하이츠", "청구극동", "동화약품"] },
+  // D티어
+  { district: "서대문구", code: "11380", keywords: ["DMC파크뷰자이", "가재울뉴타운DMC", "남가좌삼성래미안", "홍제원아이파크", "연희파크푸르지오"] },
+  { district: "강서구", code: "11500", keywords: ["마곡엠밸리7단지", "마곡엠밸리8단지", "가양강변힐스테이트", "화곡롯데캐슬", "가양8단지"] },
+  { district: "동대문구", code: "11230", keywords: ["휘경SK뷰", "전농SK", "래미안위브", "답십리래미안", "이문아이파크자이"] },
+  { district: "성북구", code: "11290", keywords: ["길음뉴타운래미안", "돈암현대", "장위자이레디언트", "길음역롯데캐슬", "종암SK뷰"] },
+  { district: "은평구", code: "11350", keywords: ["녹번역e편한세상캐슬", "불광미성", "센트레빌아스테리움", "힐스테이트녹번", "은평뉴타운"] },
+  { district: "관악구", code: "11620", keywords: ["관악드림타운", "봉천래미안", "신림푸르지오", "관악산휴먼시아", "서울대입구역푸르지오"] },
+  // E티어
+  { district: "노원구", code: "11350", keywords: ["상계주공5단지", "중계그린", "하계현대", "노원롯데캐슬", "월계미성"] },
+  { district: "구로구", code: "11530", keywords: ["구로자이", "개봉현대", "고척롯데캐슬", "구로SK뷰", "항동지구"] },
+  { district: "중랑구", code: "11260", keywords: ["면목래미안", "신내데시앙포레", "중랑구청역더샵", "면목한신", "묵동현대"] },
+  { district: "금천구", code: "11545", keywords: ["독산동우방", "시흥래미안", "금천롯데캐슬", "독산더샵", "시흥동한신"] },
+  { district: "강북구", code: "11305", keywords: ["미아래미안", "수유현대", "강북힐스테이트", "미아3재정비", "삼양래미안"] },
+  { district: "도봉구", code: "11320", keywords: ["창동주공17단지", "방학래미안", "도봉현대", "창동롯데캐슬", "방학아이파크"] },
 ];
 
 const xmlParser = new XMLParser({ ignoreAttributes: false, parseAttributeValue: true, parseTagValue: true });

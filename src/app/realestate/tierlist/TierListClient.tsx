@@ -45,6 +45,9 @@ const TIERS: { tier: string; districts: string[] }[] = [
 
 const AVAILABLE_DISTRICTS = new Set([
   "강남구", "서초구", "용산구", "송파구", "성동구", "마포구", "광진구", "양천구", "영등포구", "강동구",
+  "동작구", "종로구", "중구",
+  "서대문구", "강서구", "동대문구", "성북구", "은평구", "관악구",
+  "노원구", "구로구", "중랑구", "금천구", "강북구", "도봉구",
 ]);
 
 /* ── Helpers ── */
@@ -223,10 +226,10 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
   const [range, setRange] = useState(12);
   const [fetchedRange, setFetchedRange] = useState<number | null>(null);
 
-  const fetchLandmarks = useCallback((r: number) => {
-    if (fetchedRange === r) return;
+  const fetchLandmarks = useCallback((r: number, force = false) => {
+    if (!force && fetchedRange === r) return;
     setLoading(true);
-    fetch(`/api/realestate/landmarks?range=${r}`)
+    fetch(`/api/realestate/landmarks?range=${r}&refresh=true`)
       .then(res => res.json())
       .then(j => { if (j.ok) setLandmarks(j.landmarks ?? []); setFetchedRange(r); })
       .catch(() => {})
@@ -260,19 +263,19 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
           Seoul Apartment Tier List
         </div>
 
-        <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 28, alignItems: "flex-start", flexWrap: "wrap" }}>
           {/* Left: Tier Pyramid */}
-          <div style={{ flex: "1 1 520px", minWidth: 320, maxWidth: 600, margin: "0 auto" }}>
+          <div style={{ flex: "0 0 45%", minWidth: 500 }}>
             {TIERS.map(({ tier, districts }, ti) => {
               const color = TIER_COLORS[tier];
-              const widthPcts = [25, 38, 52, 66, 80, 100];
+              const widthPcts = [30, 42, 55, 68, 82, 100];
               const widthPct = widthPcts[ti];
               return (
-                <div key={tier} style={{ display: "flex", alignItems: "center", marginBottom: 2 }}>
+                <div key={tier} style={{ display: "flex", alignItems: "center", marginBottom: 3 }}>
                   {/* Tier label outside pyramid */}
                   <div style={{
-                    ...S, fontSize: 22, fontWeight: 900, color,
-                    width: 32, textAlign: "center", flexShrink: 0, marginRight: 8,
+                    ...S, fontSize: 30, fontWeight: 900, color,
+                    width: 44, textAlign: "center", flexShrink: 0, marginRight: 10,
                   }}>
                     {tier}
                   </div>
@@ -280,10 +283,10 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
                   {/* Pyramid row */}
                   <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
                     <div style={{
-                      width: `${widthPct}%`, minHeight: 56,
+                      width: `${widthPct}%`, minHeight: 64,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      gap: 5, flexWrap: "wrap",
-                      padding: "10px 14px",
+                      gap: 6, flexWrap: "wrap",
+                      padding: "16px 16px",
                       background: `linear-gradient(90deg, ${color}30 0%, ${color}18 40%, transparent 100%)`,
                       borderLeft: `3px solid ${color}`,
                       borderBottom: `1px solid ${color}15`,
@@ -298,7 +301,7 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
                             onClick={() => handleSelect(d)}
                             disabled={!available}
                             style={{
-                              ...S, fontSize: 11, padding: "2px 8px",
+                              ...S, fontSize: 13, padding: "6px 14px",
                               borderRadius: 2,
                               border: `1px solid ${available ? color : "#333"}`,
                               background: isActive ? color : available ? `${color}20` : "#1a1a1a",
