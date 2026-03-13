@@ -111,7 +111,7 @@ export default function PriceChart({ months, districts, districtVolumes, selecte
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0a0a0a" }}>
+    <div style={{ background: "#0a0a0a", height: "100%" }}>
       {/* Controls */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -167,8 +167,17 @@ export default function PriceChart({ months, districts, districtVolumes, selecte
         </div>
       </div>
 
+      {/* Price chart title */}
+      <div style={{
+        padding: "6px 12px 2px",
+        fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
+        color: "#f59e0b", fontWeight: 700, letterSpacing: "0.08em",
+        textTransform: "uppercase",
+      }}>
+        지역별 평균가 추이
+      </div>
       {/* Price chart */}
-      <div style={{ flex: 1, minHeight: 0, padding: "6px 4px 4px 0" }}>
+      <div style={{ height: 250, padding: "2px 4px 4px 0" }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 2, right: 12, left: 0, bottom: 2 }}>
             <CartesianGrid stroke="#161616" strokeDasharray="0" vertical={false} />
@@ -211,7 +220,7 @@ export default function PriceChart({ months, districts, districtVolumes, selecte
 
       {/* Volume chart */}
       {Object.keys(districtVolumes).length > 0 && (
-        <>
+        <div style={{ marginTop: 24 }}>
           <div style={{
             padding: "6px 12px 2px",
             fontSize: 11, fontFamily: "'IBM Plex Mono', monospace",
@@ -260,7 +269,7 @@ export default function PriceChart({ months, districts, districtVolumes, selecte
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
