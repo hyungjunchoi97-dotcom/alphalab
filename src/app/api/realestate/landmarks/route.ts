@@ -16,10 +16,10 @@ type KeywordRule = string | { include: string; exclude?: string; label: string }
 const LANDMARKS: { district: string; code: string; keywords: KeywordRule[] }[] = [
   { district: "강남구", code: "11680", keywords: [{ include: "현대", exclude: "신현대", label: "압구정현대" }, "래미안대치팰리스", "도곡렉슬"] },
   { district: "서초구", code: "11650", keywords: ["아크로리버파크", "래미안퍼스티지", "래미안서초에스티지S"] },
-  { district: "송파구", code: "11710", keywords: ["잠실엘스", "헬리오시티", "파크리오", "갤러리아팰리스"] },
-  { district: "용산구", code: "11170", keywords: ["용산파크타워", "한남더힐"] },
-  { district: "성동구", code: "11200", keywords: ["트리마제"] },
-  { district: "마포구", code: "11440", keywords: ["마포래미안푸르지오", "마포그랑자이"] },
+  { district: "송파구", code: "11710", keywords: ["잠실엘스", "헬리오시티", "파크리오", "갤러리아팰리스", "아시아선수촌", { include: "올림픽훼밀", label: "올림픽훼밀리타운" }] },
+  { district: "용산구", code: "11170", keywords: ["용산파크타워", "한남더힐", { include: "한강(대우)", label: "한강대우" }] },
+  { district: "성동구", code: "11200", keywords: ["트리마제", "서울숲더샵", "서울숲푸르지오"] },
+  { district: "마포구", code: "11440", keywords: ["마포래미안푸르지오", "마포그랑자이", "한강밤섬자이"] },
 ];
 
 const xmlParser = new XMLParser({ ignoreAttributes: false, parseAttributeValue: true, parseTagValue: true });
