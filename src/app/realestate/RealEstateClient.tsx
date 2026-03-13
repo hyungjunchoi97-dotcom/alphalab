@@ -267,6 +267,7 @@ export default function RealEstateClient() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const newsFetchedRef = useRef<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(50);
 
   const sectionHeaderStyle: CSSProperties = {
     display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -301,6 +302,7 @@ export default function RealEstateClient() {
 
   useEffect(() => {
     setSelectedDistrict(null);
+    setVisibleCount(50);
     fetchData();
   }, [fetchData]);
 
@@ -315,6 +317,7 @@ export default function RealEstateClient() {
 
   // Fetch news when district selected
   useEffect(() => {
+    setVisibleCount(50);
     if (!selectedDistrict) {
       setNews([]);
       newsFetchedRef.current = null;
@@ -349,6 +352,8 @@ export default function RealEstateClient() {
   const districtMap = new Map(districts.map(d => [d.code, d]));
   const selectedData = selectedDistrict ? districtMap.get(selectedDistrict) : null;
   const allTrades = data?.recentTrades ?? [];
+  const selectedFilterName = selectedDistrict ? CODE_TO_NAME.get(selectedDistrict) ?? null : null;
+  const filteredTrades = selectedFilterName ? allTrades.filter(t => t.district === selectedFilterName) : allTrades;
 
   const updatedAt = data?.updatedAt
     ? new Date(data.updatedAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
@@ -467,12 +472,30 @@ export default function RealEstateClient() {
             {loading ? (
               <div style={{ padding: "20px 16px", ...S, fontSize: 11, color: "#222" }}>로딩 중…</div>
             ) : (
-              <TransactionTable
-                trades={allTrades}
-                selectedDistrict={selectedDistrict}
-                onSelectDistrict={setSelectedDistrict}
-                districtNameToCode={districtNameToCodeMap}
-              />
+              <>
+                <TransactionTable
+                  trades={filteredTrades.slice(0, visibleCount)}
+                  selectedDistrict={selectedDistrict}
+                  onSelectDistrict={setSelectedDistrict}
+                  districtNameToCode={districtNameToCodeMap}
+                />
+                {visibleCount < filteredTrades.length && (
+                  <div style={{ background: "#111111", borderBottom: "1px solid #1e1e1e", padding: "10px 14px" }}>
+                    <button
+                      onClick={() => setVisibleCount(prev => prev + 50)}
+                      style={{
+                        width: "100%", padding: "10px",
+                        background: "#111", border: "1px solid #333",
+                        color: "#f59e0b", fontSize: 12,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        cursor: "pointer",
+                      }}
+                    >
+                      더 보기 ({filteredTrades.length - visibleCount}건 남음)
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
             {/* [2.5] District news */}

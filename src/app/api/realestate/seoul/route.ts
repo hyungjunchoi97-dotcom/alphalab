@@ -348,17 +348,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Group by date, take up to 10 per date, flatten, sort descending, cap at 200
-  const byDate = new Map<string, Trade[]>();
-  for (const t of allTrades) {
-    const arr = byDate.get(t.date);
-    if (arr) { if (arr.length < 10) arr.push(t); }
-    else byDate.set(t.date, [t]);
-  }
-  const recentTrades = [...byDate.entries()]
-    .sort((a, b) => b[0].localeCompare(a[0]))
-    .flatMap(([, trades]) => trades)
-    .slice(0, 200);
+  allTrades.sort((a, b) => b.price - a.price);
+  const recentTrades = allTrades.slice(0, 200);
 
   const validCount = districtStats.filter((d) => d.avgPrice > 0).length;
   console.log(`[부동산API] 결과: ${dealYmd} | ${validCount}/25 구 | 거래 ${allTrades.length}건`);
