@@ -125,20 +125,20 @@ function DistrictDetail({ data, onClear, trades }: DistrictDetailProps) {
 
       {recent.length > 0 && (
         <div>
-          <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#f59e0b60", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 6 }}>
+          <div style={{ fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: "#f59e0b", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase", marginBottom: 6 }}>
             최근 실거래
           </div>
           {recent.map((t, i) => (
             <div key={i} style={{ borderBottom: "1px solid #161616", padding: "5px 0" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
-                <span style={{ fontSize: 11, fontFamily: "monospace", color: "#bbb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ fontSize: 15, fontFamily: "monospace", color: "#ffffff", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {t.aptName || t.dong}
                 </span>
-                <span style={{ fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: "#f59e0b", fontWeight: 700, flexShrink: 0 }}>
+                <span style={{ fontSize: 15, fontFamily: "'IBM Plex Mono', monospace", color: "#f59e0b", fontWeight: 700, flexShrink: 0 }}>
                   {fmtPrice(t.price)}
                 </span>
               </div>
-              <div style={{ fontSize: 10, fontFamily: "monospace", color: "#3a3a3a", marginTop: 1 }}>
+              <div style={{ fontSize: 12, fontFamily: "monospace", color: "#cccccc", marginTop: 1 }}>
                 {t.date} · {t.area.toFixed(0)}㎡ · {t.floor}F
               </div>
             </div>
@@ -255,7 +255,7 @@ function OverallSummary({ loading, overallAvg, validCount, gangnam3Avg, nonGangn
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function RealEstateClient() {
-  const [month, setMonth] = useState(MONTH_OPTIONS[1]?.value ?? "202502");
+  const [month, setMonth] = useState(MONTH_OPTIONS[0]?.value ?? "202503");
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -285,6 +285,12 @@ export default function RealEstateClient() {
       const res = await fetch(`/api/realestate/seoul?ym=${month}${refresh ? "&refresh=true" : ""}`);
       const json: ApiResponse = await res.json();
       if (!json.ok) throw new Error("API 오류");
+      // If all districts have avgPrice=0, refetch once with refresh=true
+      if (!refresh && json.districts?.every(d => d.avgPrice === 0)) {
+        const retryRes = await fetch(`/api/realestate/seoul?ym=${month}&refresh=true`);
+        const retryJson: ApiResponse = await retryRes.json();
+        if (retryJson.ok) { setData(retryJson); return; }
+      }
       setData(json);
     } catch (e) {
       setError(e instanceof Error ? e.message : "데이터 로드 실패");

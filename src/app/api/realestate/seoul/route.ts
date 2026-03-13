@@ -120,12 +120,12 @@ interface RawResult {
 async function fetchDistrictRaw(code: string, dealYmd: string): Promise<RawResult> {
   // 방법 A: URLSearchParams (자동 인코딩)
   const makeA = (ep: string) => {
-    const p = new URLSearchParams({ serviceKey: MOLIT_KEY, LAWD_CD: code, DEAL_YMD: dealYmd, numOfRows: "100", pageNo: "1" });
+    const p = new URLSearchParams({ serviceKey: MOLIT_KEY, LAWD_CD: code, DEAL_YMD: dealYmd, numOfRows: "1000", pageNo: "1" });
     return `${ep}?${p.toString()}`;
   };
   // 방법 B: 직접 문자열 연결 (디코딩된 키 그대로)
   const makeB = (ep: string) =>
-    `${ep}?serviceKey=${MOLIT_KEY}&LAWD_CD=${code}&DEAL_YMD=${dealYmd}&numOfRows=100&pageNo=1`;
+    `${ep}?serviceKey=${MOLIT_KEY}&LAWD_CD=${code}&DEAL_YMD=${dealYmd}&numOfRows=1000&pageNo=1`;
 
   const attempts = [
     { url: makeA(ENDPOINT_DEV), label: "DEV+URLParams" },
@@ -235,12 +235,14 @@ export async function GET(request: NextRequest) {
     // 강남구로 각 후보 월 순서대로 시도
     for (const ym of ymParam ? [ymParam] : CANDIDATE_MONTHS) {
       const r = await fetchDistrictRaw("11680", ym);
+      const uniqueDealDays = [...new Set(r.items.map((it: Record<string, unknown>) => String(it.dealDay ?? "")))].sort();
       results[`ym_${ym}`] = {
         httpStatus: r.httpStatus,
         contentType: r.contentType,
         endpoint: r.endpoint,
         error: r.error,
         itemCount: r.items.length,
+        uniqueDealDays,
         rawPreview: r.rawPreview,
         firstItem: r.items[0] ?? null,
       };
@@ -299,7 +301,7 @@ export async function GET(request: NextRequest) {
     const map: Record<string, number[]> = {};
     for (const items of results) {
       for (const item of items) {
-        const code = String(item.sggCd ?? "").trim();
+        const code = String(item.sggCd ?? "").trim().padStart(5, "0");
         const price = parsePrice(item.dealAmount);
         if (code && price > 0) {
           if (!map[code]) map[code] = [];
@@ -338,40 +340,45 @@ export async function GET(request: NextRequest) {
   const allTrades: Trade[] = [];
   for (const items of currResults) {
     for (const item of items) {
-      const code = String(item.sggCd ?? "").trim();
+      const code = String(item.sggCd ?? "").trim().padStart(5, "0");
       const d = districtByCode.get(code);
       if (!d) continue;
       const t = tradeFromItem(item, d, dealYmd);
       if (t) allTrades.push(t);
     }
   }
-  for (const items of prevResults) {
-    for (const item of items) {
-      const code = String(item.sggCd ?? "").trim();
-      const d = districtByCode.get(code);
-      if (!d) continue;
-      const t = tradeFromItem(item, d, prevYmd);
-      if (t) allTrades.push(t);
-    }
-  }
 
-  allTrades.sort((a, b) => b.date.localeCompare(a.date));
-  const recentTrades = allTrades.slice(0, 50);
+  // Group by date, take up to 10 per date, flatten, sort descending, cap at 200
+  const byDate = new Map<string, Trade[]>();
+  for (const t of allTrades) {
+    const arr = byDate.get(t.date);
+    if (arr) { if (arr.length < 10) arr.push(t); }
+    else byDate.set(t.date, [t]);
+  }
+  const recentTrades = [...byDate.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .flatMap(([, trades]) => trades)
+    .slice(0, 200);
 
   const validCount = districtStats.filter((d) => d.avgPrice > 0).length;
   console.log(`[부동산API] 결과: ${dealYmd} | ${validCount}/25 구 | 거래 ${allTrades.length}건`);
 
   const payload = { districts: districtStats, recentTrades, updatedAt: new Date().toISOString(), dealYmd };
 
-  try {
-    await supabaseAdmin.from("legend_screener_cache").delete().eq("cache_key", cacheKey);
-    await supabaseAdmin.from("legend_screener_cache").insert({
-      cache_key: cacheKey,
-      results: payload,
-      created_at: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error("[부동산API] 캐시 저장 실패:", err);
+  // Only cache if sufficient data (at least 10 districts with avgPrice > 0)
+  if (validCount >= 10) {
+    try {
+      await supabaseAdmin.from("legend_screener_cache").delete().eq("cache_key", cacheKey);
+      await supabaseAdmin.from("legend_screener_cache").insert({
+        cache_key: cacheKey,
+        results: payload,
+        created_at: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("[부동산API] 캐시 저장 실패:", err);
+    }
+  } else {
+    console.warn(`[부동산API] 캐시 스킵: validCount=${validCount} (<10)`);
   }
 
   return NextResponse.json({ ok: true, ...payload, cached: false });

@@ -6,34 +6,20 @@ import {
   Tooltip, ResponsiveContainer,
 } from "recharts";
 
-// Saturated distinct colors per district
-const DISTRICT_COLORS: Record<string, string> = {
-  "강남구": "#ef4444",
-  "서초구": "#3b82f6",
-  "송파구": "#22c55e",
-  "용산구": "#f59e0b",
-  "마포구": "#a855f7",
-  "성동구": "#06b6d4",
-  "광진구": "#f97316",
-  "동작구": "#84cc16",
-  "영등포구": "#ec4899",
-  "강서구": "#14b8a6",
-  "양천구": "#eab308",
-  "구로구": "#6366f1",
-  "금천구": "#8b5cf6",
-  "관악구": "#10b981",
-  "동대문구": "#f43f5e",
-  "중랑구": "#0ea5e9",
-  "성북구": "#a3a3a3",
-  "강북구": "#64748b",
-  "도봉구": "#dc2626",
-  "노원구": "#16a34a",
-  "은평구": "#2563eb",
-  "서대문구": "#d97706",
-  "종로구": "#9333ea",
-  "중구": "#0891b2",
-  "강동구": "#ca8a04",
-};
+// Vivid neon colors per district
+const NEON_COLORS = [
+  '#ff3b3b','#ff8c00','#ffd700','#00ff88','#00cfff','#bf5fff','#ff69b4','#ff6347','#7fff00','#00bfff',
+  '#ff1493','#adff2f','#ff4500','#1e90ff','#ff00ff','#00ff7f','#ff6600','#ffff00','#00ffff','#ff0055',
+  '#39ff14','#ff9900','#0affef','#ff2d55','#ccff00',
+];
+const DISTRICT_NAMES_ORDER = [
+  "강남구","서초구","송파구","용산구","마포구","성동구","광진구","동작구","영등포구","강서구",
+  "양천구","구로구","금천구","관악구","동대문구","중랑구","성북구","강북구","도봉구","노원구",
+  "은평구","서대문구","종로구","중구","강동구",
+];
+const DISTRICT_COLORS: Record<string, string> = Object.fromEntries(
+  DISTRICT_NAMES_ORDER.map((name, i) => [name, NEON_COLORS[i % NEON_COLORS.length]])
+);
 
 const TOP5 = new Set(["강남구", "서초구", "송파구", "용산구", "마포구"]);
 
@@ -192,7 +178,6 @@ export default function PriceChart({ months, districts, selectedDistrict, onSele
             <Tooltip content={<ChartTooltip />} />
             {activeNames.map(name => {
               const isHighlit = name === highlighted;
-              const isDimmed = highlighted != null && !isHighlit;
               const color = DISTRICT_COLORS[name] ?? "#666";
               return (
                 <Line
@@ -200,10 +185,10 @@ export default function PriceChart({ months, districts, selectedDistrict, onSele
                   type="monotone"
                   dataKey={name}
                   stroke={color}
-                  strokeWidth={isHighlit || TOP5.has(name) ? 2.5 : 2}
+                  strokeWidth={2}
                   dot={false}
                   activeDot={{ r: isHighlit ? 4 : 2, fill: color }}
-                  opacity={isDimmed ? 0.15 : 1}
+                  opacity={1}
                   connectNulls
                   onClick={() => onSelect(name)}
                   style={{ cursor: "pointer" }}
