@@ -220,22 +220,28 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
   const [selected, setSelected] = useState<string | null>(null);
   const [landmarks, setLandmarks] = useState<Landmark[]>([]);
   const [loading, setLoading] = useState(false);
-  const [fetched, setFetched] = useState(false);
+  const [range, setRange] = useState(12);
+  const [fetchedRange, setFetchedRange] = useState<number | null>(null);
 
-  const fetchLandmarks = useCallback(() => {
-    if (fetched) return;
+  const fetchLandmarks = useCallback((r: number) => {
+    if (fetchedRange === r) return;
     setLoading(true);
-    fetch("/api/realestate/landmarks?range=12")
-      .then(r => r.json())
-      .then(j => { if (j.ok) setLandmarks(j.landmarks ?? []); setFetched(true); })
+    fetch(`/api/realestate/landmarks?range=${r}`)
+      .then(res => res.json())
+      .then(j => { if (j.ok) setLandmarks(j.landmarks ?? []); setFetchedRange(r); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [fetched]);
+  }, [fetchedRange]);
 
   const handleSelect = useCallback((district: string) => {
     if (!AVAILABLE_DISTRICTS.has(district)) return;
     setSelected(prev => prev === district ? null : district);
-    fetchLandmarks();
+    fetchLandmarks(range);
+  }, [fetchLandmarks, range]);
+
+  const handleRangeChange = useCallback((r: number) => {
+    setRange(r);
+    fetchLandmarks(r);
   }, [fetchLandmarks]);
 
   const filteredLandmarks = useMemo(() => {
@@ -254,63 +260,75 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
           Seoul Apartment Tier List
         </div>
 
-        <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
           {/* Left: Tier Pyramid */}
-          <div style={{ flex: "1 1 520px", minWidth: 320 }}>
-            {TIERS.map(({ tier, districts }) => {
+          <div style={{ flex: "1 1 520px", minWidth: 320, maxWidth: 600, margin: "0 auto" }}>
+            {TIERS.map(({ tier, districts }, ti) => {
               const color = TIER_COLORS[tier];
+              const widthPcts = [25, 38, 52, 66, 80, 100];
+              const widthPct = widthPcts[ti];
               return (
-                <div key={tier} style={{
-                  display: "flex", alignItems: "center", gap: 12,
-                  padding: "10px 0",
-                  borderBottom: "1px solid #141414",
-                }}>
-                  {/* Tier label */}
+                <div key={tier} style={{ display: "flex", alignItems: "center", marginBottom: 2 }}>
+                  {/* Tier label outside pyramid */}
                   <div style={{
-                    ...S, fontSize: 20, fontWeight: 800, color,
-                    width: 36, textAlign: "center", flexShrink: 0,
+                    ...S, fontSize: 22, fontWeight: 900, color,
+                    width: 32, textAlign: "center", flexShrink: 0, marginRight: 8,
                   }}>
                     {tier}
                   </div>
 
-                  {/* District chips */}
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {districts.map(d => {
-                      const available = AVAILABLE_DISTRICTS.has(d);
-                      const isActive = selected === d;
-                      return (
-                        <button
-                          key={d}
-                          onClick={() => handleSelect(d)}
-                          disabled={!available}
-                          style={{
-                            ...S, fontSize: 13, padding: "4px 12px",
-                            borderRadius: 4,
-                            border: `1px solid ${available ? color : "#1e1e1e"}`,
-                            background: isActive ? color : "#1a1a1a",
-                            color: isActive ? "#000" : available ? "#e0e0e0" : "#3a3a3a",
-                            fontWeight: isActive ? 700 : 400,
-                            cursor: available ? "pointer" : "default",
-                            opacity: available ? 1 : 0.5,
-                            transition: "background 0.15s, color 0.15s",
-                          }}
-                          onMouseEnter={e => {
-                            if (available && !isActive) {
-                              e.currentTarget.style.background = color;
-                              e.currentTarget.style.color = "#000";
-                            }
-                          }}
-                          onMouseLeave={e => {
-                            if (available && !isActive) {
-                              e.currentTarget.style.background = "#1a1a1a";
-                              e.currentTarget.style.color = "#e0e0e0";
-                            }
-                          }}
-                        >
-                          {d}{!available && " \uD83D\uDD12"}
-                        </button>
-                      );
-                    })}
+                  {/* Pyramid row */}
+                  <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+                    <div style={{
+                      width: `${widthPct}%`, minHeight: 56,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      gap: 5, flexWrap: "wrap",
+                      padding: "10px 14px",
+                      background: `linear-gradient(90deg, ${color}30 0%, ${color}18 40%, transparent 100%)`,
+                      borderLeft: `3px solid ${color}`,
+                      borderBottom: `1px solid ${color}15`,
+                      position: "relative",
+                    }}>
+                      {districts.map(d => {
+                        const available = AVAILABLE_DISTRICTS.has(d);
+                        const isActive = selected === d;
+                        return (
+                          <button
+                            key={d}
+                            onClick={() => handleSelect(d)}
+                            disabled={!available}
+                            style={{
+                              ...S, fontSize: 11, padding: "2px 8px",
+                              borderRadius: 2,
+                              border: `1px solid ${available ? color : "#333"}`,
+                              background: isActive ? color : available ? `${color}20` : "#1a1a1a",
+                              color: isActive ? "#000" : available ? "#e0e0e0" : "#3a3a3a",
+                              fontWeight: isActive ? 700 : 400,
+                              cursor: available ? "pointer" : "not-allowed",
+                              opacity: available ? 1 : 0.3,
+                              transition: "background 0.15s, color 0.15s",
+                              whiteSpace: "nowrap",
+                            }}
+                            onMouseEnter={e => {
+                              if (available && !isActive) {
+                                e.currentTarget.style.background = color;
+                                e.currentTarget.style.color = "#000";
+                                e.currentTarget.style.fontWeight = "700";
+                              }
+                            }}
+                            onMouseLeave={e => {
+                              if (available && !isActive) {
+                                e.currentTarget.style.background = `${color}20`;
+                                e.currentTarget.style.color = "#e0e0e0";
+                                e.currentTarget.style.fontWeight = "400";
+                              }
+                            }}
+                          >
+                            {!available && "\uD83D\uDD12 "}{d}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               );
@@ -319,6 +337,28 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
 
           {/* Right: Landmark detail panel */}
           <div style={{ flex: "1 1 520px", minWidth: 320 }}>
+            {/* Range selector */}
+            <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+              {([
+                { label: "1Y", r: 12 },
+                { label: "3Y", r: 36 },
+                { label: "5Y", r: 60 },
+              ] as const).map(({ label, r }) => (
+                <button
+                  key={label}
+                  onClick={() => handleRangeChange(r)}
+                  disabled={loading}
+                  style={{
+                    ...S, fontSize: 10, padding: "3px 10px", cursor: "pointer",
+                    border: `1px solid ${range === r ? "#f59e0b" : "#333"}`,
+                    background: range === r ? "#f59e0b" : "#1a1a1a",
+                    color: range === r ? "#000" : "#666",
+                    fontWeight: range === r ? 700 : 400,
+                  }}
+                >{label}</button>
+              ))}
+            </div>
+
             {selected ? (
               loading ? (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
