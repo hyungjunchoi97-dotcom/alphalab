@@ -26,9 +26,9 @@ interface CommodityConfig {
 
 const COMMODITIES: CommodityConfig[] = [
   // Energy
-  { id: "OIL_WTI",   symbol: "WTIUSD", yahooSymbol: "CL=F", labelKr: "WTI 원유",  label: "WTI Crude Oil",      unit: "$/bbl",   category: "energy",    tooltipKr: "한국 에너지 수입 핵심 지표",        tooltipEn: "Key indicator for Korea's energy imports" },
+  { id: "OIL_WTI",   symbol: "WTIUSD", fallback: "USO", labelKr: "WTI 원유",  label: "WTI Crude Oil",      unit: "$/bbl",   category: "energy",    tooltipKr: "한국 에너지 수입 핵심 지표",        tooltipEn: "Key indicator for Korea's energy imports" },
   { id: "OIL_BRENT", symbol: "BZUSD",  labelKr: "브렌트유",   label: "Brent Crude Oil",    unit: "$/bbl",   category: "energy",    tooltipKr: "글로벌 원유 기준가",                tooltipEn: "Global oil benchmark" },
-  { id: "GAS",       symbol: "NGUSD",  yahooSymbol: "NG=F", labelKr: "천연가스",   label: "Natural Gas",        unit: "$/MMBtu", category: "energy",    tooltipKr: "LNG 수입국 한국 직접 영향",         tooltipEn: "Direct impact on Korea LNG imports" },
+  { id: "GAS",       symbol: "NGUSD",  fallback: "UNG", labelKr: "천연가스",   label: "Natural Gas",        unit: "$/MMBtu", category: "energy",    tooltipKr: "LNG 수입국 한국 직접 영향",         tooltipEn: "Direct impact on Korea LNG imports" },
   { id: "URANIUM",   symbol: "URA",    labelKr: "우라늄",     label: "Uranium ETF (URA)",  unit: "$/share", category: "energy",    tooltipKr: "원전 연료 (SMR/원전 르네상스)",      tooltipEn: "Nuclear fuel (SMR renaissance)" },
   // Precious
   { id: "GOLD",      symbol: "GCUSD",  labelKr: "금",         label: "Gold Futures",       unit: "$/oz",    category: "precious",  tooltipKr: "안전자산 수요 지표",                tooltipEn: "Safe haven demand indicator" },

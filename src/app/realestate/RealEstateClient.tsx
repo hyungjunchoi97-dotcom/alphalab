@@ -7,6 +7,7 @@ import type { DistrictData } from "./SeoulMap";
 import PriceChart from "./PriceChart";
 import TransactionTable from "./TransactionTable";
 import LandmarkView from "./LandmarkView";
+import TierListClient from "./tierlist/TierListClient";
 
 interface Trade {
   date: string;
@@ -41,7 +42,7 @@ interface NewsItem {
   publishedAt: string;
 }
 
-type TabKey = "trades" | "landmarks";
+type TabKey = "trades" | "landmarks" | "tierlist";
 
 function getMonthOptions() {
   const opts: { label: string; value: string }[] = [];
@@ -428,6 +429,7 @@ export default function RealEstateClient() {
             {([
               { key: "trades" as TabKey, label: "실거래 현황" },
               { key: "landmarks" as TabKey, label: "랜드마크" },
+              { key: "tierlist" as TabKey, label: "티어리스트" },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -450,6 +452,8 @@ export default function RealEstateClient() {
 
             {activeTab === "landmarks" ? (
               <LandmarkView />
+            ) : activeTab === "tierlist" ? (
+              <TierListClient embedded />
             ) : (
             <>
             {/* [1] Map + Stats */}
