@@ -80,22 +80,25 @@ async function fetchDistrict(code: string, dealYmd: string): Promise<number[]> {
 
 export async function GET(request: NextRequest) {
   const range = parseInt(request.nextUrl.searchParams.get("range") ?? "12", 10);
+  const forceRefresh = request.nextUrl.searchParams.get("refresh") === "true";
   const cacheKey = `realestate_trend_v1_${range}`;
 
   // Cache check
-  try {
-    const { data: cached } = await supabaseAdmin
-      .from("legend_screener_cache")
-      .select("results, created_at")
-      .eq("cache_key", cacheKey)
-      .single();
-    if (cached) {
-      const age = Date.now() - new Date(cached.created_at).getTime();
-      if (age < CACHE_TTL_MS) {
-        return NextResponse.json({ ok: true, ...(cached.results as object), cached: true });
+  if (!forceRefresh) {
+    try {
+      const { data: cached } = await supabaseAdmin
+        .from("legend_screener_cache")
+        .select("results, created_at")
+        .eq("cache_key", cacheKey)
+        .single();
+      if (cached) {
+        const age = Date.now() - new Date(cached.created_at).getTime();
+        if (age < CACHE_TTL_MS) {
+          return NextResponse.json({ ok: true, ...(cached.results as object), cached: true });
+        }
       }
-    }
-  } catch { /* cache miss */ }
+    } catch { /* cache miss */ }
+  }
 
   const months = getMonths(range);
 
