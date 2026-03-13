@@ -146,10 +146,12 @@ async function fetchYahooQuote(symbol: string): Promise<{ price: number; changeP
     const price = meta?.regularMarketPrice;
     if (price == null) return null;
 
-    const prevClose = meta?.regularMarketPreviousClose ?? meta?.chartPreviousClose ?? meta?.previousClose;
-    const changePct = prevClose && prevClose > 0
-      ? ((price - prevClose) / prevClose) * 100
-      : 0;
+    const changePct = meta?.regularMarketChangePercent != null
+      ? meta.regularMarketChangePercent
+      : (() => {
+          const prevClose = meta?.chartPreviousClose ?? meta?.regularMarketPreviousClose ?? meta?.previousClose;
+          return prevClose && prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
+        })();
 
     return { price, changePct: Math.round(changePct * 100) / 100, marketCap: 0 };
   } catch {
