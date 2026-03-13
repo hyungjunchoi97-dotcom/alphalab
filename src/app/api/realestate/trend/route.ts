@@ -56,7 +56,7 @@ function hasApiError(parsed: any): boolean {
 
 async function fetchDistrict(code: string, dealYmd: string): Promise<number[]> {
   const makeUrl = (ep: string) =>
-    `${ep}?serviceKey=${MOLIT_KEY}&LAWD_CD=${code}&DEAL_YMD=${dealYmd}&numOfRows=200&pageNo=1`;
+    `${ep}?serviceKey=${MOLIT_KEY}&LAWD_CD=${code}&DEAL_YMD=${dealYmd}&numOfRows=1000&pageNo=1`;
   const urls = [makeUrl(ENDPOINT_DEV), makeUrl(ENDPOINT_STD)];
 
   for (const url of urls) {
