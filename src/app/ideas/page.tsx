@@ -283,6 +283,7 @@ export default function IdeasPage() {
   const [krEtfSelected, setKrEtfSelected] = useState<string | null>(null);
   const [krEtfFetched, setKrEtfFetched] = useState(false);
   const [krEtfCollapsed, setKrEtfCollapsed] = useState<Set<string>>(new Set());
+  const [krEtfCommonOpen, setKrEtfCommonOpen] = useState(true);
 
   // Data
   const [fomoKr, setFomoKr] = useState<FomoItem[]>([]);
@@ -1754,6 +1755,71 @@ export default function IdeasPage() {
 
         {/* KR ETF tab */}
         {tab === "kr-etf" && (
+          <div className="space-y-4">
+            {/* Common holdings section */}
+            {!krEtfLoading && krEtfs.length > 0 && (() => {
+              const stockMap = new Map<string, { name: string; code: string; etfs: string[]; weights: number[] }>();
+              for (const etf of krEtfs) {
+                for (const h of etf.holdings) {
+                  const key = h.name;
+                  if (!stockMap.has(key)) stockMap.set(key, { name: h.name, code: h.code, etfs: [], weights: [] });
+                  const entry = stockMap.get(key)!;
+                  entry.etfs.push(etf.name);
+                  entry.weights.push(h.weight);
+                }
+              }
+              const common = [...stockMap.values()]
+                .filter(s => s.etfs.length >= 2)
+                .sort((a, b) => b.etfs.length - a.etfs.length || (b.weights.reduce((s, w) => s + w, 0) / b.weights.length) - (a.weights.reduce((s, w) => s + w, 0) / a.weights.length))
+                .slice(0, 20);
+              if (common.length === 0) return null;
+              return (
+                <div className={`${CARD} bg-[#0c0f15]`}>
+                  <button
+                    onClick={() => setKrEtfCommonOpen(v => !v)}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <span className="text-xs font-semibold text-foreground tracking-wide">액티브 ETF 공통 보유 종목</span>
+                    <span className="text-[10px] text-muted">{krEtfCommonOpen ? "▼" : "▶"}</span>
+                  </button>
+                  {krEtfCommonOpen && (
+                    <div className="mt-3 overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-card-border">
+                            <th className={`${TH} w-8 text-center`}>#</th>
+                            <th className={TH}>종목명</th>
+                            <th className={`${TH} text-right`}>코드</th>
+                            <th className={`${TH} text-center`}>담은 ETF</th>
+                            <th className={`${TH} text-right`}>평균 비중</th>
+                            <th className={TH}>ETF 목록</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {common.map((s, i) => (
+                            <tr key={s.name} className="border-b border-card-border/50 hover:bg-white/[0.02]">
+                              <td className={`${TD} text-center text-muted/60`}>{i + 1}</td>
+                              <td className={`${TD} font-medium text-foreground`}>{s.name}</td>
+                              <td className={`${TD} text-right text-muted/60 tabular-nums`}>{s.code}</td>
+                              <td className={`${TD} text-center font-medium text-amber-300`}>{s.etfs.length}개</td>
+                              <td className={`${TD} text-right tabular-nums text-amber-300`}>{(s.weights.reduce((a, b) => a + b, 0) / s.weights.length).toFixed(2)}%</td>
+                              <td className={TD}>
+                                <div className="flex flex-wrap gap-1">
+                                  {s.etfs.map((name, j) => (
+                                    <span key={j} className="inline-block rounded px-1.5 py-px text-[9px] bg-amber-400/10 text-amber-400/80">{name}</span>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
           <div className="flex gap-4" style={{ minHeight: 500 }}>
             {/* Left: ETF list grouped by asset manager */}
             <div className="flex flex-col gap-1 overflow-y-auto" style={{ width: 300, flexShrink: 0, maxHeight: "80vh" }}>
@@ -1870,6 +1936,7 @@ export default function IdeasPage() {
                 );
               })()}
             </div>
+          </div>
           </div>
         )}
 
