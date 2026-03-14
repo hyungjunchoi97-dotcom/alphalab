@@ -11,39 +11,20 @@ interface MarketItem {
   label: string;
   symbol: string;
   value: number | null;
+  change: number | null;
   changePct: number | null;
 }
 
-const MARKET_SYMBOLS: Omit<MarketItem, "value" | "changePct">[] = [
-  // Indexes
+const MARKET_SYMBOLS: Omit<MarketItem, "value" | "change" | "changePct">[] = [
   { type: "INDEX", label: "S&P 500", symbol: "^GSPC" },
-  { type: "INDEX", label: "NASDAQ", symbol: "^IXIC" },
-  { type: "INDEX", label: "DOW", symbol: "^DJI" },
-  { type: "INDEX", label: "KOSPI", symbol: "^KS11" },
-  { type: "INDEX", label: "KOSDAQ", symbol: "^KQ11" },
-  { type: "INDEX", label: "NIKKEI", symbol: "^N225" },
-  { type: "INDEX", label: "HSI", symbol: "^HSI" },
-  { type: "INDEX", label: "Shanghai", symbol: "000001.SS" },
-  // FX
   { type: "FX", label: "USD/KRW", symbol: "KRW=X" },
-  { type: "FX", label: "USD/JPY", symbol: "JPY=X" },
-  { type: "FX", label: "EUR/USD", symbol: "EURUSD=X" },
-  { type: "FX", label: "GBP/USD", symbol: "GBPUSD=X" },
-  // Commodities
+  { type: "FX", label: "JPY/KRW", symbol: "JPYKRW=X" },
+  { type: "FX", label: "EUR/KRW", symbol: "EURKRW=X" },
+  { type: "FX", label: "GBP/KRW", symbol: "GBPKRW=X" },
   { type: "COM", label: "Gold", symbol: "GC=F" },
-  { type: "COM", label: "Silver", symbol: "SI=F" },
   { type: "COM", label: "WTI Oil", symbol: "CL=F" },
-  { type: "COM", label: "Brent Oil", symbol: "BZ=F" },
-  { type: "COM", label: "Natural Gas", symbol: "NG=F" },
-  { type: "COM", label: "Copper", symbol: "HG=F" },
-  // Crypto
   { type: "CRYPTO", label: "Bitcoin", symbol: "BTC-USD" },
   { type: "CRYPTO", label: "Ethereum", symbol: "ETH-USD" },
-  // Bonds
-  { type: "BOND", label: "US 10Y", symbol: "^TNX" },
-  // Volatility
-  { type: "INDEX", label: "VIX", symbol: "^VIX" },
-  { type: "FX", label: "DXY", symbol: "DX-Y.NYB" },
 ];
 
 // ── Cache ───────────────────────────────────────────────────
@@ -59,7 +40,7 @@ let marketCache: Cache<MarketItem[]> | null = null;
 
 // ── Yahoo Finance fetcher ───────────────────────────────────
 
-async function fetchYahooQuote(symbol: string): Promise<{ price: number; changePct: number } | null> {
+async function fetchYahooQuote(symbol: string): Promise<{ price: number; change: number; changePct: number } | null> {
   const cached = getYahooCache(symbol);
   if (cached) return cached;
   try {
@@ -83,7 +64,7 @@ async function fetchYahooQuote(symbol: string): Promise<{ price: number; changeP
     const prevClose = meta?.chartPreviousClose ?? meta?.regularMarketPreviousClose ?? meta?.previousClose;
     const change = prevClose ? price - prevClose : 0;
     setYahooCache(symbol, price, change, changePct);
-    return { price, changePct };
+    return { price, change, changePct };
   } catch {
     return null;
   }
@@ -98,6 +79,7 @@ async function fetchAllMarketData(): Promise<MarketItem[]> {
         label: s.label,
         symbol: s.symbol,
         value: quote?.price ?? null,
+        change: quote?.change != null ? Math.round(quote.change * 100) / 100 : null,
         changePct: quote?.changePct != null ? Math.round(quote.changePct * 100) / 100 : null,
       } as MarketItem;
     })

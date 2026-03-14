@@ -6,6 +6,7 @@ interface MarketItem {
   type: "INDEX" | "FX" | "COM" | "CRYPTO" | "BOND";
   label: string;
   value: number | null;
+  change: number | null;
   changePct: number | null;
 }
 
@@ -13,7 +14,7 @@ interface TickerItem {
   type: "INDEX" | "FX" | "COM" | "CRYPTO" | "BOND";
   label: string;
   value: string;
-  changePct: number | null;
+  change: number | null;
 }
 
 function formatValue(label: string, value: number): string {
@@ -31,6 +32,13 @@ function formatValue(label: string, value: number): string {
     return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   // Indices
   return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatChange(change: number, type: string, label: string): string {
+  const sign = change >= 0 ? "+" : "";
+  if (type === "FX") return `${sign}${Math.round(change)}`;
+  if (type === "CRYPTO") return `${sign}${Math.round(change).toLocaleString("en-US")}`;
+  return `${sign}${change.toFixed(2)}`;
 }
 
 const TAG_COLORS: Record<string, string> = {
@@ -57,14 +65,13 @@ function TickerEntry({ item }: { item: TickerItem }) {
           {item.value}
         </span>
       )}
-      {item.changePct != null && (
+      {item.change != null && (
         <span
           className={`text-[11px] tabular-nums font-medium ${
-            item.changePct >= 0 ? "text-gain" : "text-loss"
+            item.change >= 0 ? "text-gain" : "text-loss"
           }`}
         >
-          {item.changePct >= 0 ? "+" : ""}
-          {item.changePct.toFixed(2)}%
+          {formatChange(item.change, item.type, item.label)}
         </span>
       )}
     </span>
@@ -90,7 +97,7 @@ export default function TopTickerBar() {
             type: m.type,
             label: m.label,
             value: m.value != null ? formatValue(m.label, m.value) : "—",
-            changePct: m.changePct,
+            change: m.change,
           });
         }
       }
