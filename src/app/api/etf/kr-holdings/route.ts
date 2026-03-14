@@ -5,16 +5,16 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 const KR_ETF_LIST = [
-  { code: "396500", name: "TIGER 차이나전기차SOLACTIVE" },
   { code: "091160", name: "KODEX 반도체" },
+  { code: "396500", name: "TIGER 반도체TOP10" },
   { code: "305720", name: "KODEX 2차전지산업" },
-  { code: "441680", name: "KODEX 반도체TOP10" },
-  { code: "396510", name: "TIGER Fn반도체TOP10" },
-  { code: "411600", name: "KODEX K-방산" },
+  { code: "364970", name: "TIGER 글로벌AI액티브" },
+  { code: "411800", name: "KODEX K-방산" },
   { code: "465580", name: "TIGER 조선TOP10" },
-  { code: "400010", name: "삼성 KoAct 국내액티브" },
+  { code: "462900", name: "KoAct 바이오헬스케어액티브" },
   { code: "451170", name: "TIMEFOLIO Korea플러스배당액티브" },
-  { code: "364970", name: "TIMEFOLIO 글로벌AI인공지능액티브" },
+  { code: "476850", name: "KoAct 삼성그룹액티브" },
+  { code: "482030", name: "KoAct 반도체&2차전지핵심소재액티브" },
 ];
 
 const CACHE_KEY = "kr_etf_holdings_v1";
