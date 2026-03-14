@@ -21,6 +21,11 @@ const LiquidityDashboard = dynamic(() => import("@/components/LiquidityDashboard
   loading: () => <div className="animate-pulse bg-[#111] h-96 rounded-xl" />,
 });
 
+const RRGChart = dynamic(() => import("@/components/RRGChart"), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-[#111] h-[500px] rounded-xl" />,
+});
+
 // ── Types ─────────────────────────────────────────────────────
 
 interface Observation {
@@ -1578,7 +1583,7 @@ function CAPEChart({
 
 // ── Page ──────────────────────────────────────────────────────
 
-type MacroTab = "indicators" | "liquidity";
+type MacroTab = "indicators" | "liquidity" | "rrg";
 
 export default function MacroPage() {
   const { lang } = useLang();
@@ -1804,6 +1809,7 @@ export default function MacroPage() {
           {([
             { key: "indicators" as MacroTab, labelKr: "매크로 지표", labelEn: "Macro Indicators" },
             { key: "liquidity" as MacroTab, labelKr: "유동성", labelEn: "Liquidity" },
+            { key: "rrg" as MacroTab, labelKr: "RRG", labelEn: "RRG" },
           ]).map((tab) => (
             <button
               key={tab.key}
@@ -1822,6 +1828,9 @@ export default function MacroPage() {
 
         {/* ── Liquidity Tab ────────────────────────────────────── */}
         {activeTab === "liquidity" && <LiquidityDashboard />}
+
+        {/* ── RRG Tab ──────────────────────────────────────────── */}
+        {activeTab === "rrg" && <RRGChart />}
 
         {/* ── Macro Indicators Tab ─────────────────────────────── */}
         {activeTab === "indicators" && (<>
