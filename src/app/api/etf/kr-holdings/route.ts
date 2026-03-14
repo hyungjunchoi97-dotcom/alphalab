@@ -9,7 +9,7 @@ const KR_ETF_LIST = [
   { code: "396500", name: "TIGER 반도체TOP10" },
   { code: "305720", name: "KODEX 2차전지산업" },
   { code: "364970", name: "TIGER 글로벌AI액티브" },
-  { code: "466940", name: "TIGER 우주항공&방산플러스TOP10" },
+  { code: "463250", name: "TIGER K방산&우주" },
   { code: "494670", name: "TIGER 조선TOP10" },
   { code: "462900", name: "KoAct 바이오헬스케어액티브" },
   { code: "465330", name: "RISE 2차전지TOP10" },
