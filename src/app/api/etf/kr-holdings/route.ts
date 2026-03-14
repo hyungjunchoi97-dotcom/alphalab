@@ -29,7 +29,7 @@ const KR_ETF_LIST = [
   { code: "0052D0", name: "TIGER 코리아배당다우존스" },
 ];
 
-const CACHE_KEY = "kr_etf_holdings_v4";
+const CACHE_KEY = "kr_etf_holdings_v5";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
 
 interface Holding {
