@@ -120,34 +120,31 @@ async function fetchHistory(symbol: string): Promise<HistoryPoint[]> {
   }
 }
 
-// ── Yahoo Finance (WTI/Gas 전용) ───────────────────────────────
-const YAHOO_HEADERS = { "User-Agent": "Mozilla/5.0 (compatible; AlphaLab/1.0)" };
-
-async function fetchYahooQuote(yahooSym: string): Promise<{ price: number; change: number; changePercent: number; prevClose: number; high52w: number | null; low52w: number | null } | null> {
+// ── FMP v3 quote (replaces Yahoo v7) ───────────────────────────
+async function fetchFmpV3Quote(symbol: string): Promise<{ price: number; change: number; changePercent: number; prevClose: number; high52w: number | null; low52w: number | null } | null> {
   try {
-    const fields = "regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketPreviousClose,fiftyTwoWeekHigh,fiftyTwoWeekLow";
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(yahooSym)}&fields=${fields}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000), headers: YAHOO_HEADERS });
+    const url = `https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(symbol)}?apikey=${FMP_KEY}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) {
-      console.warn(`[commodities] Yahoo quote HTTP ${res.status} for ${yahooSym}`);
+      console.warn(`[commodities] FMP v3 quote HTTP ${res.status} for ${symbol}`);
       return null;
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const json: any = await res.json();
-    const item = json?.quoteResponse?.result?.[0];
+    const item = Array.isArray(json) ? json[0] : null;
     if (!item) return null;
-    const price = Number(item.regularMarketPrice ?? 0);
+    const price = Number(item.price ?? 0);
     if (price <= 0) return null;
     return {
       price,
-      change: Number(item.regularMarketChange ?? 0),
-      changePercent: Number(item.regularMarketChangePercent ?? 0),
-      prevClose: Number(item.regularMarketPreviousClose ?? price),
-      high52w: item.fiftyTwoWeekHigh != null ? Number(item.fiftyTwoWeekHigh) : null,
-      low52w:  item.fiftyTwoWeekLow  != null ? Number(item.fiftyTwoWeekLow)  : null,
+      change: Number(item.change ?? 0),
+      changePercent: Number(item.changesPercentage ?? 0),
+      prevClose: Number(item.previousClose ?? price),
+      high52w: item.yearHigh != null ? Number(item.yearHigh) : null,
+      low52w:  item.yearLow  != null ? Number(item.yearLow)  : null,
     };
   } catch (err) {
-    console.warn(`[commodities] Yahoo quote exception for ${yahooSym}:`, err);
+    console.warn(`[commodities] FMP v3 quote exception for ${symbol}:`, err);
     return null;
   }
 }
@@ -155,7 +152,7 @@ async function fetchYahooQuote(yahooSym: string): Promise<{ price: number; chang
 async function fetchYahooHistory(yahooSym: string): Promise<HistoryPoint[]> {
   try {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1d&range=1mo`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000), headers: YAHOO_HEADERS });
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000), headers: { "User-Agent": "Mozilla/5.0" } });
     if (!res.ok) return [];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const json: any = await res.json();
@@ -178,12 +175,12 @@ async function fetchCommodity(cfg: CommodityConfig): Promise<CommodityResult> {
   let usedSymbol = cfg.symbol;
 
   if (cfg.yahooSymbol) {
-    // Yahoo Finance 우선 (WTI, Gas)
-    quote = await fetchYahooQuote(cfg.yahooSymbol);
+    // FMP v3 quote 우선 (yahooSymbol = FMP symbol)
+    quote = await fetchFmpV3Quote(cfg.yahooSymbol);
     if (quote) {
       const history = await fetchYahooHistory(cfg.yahooSymbol);
       const ok = quote.price > 0;
-      console.log(`[commodities] ${cfg.id} (Yahoo:${cfg.yahooSymbol}): ${ok ? `price=${quote.price} chg%=${quote.changePercent.toFixed(2)}` : "NO DATA"}`);
+      console.log(`[commodities] ${cfg.id} (FMPv3:${cfg.yahooSymbol}): ${ok ? `price=${quote.price} chg%=${quote.changePercent.toFixed(2)}` : "NO DATA"}`);
       return {
         id: cfg.id, symbol: cfg.yahooSymbol, label: cfg.label, labelKr: cfg.labelKr,
         unit: cfg.unit, category: cfg.category,
@@ -196,8 +193,7 @@ async function fetchCommodity(cfg: CommodityConfig): Promise<CommodityResult> {
         history, tooltipKr: cfg.tooltipKr, tooltipEn: cfg.tooltipEn,
       };
     }
-    console.warn(`[commodities] ${cfg.id}: Yahoo fallback to FMP`);
-    // Yahoo 실패 시 FMP로 폴백
+    console.warn(`[commodities] ${cfg.id}: FMP v3 fallback to stable`);
   }
 
   quote = await fetchQuote(cfg.symbol);
