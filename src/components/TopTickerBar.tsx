@@ -122,7 +122,7 @@ export default function TopTickerBar() {
 
   return (
     <div className="group relative overflow-hidden border-b border-card-border/60 bg-background">
-      <div className="ticker-scroll flex w-max items-center gap-6 whitespace-nowrap px-4 py-1.5 group-hover:[animation-play-state:paused]">
+      <div style={{ ["--ticker-duration" as string]: "20s" }} className="ticker-scroll flex w-max items-center gap-6 whitespace-nowrap px-4 py-1.5 group-hover:[animation-play-state:paused]">
         {/* Duplicate items for seamless loop */}
         {[...items, ...items].map((item, i) => (
           <TickerEntry key={i} item={item} />

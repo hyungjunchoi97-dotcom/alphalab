@@ -17,6 +17,8 @@ interface MarketItem {
 
 const MARKET_SYMBOLS: Omit<MarketItem, "value" | "change" | "changePct">[] = [
   { type: "INDEX", label: "S&P 500", symbol: "^GSPC" },
+  { type: "INDEX", label: "KOSPI", symbol: "^KS11" },
+  { type: "INDEX", label: "KOSDAQ", symbol: "^KQ11" },
   { type: "FX", label: "USD/KRW", symbol: "KRW=X" },
   { type: "FX", label: "JPY/KRW", symbol: "JPYKRW=X" },
   { type: "FX", label: "EUR/KRW", symbol: "EURKRW=X" },
