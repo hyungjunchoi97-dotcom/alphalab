@@ -41,7 +41,7 @@ async function getKisToken(): Promise<string> {
     }),
     signal: AbortSignal.timeout(10000),
   });
-  if (!res.ok) throw new Error(`KIS token error: ${res.status}`);
+  if (!res.ok) { const txt = await res.text(); throw new Error(`KIS token error: ${res.status} ${txt}`); }
   const data = await res.json();
   const token = data.access_token as string;
   tokenCache = { token, expiresAt: Date.now() + 55 * 60 * 1000 };
