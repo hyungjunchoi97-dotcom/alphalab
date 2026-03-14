@@ -30,17 +30,24 @@ const COMMODITIES: CommodityConfig[] = [
   { id: "OIL_BRENT", symbol: "BZUSD",  yahooSymbol: "BZ=F", labelKr: "브렌트유",   label: "Brent Crude Oil",    unit: "$/bbl",   category: "energy",    tooltipKr: "글로벌 원유 기준가",                tooltipEn: "Global oil benchmark" },
   { id: "GAS",       symbol: "NGUSD",  fallback: "UNG", yahooSymbol: "NG=F", labelKr: "천연가스",   label: "Natural Gas",        unit: "$/MMBtu", category: "energy",    tooltipKr: "LNG 수입국 한국 직접 영향",         tooltipEn: "Direct impact on Korea LNG imports" },
   { id: "URANIUM",   symbol: "URA",    yahooSymbol: "URA", labelKr: "우라늄",     label: "Uranium ETF (URA)",  unit: "$/share", category: "energy",    tooltipKr: "원전 연료 (SMR/원전 르네상스)",      tooltipEn: "Nuclear fuel (SMR renaissance)" },
+  { id: "GASOLINE",    symbol: "GASOLINE", yahooSymbol: "RB=F",  labelKr: "가솔린",     label: "Gasoline",         unit: "$/gal",   category: "energy",    tooltipKr: "WTI 정제 마진 지표",               tooltipEn: "WTI refining margin indicator" },
+  { id: "HEATING_OIL", symbol: "HEATING",  yahooSymbol: "HO=F",  labelKr: "난방유",     label: "Heating Oil",      unit: "$/gal",   category: "energy",    tooltipKr: "겨울 수요 및 정제 마진",            tooltipEn: "Winter demand & refining margin" },
+  { id: "CARBON",      symbol: "CARBON",   yahooSymbol: "KRBN",  labelKr: "탄소배출권", label: "Carbon Credits",   unit: "$/t",     category: "energy",    tooltipKr: "ESG 규제 및 탄소세 트렌드",         tooltipEn: "ESG regulation & carbon tax trend" },
   // Precious
   { id: "GOLD",      symbol: "GCUSD",  yahooSymbol: "GC=F", labelKr: "금",         label: "Gold Futures",       unit: "$/oz",    category: "precious",  tooltipKr: "안전자산 수요 지표",                tooltipEn: "Safe haven demand indicator" },
   { id: "SILVER",    symbol: "SIUSD",  yahooSymbol: "SI=F", labelKr: "은",         label: "Silver Futures",     unit: "$/oz",    category: "precious",  tooltipKr: "산업용+귀금속 이중 수요",            tooltipEn: "Dual industrial + precious demand" },
+  { id: "PLATINUM",  symbol: "PLATINUM", yahooSymbol: "PL=F", labelKr: "플래티넘",   label: "Platinum",           unit: "$/oz",    category: "precious",  tooltipKr: "수소차 촉매 핵심 소재",              tooltipEn: "Key material for hydrogen fuel cells" },
   // Industrial
   { id: "COPPER",    symbol: "HGUSD",  fallback: "COPX", yahooSymbol: "HG=F", labelKr: "구리", label: "Copper Futures", unit: "$/lb",   category: "industrial", tooltipKr: "글로벌 경기 선행지표 (닥터 쿠퍼)", tooltipEn: "Global economic leading indicator" },
   { id: "ALUMINUM",  symbol: "ALUSD",  fallback: "JJU",  yahooSymbol: "JJU", labelKr: "알루미늄", label: "Aluminum", unit: "$/t",    category: "industrial", tooltipKr: "경량화 트렌드 핵심 소재",           tooltipEn: "Key lightweight material (auto/aero)" },
   { id: "WHEAT",     symbol: "ZMUSD",  fallback: "WEAT", yahooSymbol: "ZW=F", labelKr: "밀",   label: "Wheat Futures",  unit: "¢/bu",  category: "industrial", tooltipKr: "식량 안보 지표",                   tooltipEn: "Food security indicator" },
   { id: "COAL",      symbol: "BTU",    yahooSymbol: "BTU", labelKr: "석탄",   label: "Coal (Peabody BTU)",  unit: "$/share", category: "industrial", tooltipKr: "화력발전 연료 프록시",              tooltipEn: "Thermal coal proxy (Peabody Energy)" },
+  { id: "ZINC",      symbol: "ZINC",   yahooSymbol: "ZINC",  labelKr: "아연", label: "Zinc",               unit: "$/t",     category: "industrial", tooltipKr: "철강 도금 핵심 소재",              tooltipEn: "Key steel coating material" },
+  { id: "LEAD",      symbol: "LEAD",   yahooSymbol: "LEAD",  labelKr: "납",   label: "Lead",               unit: "$/t",     category: "industrial", tooltipKr: "배터리 원자재",                    tooltipEn: "Battery raw material" },
   // Battery
   { id: "LITHIUM",   symbol: "LTHM",   yahooSymbol: "LTHM", labelKr: "리튬",   label: "Lithium (LTHM)",      unit: "$/share", category: "battery",   tooltipKr: "2차전지 핵심 소재 (EV/ESS)",        tooltipEn: "Key battery material (EV/ESS demand)" },
   { id: "NICKEL",    symbol: "NIKUSD", fallback: "JJN",  yahooSymbol: "JJN", labelKr: "니켈", label: "Nickel Futures", unit: "$/t",    category: "battery",   tooltipKr: "배터리·스테인리스 핵심 소재",       tooltipEn: "Key battery & stainless steel material" },
+  { id: "COBALT",    symbol: "COBALT", yahooSymbol: "JJCTF", labelKr: "코발트", label: "Cobalt",           unit: "$/t",    category: "battery",   tooltipKr: "EV 배터리 핵심 소재 (양극재)",      tooltipEn: "Key EV battery cathode material" },
 ];
 
 export interface HistoryPoint { date: string; close: number }
