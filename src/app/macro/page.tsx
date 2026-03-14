@@ -1763,7 +1763,7 @@ export default function MacroPage() {
     try {
       const res = await fetch("/api/macro/commodities");
       const json = await res.json();
-      if (json.ok) setCommodities(json.data || []);
+      if (json.ok) setCommodities((json.data || []).map((d: Record<string, unknown>) => ({ ...d, current: d.price ?? d.current, previous: d.prevClose ?? d.previous })));
     } catch { /* silent */ } finally {
       setComLoading(false);
     }
