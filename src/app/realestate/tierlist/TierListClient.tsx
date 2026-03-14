@@ -218,6 +218,14 @@ function LandmarkCard({ lm, accentColor }: { lm: Landmark; accentColor: string }
   );
 }
 
+/* ── News Item Type ── */
+interface NewsArticle {
+  title: string;
+  url: string;
+  source: string;
+  publishedAt: string;
+}
+
 /* ── Main Component ── */
 export default function TierListClient({ embedded = false }: { embedded?: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -225,6 +233,8 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState(12);
   const [fetched, setFetched] = useState(false);
+  const [news, setNews] = useState<NewsArticle[]>([]);
+  const [newsLoading, setNewsLoading] = useState(true);
 
   useEffect(() => {
     if (fetched) return;
@@ -235,6 +245,14 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [fetched]);
+
+  useEffect(() => {
+    fetch("/api/realestate/news?district=서울&limit=15")
+      .then(res => res.json())
+      .then(j => { if (j.ok) setNews(j.news ?? []); })
+      .catch(() => {})
+      .finally(() => setNewsLoading(false));
+  }, []);
 
   const handleSelect = useCallback((district: string) => {
     if (!AVAILABLE_DISTRICTS.has(district)) return;
@@ -371,10 +389,24 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
 
             {selected ? (
               loading ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} style={{ height: 380, background: "#0e0e0e", border: "1px solid #1e1e1e", borderRadius: 2 }} />
-                  ))}
+                <div style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  padding: "80px 0", border: "1px solid #1e1e1e", background: "#0a0a0a",
+                }}>
+                  <svg
+                    style={{ width: 36, height: 36, color: "#f59e0b", marginBottom: 16 }}
+                    className="animate-spin"
+                    viewBox="0 0 24 24" fill="none"
+                  >
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.2" />
+                    <path d="M12 2a10 10 0 019.8 8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  <div style={{ ...S, fontSize: 13, color: "#e0e0e0", fontWeight: 600, marginBottom: 6 }}>
+                    부동산 실거래 데이터를 불러오는 중입니다...
+                  </div>
+                  <div style={{ ...S, fontSize: 11, color: "#555" }}>
+                    API 데이터 호출에 최대 1분 정도 소요될 수 있습니다
+                  </div>
                 </div>
               ) : filteredLandmarks.length > 0 ? (
                 <div>
@@ -411,6 +443,79 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
               </div>
             )}
           </div>
+        </div>
+
+        {/* ── Seoul Real Estate News ── */}
+        <div style={{ marginTop: 32 }}>
+          <div style={{
+            ...S, fontSize: 13, fontWeight: 700, color: "#e0e0e0",
+            letterSpacing: "0.08em", textTransform: "uppercase",
+            paddingBottom: 10, marginBottom: 16,
+            borderBottom: "1px solid #1e1e1e",
+          }}>
+            서울 부동산 뉴스
+          </div>
+
+          {newsLoading ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "20px 0" }}>
+              <svg
+                style={{ width: 16, height: 16, color: "#f59e0b" }}
+                className="animate-spin"
+                viewBox="0 0 24 24" fill="none"
+              >
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.2" />
+                <path d="M12 2a10 10 0 019.8 8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+              <span style={{ ...S, fontSize: 11, color: "#555" }}>뉴스 로딩 중...</span>
+            </div>
+          ) : news.length === 0 ? (
+            <div style={{ ...S, fontSize: 11, color: "#444", padding: "20px 0" }}>
+              뉴스를 불러올 수 없습니다
+            </div>
+          ) : (
+            <div>
+              {news.map((item, i) => (
+                <a
+                  key={i}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "flex", alignItems: "baseline", gap: 10,
+                    padding: "10px 0",
+                    borderBottom: "1px solid #141414",
+                    textDecoration: "none",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = "#111";
+                    const title = e.currentTarget.querySelector("[data-title]") as HTMLElement;
+                    if (title) title.style.color = "#f59e0b";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = "transparent";
+                    const title = e.currentTarget.querySelector("[data-title]") as HTMLElement;
+                    if (title) title.style.color = "#ccc";
+                  }}
+                >
+                  <span style={{ ...S, fontSize: 11, color: "#444", flexShrink: 0, width: 24, textAlign: "right" }}>
+                    {i + 1}
+                  </span>
+                  <span data-title="" style={{ ...S, fontSize: 12, color: "#ccc", flex: 1, transition: "color 0.15s" }}>
+                    {item.title}
+                  </span>
+                  {item.source && (
+                    <span style={{ ...S, fontSize: 10, color: "#555", flexShrink: 0 }}>
+                      [{item.source}]
+                    </span>
+                  )}
+                  <span style={{ ...S, fontSize: 10, color: "#333", flexShrink: 0 }}>
+                    {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" }) : ""}
+                  </span>
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

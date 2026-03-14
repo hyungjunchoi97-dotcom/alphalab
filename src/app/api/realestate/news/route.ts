@@ -21,7 +21,7 @@ function parseItems(parsed: any): NewsItem[] {
   const items = parsed?.rss?.channel?.item;
   if (!items) return [];
   const arr = Array.isArray(items) ? items : [items];
-  return arr.slice(0, 5).map((item) => {
+  return arr.map((item) => {
     // title may be "Headline - Source Name"
     const rawTitle: string = String(item.title ?? "").replace(/<!\[CDATA\[|\]\]>/g, "").trim();
     const lastDash = rawTitle.lastIndexOf(" - ");
@@ -42,6 +42,7 @@ function parseItems(parsed: any): NewsItem[] {
 
 export async function GET(request: NextRequest) {
   const district = request.nextUrl.searchParams.get("district") ?? "";
+  const limit = Math.min(Math.max(parseInt(request.nextUrl.searchParams.get("limit") ?? "5", 10) || 5, 1), 30);
   if (!district) {
     return NextResponse.json({ ok: false, error: "district param required" }, { status: 400 });
   }
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest) {
     });
     const text = await res.text();
     const parsed = xmlParser.parse(text);
-    news = parseItems(parsed);
+    news = parseItems(parsed).slice(0, limit);
   } catch (err) {
     console.error("[뉴스API]", err);
   }
