@@ -76,8 +76,9 @@ async function fetchHoldings(token: string, etfCode: string): Promise<Holding[]>
       signal: AbortSignal.timeout(10000),
     }
   );
-  if (!res.ok) return [];
+  if (!res.ok) { console.error("[KIS ETF] HTTP", res.status, etfCode); return []; }
   const data = await res.json();
+  console.log("[KIS ETF]", etfCode, "rt_cd:", data.rt_cd, "msg:", data.msg1, "output2:", typeof data.output2);
   const items = data.output2;
   if (!Array.isArray(items)) return [];
 
