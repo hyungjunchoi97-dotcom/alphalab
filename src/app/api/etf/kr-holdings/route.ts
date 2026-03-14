@@ -4,10 +4,6 @@ import { supabaseAdmin } from "@/lib/supabaseServer";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const KIS_APP_KEY = process.env.KIS_APP_KEY ?? "";
-const KIS_APP_SECRET = process.env.KIS_APP_SECRET ?? "";
-const KIS_BASE = "https://openapi.koreainvestment.com:9443";
-
 const KR_ETF_LIST = [
   { code: "396500", name: "TIGER 차이나전기차SOLACTIVE" },
   { code: "091160", name: "KODEX 반도체" },
@@ -24,73 +20,35 @@ const KR_ETF_LIST = [
 const CACHE_KEY = "kr_etf_holdings_v1";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
 
-// In-memory token cache
-let tokenCache: { token: string; expiresAt: number } | null = null;
-
-async function getKisToken(): Promise<string> {
-  if (tokenCache && Date.now() < tokenCache.expiresAt) {
-    return tokenCache.token;
-  }
-  const res = await fetch(`${KIS_BASE}/oauth2/tokenP`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      grant_type: "client_credentials",
-      appkey: KIS_APP_KEY,
-      appsecret: KIS_APP_SECRET,
-    }),
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!res.ok) { const txt = await res.text(); throw new Error(`KIS token error: ${res.status} ${txt}`); }
-  const data = await res.json();
-  const token = data.access_token as string;
-  tokenCache = { token, expiresAt: Date.now() + 55 * 60 * 1000 };
-  return token;
-}
-
 interface Holding {
   rank: number;
   code: string;
   name: string;
   weight: number;
-  price: number;
-  chgPct: number;
 }
 
-async function fetchHoldings(token: string, etfCode: string): Promise<Holding[]> {
-  const params = new URLSearchParams({
-    FID_COND_MRKT_DIV_CODE: "J",
-    FID_INPUT_ISCD: etfCode,
-    FID_COND_SCR_DIV_CODE: "11216",
-  });
+async function fetchHoldings(etfCode: string): Promise<Holding[]> {
   const res = await fetch(
-    `${KIS_BASE}/uapi/etfetn/v1/quotations/inquire-component-stock-price?${params}`,
+    `https://m.stock.naver.com/api/etf/${etfCode}/constituent?limit=50`,
     {
       headers: {
-        Authorization: `Bearer ${token}`,
-        appkey: KIS_APP_KEY,
-        appsecret: KIS_APP_SECRET,
-        tr_id: "FHKST121600C0",
-        custtype: "P",
+        "User-Agent": "Mozilla/5.0 (compatible; AlphaLab/1.0; +https://thealphalabs.net)",
       },
       signal: AbortSignal.timeout(10000),
     }
   );
-  if (!res.ok) { console.error("[KIS ETF] HTTP", res.status, etfCode); return []; }
+  if (!res.ok) { console.error("[Naver ETF] HTTP", res.status, etfCode); return []; }
   const data = await res.json();
-  console.log("[KIS ETF]", etfCode, "rt_cd:", data.rt_cd, "msg:", data.msg1, "output2:", typeof data.output2);
-  const items = data.output2;
+  const items = data.result;
   if (!Array.isArray(items)) return [];
 
   return items
-    .filter((item: Record<string, string>) => item.hts_kor_isnm && item.stck_shrn_iscd)
-    .map((item: Record<string, string>, idx: number) => ({
+    .filter((item: Record<string, string | number>) => item.itemName && item.itemCode)
+    .map((item: Record<string, string | number>, idx: number) => ({
       rank: idx + 1,
-      code: item.stck_shrn_iscd,
-      name: item.hts_kor_isnm,
-      weight: parseFloat(item.etf_cnfg_issu_rlim || "0"),
-      price: parseInt(item.stck_prpr || "0", 10),
-      chgPct: parseFloat(item.prdy_ctrt || "0"),
+      code: String(item.itemCode),
+      name: String(item.itemName),
+      weight: parseFloat(String(item.constituentWeight ?? "0")),
     }))
     .filter((h: Holding) => h.weight > 0)
     .sort((a: Holding, b: Holding) => b.weight - a.weight);
@@ -120,12 +78,9 @@ export async function GET(request: Request) {
   } catch { /* cache miss */ }
 
   try {
-    const token = await getKisToken();
-
-    // Fetch all ETFs sequentially to avoid rate limits
     const etfs: { code: string; name: string; holdings: Holding[] }[] = [];
     for (const etf of KR_ETF_LIST) {
-      const holdings = await fetchHoldings(token, etf.code);
+      const holdings = await fetchHoldings(etf.code);
       etfs.push({ code: etf.code, name: etf.name, holdings });
     }
 

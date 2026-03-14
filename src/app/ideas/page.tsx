@@ -278,7 +278,7 @@ export default function IdeasPage() {
   const [consensusFetched, setConsensusFetched] = useState(false);
 
   // KR ETF
-  const [krEtfs, setKrEtfs] = useState<{ code: string; name: string; holdings: { rank: number; code: string; name: string; weight: number; price: number; chgPct: number }[] }[]>([]);
+  const [krEtfs, setKrEtfs] = useState<{ code: string; name: string; holdings: { rank: number; code: string; name: string; weight: number }[] }[]>([]);
   const [krEtfLoading, setKrEtfLoading] = useState(false);
   const [krEtfSelected, setKrEtfSelected] = useState<string | null>(null);
   const [krEtfFetched, setKrEtfFetched] = useState(false);
@@ -1805,8 +1805,6 @@ export default function IdeasPage() {
                             <th className={TH}>종목명</th>
                             <th className={`${TH} text-right`}>코드</th>
                             <th className={`${TH} text-right`}>비중%</th>
-                            <th className={`${TH} text-right`}>현재가</th>
-                            <th className={`${TH} text-right`}>등락률</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1824,10 +1822,6 @@ export default function IdeasPage() {
                               </td>
                               <td className={`${TD} text-right text-muted/60 tabular-nums`}>{h.code}</td>
                               <td className={`${TD} text-right font-medium text-amber-300 tabular-nums`}>{h.weight.toFixed(2)}%</td>
-                              <td className={`${TD} text-right tabular-nums`}>{h.price.toLocaleString()}</td>
-                              <td className={`${TD} text-right font-medium tabular-nums ${h.chgPct > 0 ? "text-gain" : h.chgPct < 0 ? "text-loss" : "text-muted"}`}>
-                                {h.chgPct > 0 ? "+" : ""}{h.chgPct.toFixed(2)}%
-                              </td>
                             </tr>
                           ))}
                         </tbody>
