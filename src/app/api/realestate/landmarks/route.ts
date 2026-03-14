@@ -32,7 +32,7 @@ const LANDMARKS: { district: string; code: string; keywords: KeywordRule[] }[] =
   { district: "강서구", code: "11500", keywords: ["마곡엠밸리7단지", "마곡엠밸리8단지", { include: "염창", label: "염창동한신" }, { include: "가양", label: "가양대림" }, { include: "내발산", label: "내발산동현대" }] },
   { district: "동대문구", code: "11230", keywords: ["휘경SK뷰", "전농SK", "래미안위브", "한양수자인", { include: "이문", label: "이문힐스테이트" }] },
   { district: "성북구", code: "11290", keywords: [{ include: "길음", label: "길음역롯데캐슬" }, "돈암현대", { include: "한신", label: "한신" }, { include: "정릉", label: "정릉SK뷰" }, { include: "석관", label: "석관두산" }] },
-  { district: "은평구", code: "11380", keywords: [{ include: "녹번", label: "녹번역e편한세상캐슬" }, { include: "불광", label: "불광미성" }, { include: "응암", label: "응암현대" }, { include: "진관", label: "진관래미안" }, { include: "구산", label: "구산현대" }] },
+  { district: "은평구", code: "11380", keywords: [{ include: "녹번", label: "녹번역e편한세상캐슬" }, { include: "불광", label: "불광미성" }, { include: "응암", label: "응암현대" }, { include: "구산", label: "구산현대" }] },
   { district: "관악구", code: "11620", keywords: [{ include: "봉천", label: "봉천현대" }, "신림현대", { include: "관악산", label: "관악산LH" }, { include: "서울대", label: "서울대벽산" }, { include: "하이츠", label: "중앙하이츠빌" }] },
   // E티어
   { district: "노원구", code: "11350", keywords: [{ include: "상계주공3", label: "상계주공3단지" }, { include: "중계그린", label: "중계그린1단지" }, { include: "하계2현대", label: "하계현대2차" }, { include: "공릉해링턴", label: "공릉해링턴플레이스" }, { include: "월계센트럴", label: "월계센트럴아이파크" }] },
