@@ -24,6 +24,7 @@ interface TelegramMessage {
   text: string;
   date: number;
   link: string;
+  imageUrl?: string;
 }
 
 // ── 7 Key Indices ────────────────────────────────────────────
@@ -239,20 +240,12 @@ export default function Home() {
                         <span className="text-[10px] text-[#999] font-mono">
                           {timeAgo(msg.date)}
                         </span>
-                        <a
-                          href={msg.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ml-auto text-[10px] font-medium text-amber-400/80 hover:text-amber-400 transition-colors"
-                        >
-                          {lang === "kr" ? "원문" : "Link"} &rarr;
-                        </a>
                       </div>
-                      {(msg as TelegramMessage & { photo?: string }).photo && (
+                      {msg.imageUrl && (
                         <img
-                          src={(msg as TelegramMessage & { photo?: string }).photo}
+                          src={msg.imageUrl}
                           alt=""
-                          className="mb-2 rounded max-h-48 w-auto"
+                          className="mb-2 rounded max-h-48 w-auto object-cover"
                           loading="lazy"
                         />
                       )}
