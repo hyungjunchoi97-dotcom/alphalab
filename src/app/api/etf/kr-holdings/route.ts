@@ -15,6 +15,10 @@ const KR_ETF_LIST = [
   { code: "465330", name: "RISE 2차전지TOP10" },
   { code: "476850", name: "KoAct 삼성그룹액티브" },
   { code: "482030", name: "KoAct 반도체&2차전지핵심소재액티브" },
+  { code: "0162Y0", name: "TIME 코스닥액티브" },
+  { code: "385720", name: "TIME 코스피액티브" },
+  { code: "456600", name: "TIME 글로벌AI인공지능액티브" },
+  { code: "441800", name: "TIME Korea플러스배당액티브" },
 ];
 
 const CACHE_KEY = "kr_etf_holdings_v1";
