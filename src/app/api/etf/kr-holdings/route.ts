@@ -47,10 +47,10 @@ async function fetchHoldings(etfCode: string): Promise<Holding[]> {
   if (!Array.isArray(items)) return [];
 
   return items
-    .filter((item: Record<string, string | number>) => item.itemName && item.itemCode)
+    .filter((item: Record<string, string | number>) => item.itemName)
     .map((item: Record<string, string | number>, idx: number) => ({
       rank: idx + 1,
-      code: String(item.itemCode),
+      code: String(item.itemCode || item.reutersCode || ""),
       name: String(item.itemName),
       weight: parseFloat(String(item.constituentWeight ?? "0")),
     }))
