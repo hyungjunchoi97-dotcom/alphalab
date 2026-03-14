@@ -46,12 +46,6 @@ function fmtPrice(price: number, key: string): string {
   return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function tileBg(chg: number): string {
-  if (chg > 0) return chg >= 2 ? "#0a4a0a" : chg >= 1 ? "#0d3d0d" : "#123312";
-  if (chg < 0) return chg <= -2 ? "#4a0a0a" : chg <= -1 ? "#3d0d0d" : "#331212";
-  return "#1a1a1a";
-}
-
 // ── Telegram helpers ─────────────────────────────────────────
 
 const CHANNEL_COLORS: Record<string, string> = {
@@ -170,19 +164,14 @@ export default function Home() {
                         </div>
                       );
                     }
-                    const chg = q.changePct;
                     return (
                       <div
                         key={idx.key}
-                        className="h-[48px] rounded flex flex-col items-center justify-center px-1"
-                        style={{ background: tileBg(chg) }}
+                        className="h-[48px] rounded flex flex-col items-center justify-center px-1 bg-[#111]"
                       >
                         <span className="text-[10px] text-gray-400 leading-none">{idx.label}</span>
                         <span className="text-sm font-bold tabular-nums font-mono text-white mt-0.5 leading-none">
                           {fmtPrice(q.price, idx.key)}
-                        </span>
-                        <span className={`text-xs font-semibold tabular-nums font-mono mt-0.5 leading-none ${chg >= 0 ? "text-green-400" : "text-red-400"}`}>
-                          {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
                         </span>
                       </div>
                     );

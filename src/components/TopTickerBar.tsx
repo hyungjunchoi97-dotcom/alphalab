@@ -65,15 +65,6 @@ function TickerEntry({ item }: { item: TickerItem }) {
           {item.value}
         </span>
       )}
-      {item.change != null && (
-        <span
-          className={`text-[11px] tabular-nums font-medium ${
-            item.change >= 0 ? "text-gain" : "text-loss"
-          }`}
-        >
-          {formatChange(item.change, item.type, item.label)}
-        </span>
-      )}
     </span>
   );
 }
