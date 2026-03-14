@@ -1602,6 +1602,9 @@ export default function MacroPage() {
   const [commodities, setCommodities] = useState<CommodityData[]>([]);
   const [comLoading, setComLoading] = useState(true);
   const [comTooltip, setComTooltip] = useState<string | null>(null);
+  const [shippingNews, setShippingNews] = useState<Record<string, { title: string; url: string; source: string; publishedAt: string }[]>>({});
+  const [shippingLoading, setShippingLoading] = useState(true);
+  const [shippingExpanded, setShippingExpanded] = useState<Record<string, boolean>>({});
   const [liveUsdKrw, setLiveUsdKrw] = useState<number | null>(null);
   const [comparisonUpdatedAt, setComparisonUpdatedAt] = useState<string>("");
   const [peData, setPeData] = useState<{ sp500: PeEntry[]; nasdaq: PeEntry[] } | null>(null);
@@ -1769,15 +1772,26 @@ export default function MacroPage() {
     }
   }, []);
 
+  const fetchShippingNews = useCallback(async () => {
+    try {
+      const res = await fetch("/api/news/shipping");
+      const json = await res.json();
+      if (json.ok) setShippingNews(json.byIndex || {});
+    } catch { /* silent */ } finally {
+      setShippingLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
     fetchBok();
     fetchFearGreed();
     fetchFx();
     fetchCommodities();
+    fetchShippingNews();
     fetchMarketPE();
     fetchCape();
-  }, [fetchData, fetchBok, fetchFearGreed, fetchFx, fetchCommodities, fetchMarketPE, fetchCape]);
+  }, [fetchData, fetchBok, fetchFearGreed, fetchFx, fetchCommodities, fetchShippingNews, fetchMarketPE, fetchCape]);
 
   // Auto-refresh FX rates every 60 seconds (same interval as ticker tape)
   useEffect(() => {
@@ -2260,6 +2274,152 @@ export default function MacroPage() {
                 );
               })}
             </>
+          )}
+        </div>
+
+        {/* ── Shipping Freight Index Section ────────────────────── */}
+        <div className="mb-4">
+          <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
+            {lang === "kr" ? "해운 운임 지수" : "Shipping Freight Indices"}
+          </h2>
+
+          {shippingLoading ? (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-xl p-5 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+                  <div className="h-5 w-32 rounded" style={{ background: "#1a1a1a" }} />
+                  <div className="mt-3 h-4 w-full rounded" style={{ background: "#1a1a1a" }} />
+                  <div className="mt-2 h-4 w-3/4 rounded" style={{ background: "#1a1a1a" }} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {([
+                {
+                  key: "SCFI",
+                  labelKr: "상하이 컨테이너 운임",
+                  labelEn: "Shanghai Container Freight Index",
+                  color: "#3b82f6",
+                  descKr: "상하이항운교역소 발표 컨테이너 운임지수. 글로벌 물동량 선행지표. 상승 시 HMM, 팬오션 등 해운주 수혜. 소비재/전자 수입 비용 상승으로 인플레이션 선행.",
+                  descEn: "Shanghai Shipping Exchange container freight index. Leading indicator for global trade volume. Rising index benefits shipping stocks (HMM, Pan Ocean). Signals consumer/electronics import cost inflation.",
+                },
+                {
+                  key: "BDI",
+                  labelKr: "발틱 건화물 운임",
+                  labelEn: "Baltic Dry Index",
+                  color: "#f59e0b",
+                  descKr: "발틱거래소 건화물 운임지수. 철광석/석탄/곡물 등 원자재 수요 바로미터. 상승 시 팬오션, 대한해운 수혜. 중국 경기 선행지표로 활용.",
+                  descEn: "Baltic Exchange dry bulk freight index. Barometer for iron ore/coal/grain demand. Rising index benefits Pan Ocean, Korea Line. Used as China economic leading indicator.",
+                },
+                {
+                  key: "BDTI",
+                  labelKr: "발틱 더티탱커 운임",
+                  labelEn: "Baltic Dirty Tanker Index",
+                  color: "#ef4444",
+                  descKr: "발틱 더티탱커 운임지수. 원유 운반선 운임. VLCC 중심. 상승 시 원유 수요 증가 또는 공급 차질 신호. HD현대마린솔루션, 한국해양진흥공사 관련.",
+                  descEn: "Baltic dirty tanker freight index. Crude oil vessel rates, VLCC-focused. Rising signals crude demand increase or supply disruption. Related to HD Hyundai Marine Solution.",
+                },
+                {
+                  key: "BCTI",
+                  labelKr: "발틱 클린탱커 운임",
+                  labelEn: "Baltic Clean Tanker Index",
+                  color: "#10b981",
+                  descKr: "발틱 클린탱커 운임지수. 정제유(휘발유/경유) 운반선 운임. 정제 마진과 연동. 상승 시 정유사 마진 압박 또는 수요 증가 신호.",
+                  descEn: "Baltic clean tanker freight index. Refined product (gasoline/diesel) vessel rates. Linked to refining margins. Rising signals refiner margin pressure or demand increase.",
+                },
+              ]).map((idx) => {
+                const news = shippingNews[idx.key] || [];
+                const expanded = shippingExpanded[idx.key] ?? false;
+                return (
+                  <div
+                    key={idx.key}
+                    className="rounded-xl p-5"
+                    style={{ background: "#111", border: "1px solid #222", borderLeft: `3px solid ${idx.color}` }}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className="rounded px-2 py-0.5 text-[10px] font-bold tracking-wide font-mono"
+                        style={{ background: `${idx.color}20`, color: idx.color }}
+                      >
+                        {idx.key}
+                      </span>
+                      <span className="text-sm font-semibold" style={{ color: "#ccc" }}>
+                        {lang === "kr" ? idx.labelKr : idx.labelEn}
+                      </span>
+                    </div>
+
+                    {/* Toggle description */}
+                    <button
+                      onClick={() => setShippingExpanded((prev) => ({ ...prev, [idx.key]: !prev[idx.key] }))}
+                      className="flex items-center gap-1 text-[11px] mb-3 transition-colors"
+                      style={{ color: "#666" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#999")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "#666")}
+                    >
+                      <svg
+                        className="h-3 w-3 transition-transform"
+                        style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                      {lang === "kr" ? "지수 설명" : "Index Description"}
+                    </button>
+
+                    {expanded && (
+                      <div
+                        className="mb-3 rounded-lg px-3 py-2.5 text-[11px] leading-relaxed"
+                        style={{ background: "#0a0a0a", border: "1px solid #1a1a1a", color: "#999" }}
+                      >
+                        {lang === "kr" ? idx.descKr : idx.descEn}
+                      </div>
+                    )}
+
+                    {/* News */}
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span className="text-[11px] font-semibold" style={{ color: "#888" }}>
+                          {lang === "kr" ? "관련 뉴스" : "Related News"}
+                        </span>
+                      </div>
+                      {news.length === 0 ? (
+                        <p className="text-[11px]" style={{ color: "#555" }}>
+                          {lang === "kr" ? "관련 뉴스가 없습니다" : "No related news found"}
+                        </p>
+                      ) : (
+                        <ul className="space-y-1.5">
+                          {news.map((n, i) => (
+                            <li key={i} className="text-[11px] leading-snug">
+                              <a
+                                href={n.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="transition-colors"
+                                style={{ color: "#bbb" }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = "#bbb")}
+                              >
+                                {n.title}
+                              </a>
+                              <span className="ml-1.5" style={{ color: "#555" }}>
+                                [{n.source}]
+                              </span>
+                              {n.publishedAt && (
+                                <span className="ml-1" style={{ color: "#444" }}>
+                                  {n.publishedAt}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
 
