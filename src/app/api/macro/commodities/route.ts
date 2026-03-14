@@ -26,21 +26,21 @@ interface CommodityConfig {
 
 const COMMODITIES: CommodityConfig[] = [
   // Energy
-  { id: "OIL_WTI",   symbol: "WTIUSD", fallback: "USO", labelKr: "WTI 원유",  label: "WTI Crude Oil",      unit: "$/bbl",   category: "energy",    tooltipKr: "한국 에너지 수입 핵심 지표",        tooltipEn: "Key indicator for Korea's energy imports" },
-  { id: "OIL_BRENT", symbol: "BZUSD",  labelKr: "브렌트유",   label: "Brent Crude Oil",    unit: "$/bbl",   category: "energy",    tooltipKr: "글로벌 원유 기준가",                tooltipEn: "Global oil benchmark" },
-  { id: "GAS",       symbol: "NGUSD",  fallback: "UNG", labelKr: "천연가스",   label: "Natural Gas",        unit: "$/MMBtu", category: "energy",    tooltipKr: "LNG 수입국 한국 직접 영향",         tooltipEn: "Direct impact on Korea LNG imports" },
-  { id: "URANIUM",   symbol: "URA",    labelKr: "우라늄",     label: "Uranium ETF (URA)",  unit: "$/share", category: "energy",    tooltipKr: "원전 연료 (SMR/원전 르네상스)",      tooltipEn: "Nuclear fuel (SMR renaissance)" },
+  { id: "OIL_WTI",   symbol: "WTIUSD", fallback: "USO", yahooSymbol: "CL=F", labelKr: "WTI 원유",  label: "WTI Crude Oil",      unit: "$/bbl",   category: "energy",    tooltipKr: "한국 에너지 수입 핵심 지표",        tooltipEn: "Key indicator for Korea's energy imports" },
+  { id: "OIL_BRENT", symbol: "BZUSD",  yahooSymbol: "BZ=F", labelKr: "브렌트유",   label: "Brent Crude Oil",    unit: "$/bbl",   category: "energy",    tooltipKr: "글로벌 원유 기준가",                tooltipEn: "Global oil benchmark" },
+  { id: "GAS",       symbol: "NGUSD",  fallback: "UNG", yahooSymbol: "NG=F", labelKr: "천연가스",   label: "Natural Gas",        unit: "$/MMBtu", category: "energy",    tooltipKr: "LNG 수입국 한국 직접 영향",         tooltipEn: "Direct impact on Korea LNG imports" },
+  { id: "URANIUM",   symbol: "URA",    yahooSymbol: "URA", labelKr: "우라늄",     label: "Uranium ETF (URA)",  unit: "$/share", category: "energy",    tooltipKr: "원전 연료 (SMR/원전 르네상스)",      tooltipEn: "Nuclear fuel (SMR renaissance)" },
   // Precious
-  { id: "GOLD",      symbol: "GCUSD",  labelKr: "금",         label: "Gold Futures",       unit: "$/oz",    category: "precious",  tooltipKr: "안전자산 수요 지표",                tooltipEn: "Safe haven demand indicator" },
-  { id: "SILVER",    symbol: "SIUSD",  labelKr: "은",         label: "Silver Futures",     unit: "$/oz",    category: "precious",  tooltipKr: "산업용+귀금속 이중 수요",            tooltipEn: "Dual industrial + precious demand" },
+  { id: "GOLD",      symbol: "GCUSD",  yahooSymbol: "GC=F", labelKr: "금",         label: "Gold Futures",       unit: "$/oz",    category: "precious",  tooltipKr: "안전자산 수요 지표",                tooltipEn: "Safe haven demand indicator" },
+  { id: "SILVER",    symbol: "SIUSD",  yahooSymbol: "SI=F", labelKr: "은",         label: "Silver Futures",     unit: "$/oz",    category: "precious",  tooltipKr: "산업용+귀금속 이중 수요",            tooltipEn: "Dual industrial + precious demand" },
   // Industrial
-  { id: "COPPER",    symbol: "HGUSD",  fallback: "COPX", labelKr: "구리", label: "Copper Futures", unit: "$/lb",   category: "industrial", tooltipKr: "글로벌 경기 선행지표 (닥터 쿠퍼)", tooltipEn: "Global economic leading indicator" },
-  { id: "ALUMINUM",  symbol: "ALUSD",  fallback: "JJU",  labelKr: "알루미늄", label: "Aluminum", unit: "$/t",    category: "industrial", tooltipKr: "경량화 트렌드 핵심 소재",           tooltipEn: "Key lightweight material (auto/aero)" },
-  { id: "WHEAT",     symbol: "ZMUSD",  fallback: "WEAT", labelKr: "밀",   label: "Wheat Futures",  unit: "¢/bu",  category: "industrial", tooltipKr: "식량 안보 지표",                   tooltipEn: "Food security indicator" },
-  { id: "COAL",      symbol: "BTU",    labelKr: "석탄",   label: "Coal (Peabody BTU)",  unit: "$/share", category: "industrial", tooltipKr: "화력발전 연료 프록시",              tooltipEn: "Thermal coal proxy (Peabody Energy)" },
+  { id: "COPPER",    symbol: "HGUSD",  fallback: "COPX", yahooSymbol: "HG=F", labelKr: "구리", label: "Copper Futures", unit: "$/lb",   category: "industrial", tooltipKr: "글로벌 경기 선행지표 (닥터 쿠퍼)", tooltipEn: "Global economic leading indicator" },
+  { id: "ALUMINUM",  symbol: "ALUSD",  fallback: "JJU",  yahooSymbol: "JJU", labelKr: "알루미늄", label: "Aluminum", unit: "$/t",    category: "industrial", tooltipKr: "경량화 트렌드 핵심 소재",           tooltipEn: "Key lightweight material (auto/aero)" },
+  { id: "WHEAT",     symbol: "ZMUSD",  fallback: "WEAT", yahooSymbol: "ZW=F", labelKr: "밀",   label: "Wheat Futures",  unit: "¢/bu",  category: "industrial", tooltipKr: "식량 안보 지표",                   tooltipEn: "Food security indicator" },
+  { id: "COAL",      symbol: "BTU",    yahooSymbol: "BTU", labelKr: "석탄",   label: "Coal (Peabody BTU)",  unit: "$/share", category: "industrial", tooltipKr: "화력발전 연료 프록시",              tooltipEn: "Thermal coal proxy (Peabody Energy)" },
   // Battery
-  { id: "LITHIUM",   symbol: "LTHM",   labelKr: "리튬",   label: "Lithium (LTHM)",      unit: "$/share", category: "battery",   tooltipKr: "2차전지 핵심 소재 (EV/ESS)",        tooltipEn: "Key battery material (EV/ESS demand)" },
-  { id: "NICKEL",    symbol: "NIKUSD", fallback: "JJN",  labelKr: "니켈", label: "Nickel Futures", unit: "$/t",    category: "battery",   tooltipKr: "배터리·스테인리스 핵심 소재",       tooltipEn: "Key battery & stainless steel material" },
+  { id: "LITHIUM",   symbol: "LTHM",   yahooSymbol: "LTHM", labelKr: "리튬",   label: "Lithium (LTHM)",      unit: "$/share", category: "battery",   tooltipKr: "2차전지 핵심 소재 (EV/ESS)",        tooltipEn: "Key battery material (EV/ESS demand)" },
+  { id: "NICKEL",    symbol: "NIKUSD", fallback: "JJN",  yahooSymbol: "JJN", labelKr: "니켈", label: "Nickel Futures", unit: "$/t",    category: "battery",   tooltipKr: "배터리·스테인리스 핵심 소재",       tooltipEn: "Key battery & stainless steel material" },
 ];
 
 export interface HistoryPoint { date: string; close: number }
@@ -120,31 +120,36 @@ async function fetchHistory(symbol: string): Promise<HistoryPoint[]> {
   }
 }
 
-// ── FMP v3 quote (replaces Yahoo v7) ───────────────────────────
-async function fetchFmpV3Quote(symbol: string): Promise<{ price: number; change: number; changePercent: number; prevClose: number; high52w: number | null; low52w: number | null } | null> {
+// ── Yahoo v8 chart quote (replaces FMP v3) ──────────────────────
+async function fetchYahooV8Quote(symbol: string): Promise<{ price: number; change: number; changePercent: number; prevClose: number; high52w: number | null; low52w: number | null } | null> {
   try {
-    const url = `https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(symbol)}?apikey=${FMP_KEY}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000), headers: { "User-Agent": "Mozilla/5.0" } });
     if (!res.ok) {
-      console.warn(`[commodities] FMP v3 quote HTTP ${res.status} for ${symbol}`);
+      console.warn(`[commodities] Yahoo v8 quote HTTP ${res.status} for ${symbol}`);
       return null;
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const json: any = await res.json();
-    const item = Array.isArray(json) ? json[0] : null;
-    if (!item) return null;
-    const price = Number(item.price ?? 0);
-    if (price <= 0) return null;
+    const result = json?.chart?.result?.[0];
+    if (!result) return null;
+    const meta = result.meta;
+    const closes: number[] = (result.indicators?.quote?.[0]?.close ?? []).filter((v: number | null) => v != null && v > 0);
+    if (closes.length === 0) return null;
+    const price = closes[closes.length - 1];
+    const prevClose = closes.length >= 2 ? closes[closes.length - 2] : price;
+    const change = price - prevClose;
+    const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
     return {
       price,
-      change: Number(item.change ?? 0),
-      changePercent: Number(item.changesPercentage ?? 0),
-      prevClose: Number(item.previousClose ?? price),
-      high52w: item.yearHigh != null ? Number(item.yearHigh) : null,
-      low52w:  item.yearLow  != null ? Number(item.yearLow)  : null,
+      change,
+      changePercent,
+      prevClose,
+      high52w: meta?.fiftyTwoWeekHigh != null ? Number(meta.fiftyTwoWeekHigh) : null,
+      low52w:  meta?.fiftyTwoWeekLow  != null ? Number(meta.fiftyTwoWeekLow)  : null,
     };
   } catch (err) {
-    console.warn(`[commodities] FMP v3 quote exception for ${symbol}:`, err);
+    console.warn(`[commodities] Yahoo v8 quote exception for ${symbol}:`, err);
     return null;
   }
 }
@@ -175,12 +180,12 @@ async function fetchCommodity(cfg: CommodityConfig): Promise<CommodityResult> {
   let usedSymbol = cfg.symbol;
 
   if (cfg.yahooSymbol) {
-    // FMP v3 quote 우선 (yahooSymbol = FMP symbol)
-    quote = await fetchFmpV3Quote(cfg.yahooSymbol);
+    // Yahoo v8 chart quote 우선
+    quote = await fetchYahooV8Quote(cfg.yahooSymbol);
     if (quote) {
       const history = await fetchYahooHistory(cfg.yahooSymbol);
       const ok = quote.price > 0;
-      console.log(`[commodities] ${cfg.id} (FMPv3:${cfg.yahooSymbol}): ${ok ? `price=${quote.price} chg%=${quote.changePercent.toFixed(2)}` : "NO DATA"}`);
+      console.log(`[commodities] ${cfg.id} (Yahoo:${cfg.yahooSymbol}): ${ok ? `price=${quote.price} chg%=${quote.changePercent.toFixed(2)}` : "NO DATA"}`);
       return {
         id: cfg.id, symbol: cfg.yahooSymbol, label: cfg.label, labelKr: cfg.labelKr,
         unit: cfg.unit, category: cfg.category,
@@ -193,7 +198,7 @@ async function fetchCommodity(cfg: CommodityConfig): Promise<CommodityResult> {
         history, tooltipKr: cfg.tooltipKr, tooltipEn: cfg.tooltipEn,
       };
     }
-    console.warn(`[commodities] ${cfg.id}: FMP v3 fallback to stable`);
+    console.warn(`[commodities] ${cfg.id}: Yahoo v8 fallback to FMP stable`);
   }
 
   quote = await fetchQuote(cfg.symbol);

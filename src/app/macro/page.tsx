@@ -2225,23 +2225,11 @@ export default function MacroPage() {
                           onMouseEnter={() => setComTooltip(com.id)}
                           onMouseLeave={() => setComTooltip(null)}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold" style={{ color: "#ccc" }}>
-                                {lang === "kr" ? com.labelKr : com.label}
-                              </span>
-                              <span className="text-[10px]" style={{ color: "#555" }}>{com.unit}</span>
-                            </div>
-                            <span
-                              className="rounded-full px-2.5 py-1 text-xs font-mono font-medium"
-                              style={{
-                                background: com.changePercent > 0 ? "rgba(248,113,113,0.15)" : com.changePercent < 0 ? "rgba(74,222,128,0.15)" : "rgba(255,255,255,0.05)",
-                                color: com.changePercent > 0 ? "#f87171" : com.changePercent < 0 ? "#4ade80" : "#888",
-                                border: `1px solid ${com.changePercent > 0 ? "rgba(248,113,113,0.3)" : com.changePercent < 0 ? "rgba(74,222,128,0.3)" : "rgba(255,255,255,0.1)"}`,
-                              }}
-                            >
-                              {com.changePercent > 0 ? "+" : ""}{com.changePercent.toFixed(2)}%
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold" style={{ color: "#ccc" }}>
+                              {lang === "kr" ? com.labelKr : com.label}
                             </span>
+                            <span className="text-[10px]" style={{ color: "#555" }}>{com.unit}</span>
                           </div>
                           <div className="mt-1.5 flex items-end justify-between">
                             <div>
@@ -2252,7 +2240,7 @@ export default function MacroPage() {
                             <div className="shrink-0">
                               <MiniSparkline
                                 data={com.sparkline ?? []}
-                                color={com.changePercent >= 0 ? "#f87171" : "#4ade80"}
+                                color="#60a5fa"
                               />
                             </div>
                           </div>
