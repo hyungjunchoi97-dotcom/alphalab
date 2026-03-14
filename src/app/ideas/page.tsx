@@ -197,7 +197,7 @@ function isKrMarketOpen(): boolean {
 
 export default function IdeasPage() {
   const { t, lang } = useLang();
-  const [tab, setTab] = useState<"fomo" | "rotation" | "etf" | "consensus">("fomo");
+  const [tab, setTab] = useState<"fomo" | "rotation" | "etf" | "kr-etf" | "consensus">("fomo");
   const [selected, setSelected] = useState<FomoItem | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -276,6 +276,12 @@ export default function IdeasPage() {
   const [consensusUpsideFilter, setConsensusUpsideFilter] = useState("ALL");
   const [consensusAnalystFilter, setConsensusAnalystFilter] = useState("ALL");
   const [consensusFetched, setConsensusFetched] = useState(false);
+
+  // KR ETF
+  const [krEtfs, setKrEtfs] = useState<{ code: string; name: string; holdings: { rank: number; code: string; name: string; weight: number; price: number; chgPct: number }[] }[]>([]);
+  const [krEtfLoading, setKrEtfLoading] = useState(false);
+  const [krEtfSelected, setKrEtfSelected] = useState<string | null>(null);
+  const [krEtfFetched, setKrEtfFetched] = useState(false);
 
   // Data
   const [fomoKr, setFomoKr] = useState<FomoItem[]>([]);
@@ -542,6 +548,21 @@ export default function IdeasPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
+  // Auto-fetch KR ETF when tab selected (once)
+  useEffect(() => {
+    if (tab === "kr-etf" && !krEtfFetched) {
+      setKrEtfLoading(true);
+      fetch("/api/etf/kr-holdings")
+        .then(r => r.json())
+        .then(j => {
+          if (j.ok) { setKrEtfs(j.etfs ?? []); setKrEtfFetched(true); }
+        })
+        .catch(() => {})
+        .finally(() => setKrEtfLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   // Auto-fetch US FOMO when sector changes
   useEffect(() => {
     if (tab === "fomo" && fomoMarket === "US") {
@@ -651,7 +672,7 @@ export default function IdeasPage() {
         {/* Tab pills + sub-tabs */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-px rounded bg-card-border p-px w-fit">
-            {(["fomo", "rotation", "etf", "consensus"] as const).map((tv) => (
+            {(["fomo", "rotation", "etf", "kr-etf", "consensus"] as const).map((tv) => (
               <button
                 key={tv}
                 onClick={() => {
@@ -669,6 +690,7 @@ export default function IdeasPage() {
                 {tv === "fomo" ? "FOMO"
                   : tv === "rotation" ? (lang === "kr" ? "섹터 로테이션" : "Sector Rotation")
                   : tv === "etf" ? (lang === "kr" ? "ETF 변동" : "ETF Changes")
+                  : tv === "kr-etf" ? (lang === "kr" ? "국내 ETF" : "KR ETF")
                   : (lang === "kr" ? "월가 컨센서스" : "Wall St Consensus")}
               </button>
             ))}
@@ -1726,6 +1748,95 @@ export default function IdeasPage() {
               )}
             </section>
 
+          </div>
+        )}
+
+        {/* KR ETF tab */}
+        {tab === "kr-etf" && (
+          <div className="flex gap-4" style={{ minHeight: 500 }}>
+            {/* Left: ETF list */}
+            <div className="flex flex-col gap-1" style={{ width: 280, flexShrink: 0 }}>
+              {krEtfLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <svg className="animate-spin" style={{ width: 28, height: 28, color: "#f59e0b" }} viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.2" />
+                    <path d="M12 2a10 10 0 019.8 8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                </div>
+              ) : (
+                krEtfs.map((etf) => (
+                  <button
+                    key={etf.code}
+                    onClick={() => setKrEtfSelected(etf.code === krEtfSelected ? null : etf.code)}
+                    className={`text-left px-3 py-2.5 rounded text-xs transition-colors border ${
+                      krEtfSelected === etf.code
+                        ? "bg-amber-400/10 border-amber-400/40 text-amber-300"
+                        : "bg-card-bg border-card-border text-muted hover:text-foreground hover:border-white/20"
+                    }`}
+                  >
+                    <div className="font-medium leading-tight">{etf.name}</div>
+                    <div className="text-[9px] text-muted/60 mt-0.5">{etf.code} · {etf.holdings.length}종목</div>
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* Right: Holdings table */}
+            <div className="flex-1 min-w-0">
+              {(() => {
+                const sel = krEtfs.find(e => e.code === krEtfSelected);
+                if (!sel) return (
+                  <div className={`${CARD} flex items-center justify-center text-muted text-sm`} style={{ height: 400 }}>
+                    {lang === "kr" ? "ETF를 선택하면 구성종목을 확인할 수 있습니다" : "Select an ETF to view holdings"}
+                  </div>
+                );
+                const maxWeight = Math.max(...sel.holdings.map(h => h.weight), 1);
+                return (
+                  <div className={CARD}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-sm font-semibold text-foreground">{sel.name}</span>
+                      <span className="text-[10px] text-muted">{sel.code}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-card-border">
+                            <th className={`${TH} w-8 text-center`}>#</th>
+                            <th className={TH}>종목명</th>
+                            <th className={`${TH} text-right`}>코드</th>
+                            <th className={`${TH} text-right`}>비중%</th>
+                            <th className={`${TH} text-right`}>현재가</th>
+                            <th className={`${TH} text-right`}>등락률</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sel.holdings.map((h) => (
+                            <tr key={h.code} className="border-b border-card-border/50 hover:bg-white/[0.02]">
+                              <td className={`${TD} text-center text-muted/60`}>{h.rank}</td>
+                              <td className={TD}>
+                                <div className="relative">
+                                  <div
+                                    className="absolute inset-y-0 left-0 bg-amber-400/10 rounded-sm"
+                                    style={{ width: `${(h.weight / maxWeight) * 100}%` }}
+                                  />
+                                  <span className="relative font-medium text-foreground">{h.name}</span>
+                                </div>
+                              </td>
+                              <td className={`${TD} text-right text-muted/60 tabular-nums`}>{h.code}</td>
+                              <td className={`${TD} text-right font-medium text-amber-300 tabular-nums`}>{h.weight.toFixed(2)}%</td>
+                              <td className={`${TD} text-right tabular-nums`}>{h.price.toLocaleString()}</td>
+                              <td className={`${TD} text-right font-medium tabular-nums ${h.chgPct > 0 ? "text-gain" : h.chgPct < 0 ? "text-loss" : "text-muted"}`}>
+                                {h.chgPct > 0 ? "+" : ""}{h.chgPct.toFixed(2)}%
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         )}
 
