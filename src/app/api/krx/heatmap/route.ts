@@ -93,21 +93,28 @@ const STOCKS: StockDef[] = [
 const CACHE_TTL = 60 * 1000;
 let cache: { data: SectorResult[]; cachedAt: number; asOf: string } | null = null;
 
-// ── Naver mobile API fetcher ─────────────────────────────────
+// ── Yahoo Finance fetcher ─────────────────────────────────────
 
-async function fetchNaverQuote(ticker: string): Promise<{ price: number; chg: number } | null> {
+async function fetchYahooQuote(ticker: string): Promise<{ price: number; chg: number } | null> {
+  const symbol = `${ticker}.KS`;
   try {
-    const url = `https://m.stock.naver.com/api/stock/${ticker}/basic`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1d`;
     const res = await fetchWithTimeout(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
     }, 6000);
     if (!res.ok) return null;
     const json = await res.json();
+    const meta = json.chart?.result?.[0]?.meta;
+    if (!meta) return null;
 
-    const price = parseFloat(String(json.closePrice ?? "0").replace(/,/g, ""));
-    const chg = parseFloat(String(json.fluctuationsRatio ?? "0").replace(/,/g, ""));
+    const price = meta.regularMarketPrice || 0;
+    const chg = meta?.regularMarketChangePercent != null
+      ? meta.regularMarketChangePercent
+      : (() => {
+          const prevClose = meta?.chartPreviousClose ?? meta?.regularMarketPreviousClose ?? meta?.previousClose ?? price;
+          return prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
+        })();
 
-    if (price <= 0) return null;
     return { price, chg: Math.round(chg * 100) / 100 };
   } catch {
     return null;
@@ -119,7 +126,7 @@ async function fetchNaverQuote(ticker: string): Promise<{ price: number; chg: nu
 async function fetchAllStocks(): Promise<SectorResult[]> {
   const results = await Promise.allSettled(
     STOCKS.map(async (s) => {
-      const quote = await fetchNaverQuote(s.ticker);
+      const quote = await fetchYahooQuote(s.ticker);
       return {
         ticker: s.ticker,
         name: s.name,

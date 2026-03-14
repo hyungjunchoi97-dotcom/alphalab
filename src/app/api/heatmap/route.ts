@@ -129,36 +129,11 @@ interface CacheEntry {
 let usCache: CacheEntry | null = null;
 let jpCache: CacheEntry | null = null;
 
-// ── FMP batch fetcher (US stocks) ─────────────────────────────
+// ── Yahoo Finance fetcher ─────────────────────────────────────
 
-const FMP_HEATMAP_KEY = "PB1RUCBl32soylR6FOBh2vg5xiaa0bRK";
-
-async function fetchFMPBatch(tickers: string[]): Promise<Map<string, { price: number; changePct: number }>> {
-  const map = new Map<string, { price: number; changePct: number }>();
+async function fetchYahooQuote(symbol: string): Promise<{ price: number; changePct: number; marketCap: number } | null> {
   try {
-    const url = `https://financialmodelingprep.com/api/v3/quote/${tickers.join(",")}?apikey=${FMP_HEATMAP_KEY}`;
-    const res = await fetchWithTimeout(url, {}, 10000);
-    if (!res.ok) return map;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data: any[] = await res.json();
-    if (!Array.isArray(data)) return map;
-    for (const item of data) {
-      if (item.symbol && item.price != null) {
-        map.set(item.symbol, {
-          price: item.price,
-          changePct: Math.round((item.changesPercentage ?? 0) * 100) / 100,
-        });
-      }
-    }
-  } catch { /* silent */ }
-  return map;
-}
-
-// ── Yahoo Finance closes fetcher (JP stocks) ─────────────────
-
-async function fetchJPYahooQuote(symbol: string): Promise<{ price: number; changePct: number } | null> {
-  try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
     const res = await fetchWithTimeout(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
     }, 8000);
@@ -167,20 +142,22 @@ async function fetchJPYahooQuote(symbol: string): Promise<{ price: number; chang
     const result = json.chart?.result?.[0];
     if (!result) return null;
 
-    const closes: number[] = (result.indicators?.quote?.[0]?.close || []).filter(Boolean);
-    if (closes.length < 2) return null;
+    const meta = result.meta;
+    const price = meta?.regularMarketPrice;
+    if (price == null) return null;
 
-    const curr = closes[closes.length - 1];
-    const prev = closes[closes.length - 2];
-    const changePct = prev > 0 ? ((curr - prev) / prev) * 100 : 0;
+    const changePct = meta?.regularMarketChangePercent != null
+      ? meta.regularMarketChangePercent
+      : (() => {
+          const prevClose = meta?.chartPreviousClose ?? meta?.regularMarketPreviousClose ?? meta?.previousClose;
+          return prevClose && prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
+        })();
 
-    return { price: curr, changePct: Math.round(changePct * 100) / 100 };
+    return { price, changePct: Math.round(changePct * 100) / 100, marketCap: 0 };
   } catch {
     return null;
   }
 }
-
-// ── Helpers ───────────────────────────────────────────────────
 
 function formatPrice(price: number, market: "us" | "jp"): string {
   if (market === "jp") {
@@ -190,53 +167,36 @@ function formatPrice(price: number, market: "us" | "jp"): string {
 }
 
 async function fetchMarketData(stocks: StockDef[], market: "us" | "jp"): Promise<SectorResult[]> {
+  const results = await Promise.allSettled(
+    stocks.map(async (s) => {
+      const quote = await fetchYahooQuote(s.symbol);
+      return { def: s, quote };
+    })
+  );
+
+  // Group by sector
   const sectorMap = new Map<string, { name: string; nameKr: string; stocks: StockResult[] }>();
 
-  if (market === "us") {
-    // FMP batch quote
-    const tickers = stocks.map(s => s.ticker);
-    const quoteMap = await fetchFMPBatch(tickers);
+  for (const r of results) {
+    if (r.status !== "fulfilled") continue;
+    const { def, quote } = r.value;
 
-    for (const def of stocks) {
-      if (!sectorMap.has(def.sector)) {
-        sectorMap.set(def.sector, { name: def.sector, nameKr: def.sectorKr, stocks: [] });
-      }
-      const quote = quoteMap.get(def.ticker);
-      sectorMap.get(def.sector)!.stocks.push({
-        ticker: def.ticker,
-        name: def.name,
-        nameKr: def.nameKr,
-        cap: def.capWeight,
-        chg: quote?.changePct ?? 0,
-        price: quote ? formatPrice(quote.price, market) : "—",
-      });
+    if (!sectorMap.has(def.sector)) {
+      sectorMap.set(def.sector, { name: def.sector, nameKr: def.sectorKr, stocks: [] });
     }
-  } else {
-    // JP: Yahoo v8 with closes array
-    const results = await Promise.allSettled(
-      stocks.map(async (s) => {
-        const quote = await fetchJPYahooQuote(s.symbol);
-        return { def: s, quote };
-      })
-    );
 
-    for (const r of results) {
-      if (r.status !== "fulfilled") continue;
-      const { def, quote } = r.value;
-      if (!sectorMap.has(def.sector)) {
-        sectorMap.set(def.sector, { name: def.sector, nameKr: def.sectorKr, stocks: [] });
-      }
-      sectorMap.get(def.sector)!.stocks.push({
-        ticker: def.ticker,
-        name: def.name,
-        nameKr: def.nameKr,
-        cap: def.capWeight,
-        chg: quote?.changePct ?? 0,
-        price: quote ? formatPrice(quote.price, market) : "—",
-      });
-    }
+    const sector = sectorMap.get(def.sector)!;
+    sector.stocks.push({
+      ticker: def.ticker,
+      name: def.name,
+      nameKr: def.nameKr,
+      cap: def.capWeight,
+      chg: quote?.changePct ?? 0,
+      price: quote ? formatPrice(quote.price, market) : "—",
+    });
   }
 
+  // Sort sectors by total cap weight descending
   return Array.from(sectorMap.values()).sort(
     (a, b) => b.stocks.reduce((s, st) => s + st.cap, 0) - a.stocks.reduce((s, st) => s + st.cap, 0)
   );
