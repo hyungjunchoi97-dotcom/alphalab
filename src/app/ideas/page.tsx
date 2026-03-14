@@ -282,6 +282,7 @@ export default function IdeasPage() {
   const [krEtfLoading, setKrEtfLoading] = useState(false);
   const [krEtfSelected, setKrEtfSelected] = useState<string | null>(null);
   const [krEtfFetched, setKrEtfFetched] = useState(false);
+  const [krEtfCollapsed, setKrEtfCollapsed] = useState<Set<string>>(new Set());
 
   // Data
   const [fomoKr, setFomoKr] = useState<FomoItem[]>([]);
@@ -1754,8 +1755,8 @@ export default function IdeasPage() {
         {/* KR ETF tab */}
         {tab === "kr-etf" && (
           <div className="flex gap-4" style={{ minHeight: 500 }}>
-            {/* Left: ETF list */}
-            <div className="flex flex-col gap-1" style={{ width: 280, flexShrink: 0 }}>
+            {/* Left: ETF list grouped by asset manager */}
+            <div className="flex flex-col gap-1 overflow-y-auto" style={{ width: 300, flexShrink: 0, maxHeight: "80vh" }}>
               {krEtfLoading ? (
                 <div className="flex items-center justify-center py-20">
                   <svg className="animate-spin" style={{ width: 28, height: 28, color: "#f59e0b" }} viewBox="0 0 24 24" fill="none">
@@ -1763,22 +1764,60 @@ export default function IdeasPage() {
                     <path d="M12 2a10 10 0 019.8 8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
                   </svg>
                 </div>
-              ) : (
-                krEtfs.map((etf) => (
-                  <button
-                    key={etf.code}
-                    onClick={() => setKrEtfSelected(etf.code === krEtfSelected ? null : etf.code)}
-                    className={`text-left px-3 py-2.5 rounded text-xs transition-colors border ${
-                      krEtfSelected === etf.code
-                        ? "bg-amber-400/10 border-amber-400/40 text-amber-300"
-                        : "bg-card-bg border-card-border text-muted hover:text-foreground hover:border-white/20"
-                    }`}
-                  >
-                    <div className="font-medium leading-tight">{etf.name}</div>
-                    <div className="text-[9px] text-muted/60 mt-0.5">{etf.code} · {etf.holdings.length}종목</div>
-                  </button>
-                ))
-              )}
+              ) : (() => {
+                const MANAGER_MAP: [string, string][] = [
+                  ["KODEX", "삼성자산운용 KODEX"],
+                  ["TIGER", "미래에셋 TIGER"],
+                  ["KoAct", "삼성액티브 KoAct"],
+                  ["TIME", "타임폴리오 TIME"],
+                  ["RISE", "KB자산운용 RISE"],
+                  ["PLUS", "한화자산운용 PLUS"],
+                ];
+                const groups: { key: string; label: string; etfs: typeof krEtfs }[] = [];
+                const used = new Set<string>();
+                for (const [prefix, label] of MANAGER_MAP) {
+                  const matched = krEtfs.filter(e => e.name.startsWith(prefix));
+                  if (matched.length > 0) {
+                    groups.push({ key: prefix, label, etfs: matched });
+                    matched.forEach(e => used.add(e.code));
+                  }
+                }
+                const others = krEtfs.filter(e => !used.has(e.code));
+                if (others.length > 0) groups.push({ key: "_etc", label: "기타", etfs: others });
+
+                return groups.map(g => {
+                  const collapsed = krEtfCollapsed.has(g.key);
+                  return (
+                    <div key={g.key}>
+                      <button
+                        onClick={() => setKrEtfCollapsed(prev => {
+                          const next = new Set(prev);
+                          if (next.has(g.key)) next.delete(g.key); else next.add(g.key);
+                          return next;
+                        })}
+                        className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-semibold text-muted/80 hover:text-foreground transition-colors"
+                      >
+                        <span>{g.label} ({g.etfs.length})</span>
+                        <span className="text-[9px]">{collapsed ? "▶" : "▼"}</span>
+                      </button>
+                      {!collapsed && g.etfs.map(etf => (
+                        <button
+                          key={etf.code}
+                          onClick={() => setKrEtfSelected(etf.code === krEtfSelected ? null : etf.code)}
+                          className={`w-full text-left px-3 py-2 rounded text-xs transition-colors border mb-0.5 ${
+                            krEtfSelected === etf.code
+                              ? "bg-amber-400/10 border-amber-400/40 text-amber-300"
+                              : "bg-card-bg border-card-border text-muted hover:text-foreground hover:border-white/20"
+                          }`}
+                        >
+                          <div className="font-medium leading-tight">{etf.name}</div>
+                          <div className="text-[9px] text-muted/60 mt-0.5">{etf.code} · {etf.holdings.length}종목</div>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                });
+              })()}
             </div>
 
             {/* Right: Holdings table */}
