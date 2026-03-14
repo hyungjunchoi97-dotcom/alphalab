@@ -27,9 +27,18 @@ const KR_ETF_LIST = [
   { code: "496080", name: "TIGER 코리아밸류업" },
   { code: "471780", name: "TIGER 코리아테크액티브" },
   { code: "0052D0", name: "TIGER 코리아배당다우존스" },
+  { code: "0138D0", name: "RISE 동학개미" },
+  { code: "140570", name: "RISE 수출주" },
+  { code: "253280", name: "RISE 헬스케어" },
+  { code: "427120", name: "RISE AI플랫폼" },
+  { code: "469070", name: "RISE AI&로봇" },
+  { code: "475380", name: "RISE 글로벌리얼티인컴" },
+  { code: "0127R0", name: "RISE 미국AI클라우드인프라" },
+  { code: "445290", name: "KODEX 로봇액티브" },
+  { code: "0153X0", name: "PLUS 미국고배당주액티브" },
 ];
 
-const CACHE_KEY = "kr_etf_holdings_v5";
+const CACHE_KEY = "kr_etf_holdings_v6";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
 
 interface Holding {
