@@ -9,10 +9,10 @@ const KR_ETF_LIST = [
   { code: "396500", name: "TIGER 반도체TOP10" },
   { code: "305720", name: "KODEX 2차전지산업" },
   { code: "364970", name: "TIGER 글로벌AI액티브" },
-  { code: "411800", name: "KODEX K-방산" },
-  { code: "465580", name: "TIGER 조선TOP10" },
+  { code: "466940", name: "TIGER 우주항공&방산플러스TOP10" },
+  { code: "494670", name: "TIGER 조선TOP10" },
   { code: "462900", name: "KoAct 바이오헬스케어액티브" },
-  { code: "451170", name: "TIMEFOLIO Korea플러스배당액티브" },
+  { code: "465330", name: "RISE 2차전지TOP10" },
   { code: "476850", name: "KoAct 삼성그룹액티브" },
   { code: "482030", name: "KoAct 반도체&2차전지핵심소재액티브" },
 ];
