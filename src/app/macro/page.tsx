@@ -12,8 +12,14 @@ import {
   ResponsiveContainer,
   ReferenceArea,
 } from "recharts";
+import dynamic from "next/dynamic";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
+
+const LiquidityDashboard = dynamic(() => import("@/components/LiquidityDashboard"), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-[#111] h-96 rounded-xl" />,
+});
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -1572,8 +1578,11 @@ function CAPEChart({
 
 // ── Page ──────────────────────────────────────────────────────
 
+type MacroTab = "indicators" | "liquidity";
+
 export default function MacroPage() {
   const { lang } = useLang();
+  const [activeTab, setActiveTab] = useState<MacroTab>("indicators");
   const [seriesFull, setSeriesFull] = useState<Record<string, SeriesData>>({});
   const [loading, setLoading] = useState(true);
   const [cardRange, setCardRange] = useState<CardRange>("1Y");
@@ -1790,6 +1799,32 @@ export default function MacroPage() {
       <AppHeader active="macro" />
 
       <main className="mx-auto max-w-[1400px] px-4 py-6">
+        {/* ── Tab Navigation ─────────────────────────────────── */}
+        <div className="mb-6 flex gap-1 border-b" style={{ borderColor: "#222" }}>
+          {([
+            { key: "indicators" as MacroTab, labelKr: "매크로 지표", labelEn: "Macro Indicators" },
+            { key: "liquidity" as MacroTab, labelKr: "유동성", labelEn: "Liquidity" },
+          ]).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className="px-4 py-2.5 text-sm font-semibold transition-colors relative"
+              style={{
+                color: activeTab === tab.key ? "#f59e0b" : "#666",
+                borderBottom: activeTab === tab.key ? "2px solid #f59e0b" : "2px solid transparent",
+                marginBottom: "-1px",
+              }}
+            >
+              {lang === "kr" ? tab.labelKr : tab.labelEn}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Liquidity Tab ────────────────────────────────────── */}
+        {activeTab === "liquidity" && <LiquidityDashboard />}
+
+        {/* ── Macro Indicators Tab ─────────────────────────────── */}
+        {activeTab === "indicators" && (<>
         {/* ── Fear & Greed Index Section ─────────────────────── */}
         <div className="mb-4">
           <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
@@ -2231,6 +2266,7 @@ export default function MacroPage() {
           )}
         </div>
 
+        </>)}
       </main>
 
       {/* FX Chart Modal */}
