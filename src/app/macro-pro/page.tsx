@@ -926,8 +926,6 @@ function PriceCard({ result, onReload }: { result: CommodityResult; onReload: ()
             <span className="text-[18px] font-bold font-mono tabular-nums" style={{ color: "#ffffff" }}>
               ${result.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
-            <span className="text-[11px] font-mono font-bold" style={{ color: chartColor }}>
-              {isUp ? "▲" : "▼"} {result.changePercent >= 0 ? "+" : ""}{result.changePercent.toFixed(2)}%
             </span>
           </div>
           <div className="text-[9px] font-mono" style={{ color: "#4b5563" }}>
