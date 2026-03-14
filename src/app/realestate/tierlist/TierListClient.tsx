@@ -361,6 +361,78 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
                 </div>
               );
             })}
+            {/* ── Seoul Real Estate News (below pyramid) ── */}
+            <div style={{ marginTop: 24 }}>
+              <div style={{
+                ...S, fontSize: 11, fontWeight: 700, color: "#666",
+                letterSpacing: "0.12em", textTransform: "uppercase",
+                paddingBottom: 8, marginBottom: 12,
+                borderBottom: "1px solid #1e1e1e",
+              }}>
+                서울 부동산 뉴스
+              </div>
+
+              {newsLoading ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 0" }}>
+                  <svg
+                    style={{ width: 14, height: 14, color: "#f59e0b" }}
+                    className="animate-spin"
+                    viewBox="0 0 24 24" fill="none"
+                  >
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.2" />
+                    <path d="M12 2a10 10 0 019.8 8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  <span style={{ ...S, fontSize: 10, color: "#555" }}>뉴스 로딩 중...</span>
+                </div>
+              ) : news.length === 0 ? (
+                <div style={{ ...S, fontSize: 10, color: "#444", padding: "12px 0" }}>
+                  뉴스를 불러올 수 없습니다
+                </div>
+              ) : (
+                <div>
+                  {news.map((item, i) => (
+                    <a
+                      key={i}
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "flex", alignItems: "baseline", gap: 8,
+                        padding: "7px 0",
+                        borderBottom: "1px solid #111",
+                        textDecoration: "none",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = "#0e0e0e";
+                        const t = e.currentTarget.querySelector("[data-title]") as HTMLElement;
+                        if (t) t.style.color = "#fbbf24";
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = "transparent";
+                        const t = e.currentTarget.querySelector("[data-title]") as HTMLElement;
+                        if (t) t.style.color = "#e0e0e0";
+                      }}
+                    >
+                      <span style={{ ...S, fontSize: 10, color: "#f59e0b", flexShrink: 0, width: 18, textAlign: "right", fontWeight: 600 }}>
+                        {i + 1}
+                      </span>
+                      <span data-title="" style={{ fontSize: 13, color: "#e0e0e0", flex: 1, transition: "color 0.15s", lineHeight: 1.4 }}>
+                        {item.title}
+                      </span>
+                      {item.source && (
+                        <span style={{ ...S, fontSize: 9, color: "#555", flexShrink: 0 }}>
+                          {item.source}
+                        </span>
+                      )}
+                      <span style={{ ...S, fontSize: 9, color: "#444", flexShrink: 0 }}>
+                        {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" }) : ""}
+                      </span>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right: Landmark detail panel */}
@@ -445,78 +517,6 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
           </div>
         </div>
 
-        {/* ── Seoul Real Estate News ── */}
-        <div style={{ marginTop: 32 }}>
-          <div style={{
-            ...S, fontSize: 13, fontWeight: 700, color: "#e0e0e0",
-            letterSpacing: "0.08em", textTransform: "uppercase",
-            paddingBottom: 10, marginBottom: 16,
-            borderBottom: "1px solid #1e1e1e",
-          }}>
-            서울 부동산 뉴스
-          </div>
-
-          {newsLoading ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "20px 0" }}>
-              <svg
-                style={{ width: 16, height: 16, color: "#f59e0b" }}
-                className="animate-spin"
-                viewBox="0 0 24 24" fill="none"
-              >
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.2" />
-                <path d="M12 2a10 10 0 019.8 8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-              </svg>
-              <span style={{ ...S, fontSize: 11, color: "#555" }}>뉴스 로딩 중...</span>
-            </div>
-          ) : news.length === 0 ? (
-            <div style={{ ...S, fontSize: 11, color: "#444", padding: "20px 0" }}>
-              뉴스를 불러올 수 없습니다
-            </div>
-          ) : (
-            <div>
-              {news.map((item, i) => (
-                <a
-                  key={i}
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: "flex", alignItems: "baseline", gap: 10,
-                    padding: "10px 0",
-                    borderBottom: "1px solid #141414",
-                    textDecoration: "none",
-                    transition: "background 0.15s",
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = "#111";
-                    const title = e.currentTarget.querySelector("[data-title]") as HTMLElement;
-                    if (title) title.style.color = "#f59e0b";
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = "transparent";
-                    const title = e.currentTarget.querySelector("[data-title]") as HTMLElement;
-                    if (title) title.style.color = "#ccc";
-                  }}
-                >
-                  <span style={{ ...S, fontSize: 11, color: "#444", flexShrink: 0, width: 24, textAlign: "right" }}>
-                    {i + 1}
-                  </span>
-                  <span data-title="" style={{ ...S, fontSize: 12, color: "#ccc", flex: 1, transition: "color 0.15s" }}>
-                    {item.title}
-                  </span>
-                  {item.source && (
-                    <span style={{ ...S, fontSize: 10, color: "#555", flexShrink: 0 }}>
-                      [{item.source}]
-                    </span>
-                  )}
-                  <span style={{ ...S, fontSize: 10, color: "#333", flexShrink: 0 }}>
-                    {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" }) : ""}
-                  </span>
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
