@@ -41,7 +41,7 @@ interface Holding {
 
 async function fetchHoldings(etfCode: string): Promise<Holding[]> {
   const res = await fetch(
-    `https://m.stock.naver.com/api/etf/${etfCode}/constituent?limit=50`,
+    `https://m.stock.naver.com/api/etf/${etfCode}/constituent?limit=100`,
     {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; AlphaLab/1.0; +https://thealphalabs.net)",
