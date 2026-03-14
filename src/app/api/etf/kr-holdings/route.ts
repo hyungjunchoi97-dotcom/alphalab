@@ -21,7 +21,7 @@ const KR_ETF_LIST = [
   { code: "441800", name: "TIME Korea플러스배당액티브" },
 ];
 
-const CACHE_KEY = "kr_etf_holdings_v1";
+const CACHE_KEY = "kr_etf_holdings_v2";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
 
 interface Holding {
