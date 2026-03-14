@@ -19,6 +19,14 @@ const KR_ETF_LIST = [
   { code: "385720", name: "TIME 코스피액티브" },
   { code: "456600", name: "TIME 글로벌AI인공지능액티브" },
   { code: "441800", name: "TIME Korea플러스배당액티브" },
+  { code: "0163Y0", name: "KoAct 코스닥액티브" },
+  { code: "495230", name: "KoAct 코리아밸류업액티브" },
+  { code: "487130", name: "KoAct AI인프라액티브" },
+  { code: "0150K0", name: "KoAct 수소전력ESS인프라액티브" },
+  { code: "0132D0", name: "KoAct 글로벌K컬처밸류체인액티브" },
+  { code: "496080", name: "TIGER 코리아밸류업" },
+  { code: "471780", name: "TIGER 코리아테크액티브" },
+  { code: "0052D0", name: "TIGER 코리아배당다우존스" },
 ];
 
 const CACHE_KEY = "kr_etf_holdings_v3";
