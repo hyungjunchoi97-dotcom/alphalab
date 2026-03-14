@@ -87,7 +87,7 @@ async function fetchHoldings(token: string, etfCode: string): Promise<Holding[]>
       rank: idx + 1,
       code: item.stck_shrn_iscd,
       name: item.hts_kor_isnm,
-      weight: parseFloat(item.etf_cnst_wgt || "0"),
+      weight: parseFloat(item.etf_cnfg_issu_rlim || "0"),
       price: parseInt(item.stck_prpr || "0", 10),
       chgPct: parseFloat(item.prdy_ctrt || "0"),
     }))
