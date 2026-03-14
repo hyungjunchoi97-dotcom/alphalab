@@ -28,18 +28,18 @@ const LANDMARKS: { district: string; code: string; keywords: KeywordRule[] }[] =
   { district: "종로구", code: "11110", keywords: ["경희궁자이", "창신쌍용", { include: "혜화", label: "혜화동현대" }, { include: "평창", label: "평창동현대" }, { include: "부암", label: "부암동현대" }] },
   { district: "중구", code: "11140", keywords: ["남산타운", { include: "신당", label: "신당동삼성" }, { include: "황학", label: "황학동벽산" }, { include: "중림", label: "중림동삼성" }, { include: "을지", label: "을지한국" }] },
   // D티어
-  { district: "서대문구", code: "11380", keywords: [{ include: "파크뷰자이", label: "DMC파크뷰자이" }, { include: "가재울", label: "가재울뉴타운3구역" }, { include: "홍제원", label: "홍제원아이파크" }, { include: "남가좌", label: "남가좌삼성" }, { include: "북가좌", label: "북가좌6단지" }] },
+  { district: "서대문구", code: "11410", keywords: [{ include: "파크뷰자이", label: "DMC파크뷰자이" }, { include: "가재울", label: "가재울뉴타운3구역" }, { include: "홍제원", label: "홍제원아이파크" }, { include: "남가좌", label: "남가좌삼성" }, { include: "북가좌", label: "북가좌6단지" }] },
   { district: "강서구", code: "11500", keywords: ["마곡엠밸리7단지", "마곡엠밸리8단지", { include: "염창", label: "염창동한신" }, { include: "가양", label: "가양대림" }, { include: "내발산", label: "내발산동현대" }] },
   { district: "동대문구", code: "11230", keywords: ["휘경SK뷰", "전농SK", "래미안위브", "한양수자인", { include: "이문", label: "이문힐스테이트" }] },
   { district: "성북구", code: "11290", keywords: [{ include: "길음", label: "길음역롯데캐슬" }, "돈암현대", { include: "한신한진", label: "한신한진" }, { include: "정릉", label: "정릉SK뷰" }, { include: "석관", label: "석관두산" }] },
-  { district: "은평구", code: "11350", keywords: [{ include: "녹번", label: "녹번역e편한세상캐슬" }, { include: "불광", label: "불광미성" }, { include: "응암", label: "응암현대" }, { include: "진관", label: "진관래미안" }, { include: "구산", label: "구산현대" }] },
+  { district: "은평구", code: "11380", keywords: [{ include: "녹번", label: "녹번역e편한세상캐슬" }, { include: "불광", label: "불광미성" }, { include: "응암", label: "응암현대" }, { include: "진관", label: "진관래미안" }, { include: "구산", label: "구산현대" }] },
   { district: "관악구", code: "11620", keywords: [{ include: "봉천", label: "봉천현대" }, "신림현대", { include: "관악산", label: "관악산LH" }, { include: "서울대", label: "서울대벽산" }, { include: "하이츠", label: "중앙하이츠빌" }] },
   // E티어
-  { district: "노원구", code: "11410", keywords: [{ include: "상계주공", label: "상계주공3단지" }, { include: "중계청구", label: "중계청구" }, { include: "하계", label: "하계현대2차" }, { include: "공릉", label: "공릉삼성" }, { include: "월계", label: "월계시영" }] },
+  { district: "노원구", code: "11350", keywords: [{ include: "상계주공", label: "상계주공3단지" }, { include: "중계청구", label: "중계청구" }, { include: "하계", label: "하계현대2차" }, { include: "공릉", label: "공릉삼성" }, { include: "월계", label: "월계시영" }] },
   { district: "구로구", code: "11530", keywords: ["구로자이", { include: "개봉", label: "개봉주공" }, { include: "오류", label: "오류동현대" }, { include: "궁동", label: "궁동한신" }, "구로두산위브"] },
   { district: "중랑구", code: "11260", keywords: ["면목한신", { include: "신내", label: "신내3단지" }, { include: "묵동", label: "묵동신성" }, { include: "상봉", label: "상봉래미안" }, { include: "면목", label: "면목동한양" }] },
   { district: "금천구", code: "11545", keywords: [{ include: "독산", label: "독산래미안" }, { include: "시흥", label: "시흥한신" }, { include: "롯데캐슬골드", label: "금천롯데캐슬골드클래스" }, "독산현대", { include: "가산", label: "가산현대" }] },
-  { district: "강북구", code: "11090", keywords: [{ include: "미아", label: "미아동래미안" }, { include: "수유", label: "수유현대" }, { include: "우이", label: "우이신설현대" }, { include: "번동", label: "번동주공" }, { include: "수유벽산", label: "수유벽산" }] },
+  { district: "강북구", code: "11305", keywords: [{ include: "미아", label: "미아동래미안" }, { include: "수유", label: "수유현대" }, { include: "우이", label: "우이신설현대" }, { include: "번동", label: "번동주공" }, { include: "수유벽산", label: "수유벽산" }] },
   { district: "도봉구", code: "11320", keywords: [{ include: "창동주공", label: "창동주공17단지" }, { include: "방학", label: "방학현대" }, { include: "도봉", label: "도봉현대" }, { include: "쌍문", label: "쌍문현대" }, { include: "방학래미안", label: "방학래미안" }] },
 ];
 
