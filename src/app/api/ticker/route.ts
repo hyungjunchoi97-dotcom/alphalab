@@ -84,6 +84,7 @@ async function fetchYahooQuote(symbol: string): Promise<{ price: number; changeP
     const change = prevClose ? price - prevClose : 0;
     setYahooCache(symbol, price, change, changePct);
     return { price, changePct };
+  } catch {
     return null;
   }
 }
