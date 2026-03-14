@@ -95,9 +95,13 @@ async function fetchHoldings(token: string, etfCode: string): Promise<Holding[]>
     .sort((a: Holding, b: Holding) => b.weight - a.weight);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const forceRefresh = new URL(request.url).searchParams.get("refresh") === "true";
   // Check cache
   try {
+    if (forceRefresh) {
+      await supabaseAdmin.from("legend_screener_cache").delete().eq("cache_key", CACHE_KEY);
+    }
     const { data: cached } = await supabaseAdmin
       .from("legend_screener_cache")
       .select("results, created_at")
