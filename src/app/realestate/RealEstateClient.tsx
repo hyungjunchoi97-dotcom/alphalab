@@ -573,7 +573,7 @@ export default function RealEstateClient() {
                       <Tooltip
                         contentStyle={{ background: "#1a1a1a", border: "1px solid #333", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}
                         labelStyle={{ color: "#e8e8e8" }}
-                        formatter={(value: number) => [`${value}조원`, "잔액"]}
+                        formatter={(value: number | undefined) => [`${value ?? 0}조원`, "잔액"]}
                       />
                       <Line type="monotone" dataKey="balance" name="잔액 (조원)" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
                     </LineChart>
