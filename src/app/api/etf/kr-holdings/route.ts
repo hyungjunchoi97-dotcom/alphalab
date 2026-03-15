@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 30;
 
 const KR_ETF_LIST = [
   { code: "091160", name: "KODEX 반도체" },
@@ -40,7 +40,7 @@ const KR_ETF_LIST = [
   { code: "494220", name: "UNICORN SK하이닉스밸류체인액티브" },
 ];
 
-const CACHE_KEY = "kr_etf_holdings_v11";
+const CACHE_KEY = "kr_etf_holdings_v12";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
 
 interface Holding {
@@ -51,27 +51,20 @@ interface Holding {
 }
 
 async function fetchHoldings(etfCode: string): Promise<Holding[]> {
-  const allItems: Record<string, string | number>[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < 20; page++) {
-    const url = cursor
-      ? `https://m.stock.naver.com/api/etf/${etfCode}/constituent?limit=100&cursor=${encodeURIComponent(cursor)}`
-      : `https://m.stock.naver.com/api/etf/${etfCode}/constituent?limit=100`;
-    const res = await fetch(url, {
+  const res = await fetch(
+    `https://m.stock.naver.com/api/etf/${etfCode}/constituent?limit=100`,
+    {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; AlphaLab/1.0; +https://thealphalabs.net)" },
       signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) { console.error("[Naver ETF] HTTP", res.status, etfCode); break; }
-    const data = await res.json();
-    const items = data.result;
-    if (!Array.isArray(items) || items.length === 0) break;
-    allItems.push(...items);
-    if (!data.hasNext || !data.nextCursor) break;
-    cursor = data.nextCursor;
-  }
-  return allItems
-    .filter((item) => item.itemName)
-    .map((item, idx) => ({
+    }
+  );
+  if (!res.ok) { console.error("[Naver ETF] HTTP", res.status, etfCode); return []; }
+  const data = await res.json();
+  const items = data.result;
+  if (!Array.isArray(items)) return [];
+  return items
+    .filter((item: Record<string, string | number>) => item.itemName)
+    .map((item: Record<string, string | number>, idx: number) => ({
       rank: idx + 1,
       code: String(item.itemCode || item.reutersCode || ""),
       name: String(item.itemName),
