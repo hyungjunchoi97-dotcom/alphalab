@@ -459,30 +459,36 @@ async function fetchUS(ticker: string, period: string) {
   const keyMetrics = safeArr(kmData).map((k: any) => ({
     label: `${k.fiscalYear ?? k.calendarYear}`,
     roe: r2(k.returnOnEquity != null ? k.returnOnEquity * 100 : null),
-    roic: r2(k.roic != null ? k.roic * 100 : null),
+    roic: r2((k.returnOnInvestedCapital ?? k.roic) != null ? (k.returnOnInvestedCapital ?? k.roic) * 100 : null),
     roa: r2(k.returnOnAssets != null ? k.returnOnAssets * 100 : null),
     fcfYield: r2(k.freeCashFlowYield != null ? k.freeCashFlowYield * 100 : null),
     eps: r2(k.earningsYield != null ? k.earningsYield * 100 : null),
     revenuePerShare: r2(k.revenuePerShare),
     netIncomePerShare: r2(k.netIncomePerShare),
-    interestCoverage: r2(k.interestCoverage),
+    interestCoverage: r2(k.interestCoverageRatio ?? k.interestCoverage),
     netDebtToEbitda: r2(k.netDebtToEBITDA),
   })).reverse();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const valuation = safeArr(ratioData).map((v: any) => ({
-    label: `${v.fiscalYear ?? v.calendarYear}`,
-    pe: r2(v.priceEarningsRatio ?? v.peRatio),
-    pb: r2(v.priceToBookRatio),
-    evEbitda: r2(v.enterpriseValueOverEBITDA),
-    ps: r2(v.priceToSalesRatio),
-    evRevenue: r2(v.enterpriseValueMultiple ?? v.evToRevenue),
-    peg: r2(v.priceEarningsToGrowthRatio ?? v.pegRatio),
-    pOcf: r2(v.priceToOperatingCashFlowsRatio ?? v.priceToOperatingCashFlowRatio),
-    pFcf: r2(v.priceToFreeCashFlowsRatio ?? v.priceToFreeCashFlowRatio),
-    dividendYield: r2(v.dividendYield != null ? v.dividendYield * 100
-      : v.dividendYieldPercentage != null ? v.dividendYieldPercentage : null),
-  })).reverse();
+  const kmMap = new Map(safeArr(kmData).map((k: any) => [`${k.fiscalYear ?? k.calendarYear}`, k]));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const valuation = safeArr(ratioData).map((v: any) => {
+    const year = `${v.fiscalYear ?? v.calendarYear}`;
+    const km = kmMap.get(year) as any;
+    return {
+      label: year,
+      pe: r2(v.priceToEarningsRatio ?? v.priceEarningsRatio ?? v.peRatio),
+      pb: r2(v.priceToBookRatio),
+      evEbitda: r2(v.enterpriseValueMultiple ?? km?.evToEBITDA ?? v.enterpriseValueOverEBITDA),
+      ps: r2(v.priceToSalesRatio),
+      evRevenue: r2(km?.evToSales ?? v.priceToSalesRatio),
+      peg: r2(v.priceToEarningsGrowthRatio ?? v.priceEarningsToGrowthRatio ?? v.pegRatio),
+      pOcf: r2(v.priceToOperatingCashFlowRatio ?? v.priceToOperatingCashFlowsRatio),
+      pFcf: r2(v.priceToFreeCashFlowRatio ?? v.priceToFreeCashFlowsRatio),
+      dividendYield: r2(v.dividendYieldPercentage ?? (v.dividendYield != null ? v.dividendYield * 100 : null)),
+    };
+  }).reverse();
 
   // Profile enrichment
   const profileInfo = profile ? {
