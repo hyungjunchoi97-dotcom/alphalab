@@ -125,7 +125,7 @@ export async function scrapeChannel(
         id: msgNum,
         channel: username,
         channelTitle: title,
-        text: text.slice(0, 800),
+        text: text,
         date,
         link: `https://t.me/${postId}`,
         ...(imageUrl && { imageUrl }),
