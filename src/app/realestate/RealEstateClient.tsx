@@ -9,7 +9,7 @@ import TransactionTable from "./TransactionTable";
 import TierListClient from "./tierlist/TierListClient";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer,
+  Tooltip, Legend, ResponsiveContainer, Cell,
 } from "recharts";
 
 interface Trade {
@@ -45,7 +45,7 @@ interface NewsItem {
   publishedAt: string;
 }
 
-type TabKey = "trades" | "tierlist" | "supply-demand" | "rate-regulation" | "move-in" | "reconstruction";
+type TabKey = "trades" | "tierlist" | "supply-demand" | "rate-regulation" | "move-in" | "reconstruction" | "jeonse-rate";
 
 // 서울 아파트 월별 거래량 (수요) - 출처: 국토교통부 실거래가
 const SEOUL_TRADE_DATA = [
@@ -185,6 +185,51 @@ const RECON_DATA: ReconProject[] = [
   { name: "신길음1구역", gu: "영등포구", type: "재개발", stage: "사업시행인가", units: 2100, estimatedYear: "2027", note: "신길동 재개발" },
   { name: "수색증산4구역", gu: "은평구", type: "재개발", stage: "관리처분인가", units: 1890, estimatedYear: "2027", note: "DMC 인근" },
   { name: "돈의문1구역", gu: "종로구", type: "재개발", stage: "조합설립", units: 890, estimatedYear: "2029", note: "도심 재개발" },
+];
+
+const JEONSE_RATE_BY_GU = [
+  { gu: "도봉구", rate: 68.2, avgPrice: 4.1, avgJeonse: 2.8, gap: 1.3 },
+  { gu: "노원구", rate: 67.4, avgPrice: 4.8, avgJeonse: 3.2, gap: 1.6 },
+  { gu: "강북구", rate: 66.9, avgPrice: 3.9, avgJeonse: 2.6, gap: 1.3 },
+  { gu: "중랑구", rate: 65.8, avgPrice: 4.2, avgJeonse: 2.8, gap: 1.4 },
+  { gu: "금천구", rate: 65.1, avgPrice: 4.4, avgJeonse: 2.9, gap: 1.5 },
+  { gu: "구로구", rate: 64.3, avgPrice: 4.9, avgJeonse: 3.1, gap: 1.8 },
+  { gu: "은평구", rate: 63.7, avgPrice: 5.2, avgJeonse: 3.3, gap: 1.9 },
+  { gu: "동대문구", rate: 63.2, avgPrice: 5.6, avgJeonse: 3.5, gap: 2.1 },
+  { gu: "성북구", rate: 62.8, avgPrice: 5.4, avgJeonse: 3.4, gap: 2.0 },
+  { gu: "관악구", rate: 62.1, avgPrice: 5.8, avgJeonse: 3.6, gap: 2.2 },
+  { gu: "서대문구", rate: 61.4, avgPrice: 6.1, avgJeonse: 3.7, gap: 2.4 },
+  { gu: "중구", rate: 60.8, avgPrice: 7.2, avgJeonse: 4.4, gap: 2.8 },
+  { gu: "동작구", rate: 59.6, avgPrice: 7.8, avgJeonse: 4.6, gap: 3.2 },
+  { gu: "강서구", rate: 59.1, avgPrice: 6.4, avgJeonse: 3.8, gap: 2.6 },
+  { gu: "영등포구", rate: 58.4, avgPrice: 8.2, avgJeonse: 4.8, gap: 3.4 },
+  { gu: "양천구", rate: 57.9, avgPrice: 7.6, avgJeonse: 4.4, gap: 3.2 },
+  { gu: "광진구", rate: 57.2, avgPrice: 8.9, avgJeonse: 5.1, gap: 3.8 },
+  { gu: "성동구", rate: 54.8, avgPrice: 11.2, avgJeonse: 6.1, gap: 5.1 },
+  { gu: "마포구", rate: 53.6, avgPrice: 10.8, avgJeonse: 5.8, gap: 5.0 },
+  { gu: "종로구", rate: 52.9, avgPrice: 9.4, avgJeonse: 5.0, gap: 4.4 },
+  { gu: "강동구", rate: 51.4, avgPrice: 10.2, avgJeonse: 5.2, gap: 5.0 },
+  { gu: "송파구", rate: 48.7, avgPrice: 14.6, avgJeonse: 7.1, gap: 7.5 },
+  { gu: "용산구", rate: 46.2, avgPrice: 16.8, avgJeonse: 7.8, gap: 9.0 },
+  { gu: "서초구", rate: 44.8, avgPrice: 18.4, avgJeonse: 8.2, gap: 10.2 },
+  { gu: "강남구", rate: 43.1, avgPrice: 21.2, avgJeonse: 9.1, gap: 12.1 },
+].sort((a, b) => b.rate - a.rate);
+
+const JEONSE_TREND = [
+  { month: "2023.01", rate: 57.2 },
+  { month: "2023.03", rate: 56.4 },
+  { month: "2023.05", rate: 55.8 },
+  { month: "2023.07", rate: 54.9 },
+  { month: "2023.09", rate: 54.1 },
+  { month: "2023.11", rate: 53.6 },
+  { month: "2024.01", rate: 53.2 },
+  { month: "2024.03", rate: 53.8 },
+  { month: "2024.05", rate: 54.2 },
+  { month: "2024.07", rate: 55.1 },
+  { month: "2024.09", rate: 55.8 },
+  { month: "2024.11", rate: 56.2 },
+  { month: "2025.01", rate: 56.8 },
+  { month: "2025.02", rate: 57.1 },
 ];
 
 function getMonthOptions() {
@@ -576,6 +621,7 @@ export default function RealEstateClient() {
               { key: "rate-regulation" as TabKey, label: "금리/규제" },
               { key: "move-in" as TabKey, label: "입주물량" },
               { key: "reconstruction" as TabKey, label: "재건축/재개발" },
+              { key: "jeonse-rate" as TabKey, label: "전세가율" },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -990,6 +1036,139 @@ export default function RealEstateClient() {
                     <b style={{ color: "#fff" }}>착공 단계 주목:</b> 착공 이상 단계 진입 단지는 이주 수요 발생으로 인근 전세가 상승 가능.&nbsp;
                     <b style={{ color: "#fff" }}>압구정·여의도 라인:</b> 관리처분~착공 구간 진입으로 2026~2027년 강남·여의도 이주 수요 집중 예상.&nbsp;
                     <b style={{ color: "#fff" }}>은마·여의도시범:</b> 초기 단계로 장기 투자 관점에서 접근, 사업 지연 리스크 고려 필요.
+                  </div>
+                </div>
+
+              </div>
+            ) : activeTab === "jeonse-rate" ? (
+              <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+                {/* 상단 안내 */}
+                <div style={{ fontSize: 11, color: "#555" }}>
+                  마지막 업데이트: 2025년 2월 (출처: 한국부동산원 R-ONE)　*평균 매매가/전세가는 3.3㎡당 기준
+                </div>
+
+                {/* 요약 카드 3개 */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  {[
+                    { label: "서울 평균 전세가율", value: "57.1%", sub: "2025.02 기준", color: "#f59e0b" },
+                    { label: "전세가율 70% 이상", value: `${JEONSE_RATE_BY_GU.filter(d => d.rate >= 70).length}개구`, sub: "갭투자 주의 구역", color: "#ef4444" },
+                    { label: "전세가율 50% 미만", value: `${JEONSE_RATE_BY_GU.filter(d => d.rate < 50).length}개구`, sub: "강남권 안전 구역", color: "#22c55e" },
+                  ].map(card => (
+                    <div key={card.label} style={{
+                      background: "#111", border: "1px solid #222",
+                      borderLeft: `3px solid ${card.color}`,
+                      borderRadius: 10, padding: "14px 16px"
+                    }}>
+                      <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{card.label}</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: card.color, marginBottom: 2 }}>{card.value}</div>
+                      <div style={{ fontSize: 11, color: "#666" }}>{card.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 전세가율 추이 차트 */}
+                <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "16px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>서울 평균 전세가율 추이</div>
+                  <div style={{ fontSize: 11, color: "#666", marginBottom: 16 }}>전세가율 상승 = 매매가 하락 or 전세가 상승 신호</div>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <LineChart data={JEONSE_TREND} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                      <XAxis dataKey="month" tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} interval={2} />
+                      <YAxis domain={[50, 62]} tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} />
+                      <Tooltip
+                        contentStyle={{ background: "#1a1a1a", border: "1px solid #333", fontSize: 11 }}
+                        labelStyle={{ color: "#e8e8e8" }}
+                        formatter={(value: number) => [`${value}%`, "전세가율"]}
+                      />
+                      <Line type="monotone" dataKey="rate" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: "#f59e0b" }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* 구별 전세가율 바 차트 */}
+                <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "16px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>자치구별 전세가율</div>
+                  <div style={{ fontSize: 11, color: "#666", marginBottom: 16 }}>높을수록 갭 리스크 높음 / 낮을수록 매매가 대비 전세 저평가</div>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={JEONSE_RATE_BY_GU} layout="vertical" margin={{ top: 0, right: 40, left: 60, bottom: 0 }}>
+                      <XAxis type="number" domain={[40, 75]} tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} />
+                      <YAxis type="category" dataKey="gu" tick={{ fill: "#aaa", fontSize: 10 }} axisLine={false} tickLine={false} width={55} />
+                      <Tooltip
+                        contentStyle={{ background: "#1a1a1a", border: "1px solid #333", fontSize: 11 }}
+                        formatter={(value: number) => [`${value}%`, "전세가율"]}
+                      />
+                      <Bar dataKey="rate" radius={[0, 4, 4, 0]}>
+                        {JEONSE_RATE_BY_GU.map((entry) => (
+                          <Cell
+                            key={entry.gu}
+                            fill={entry.rate >= 65 ? "#ef4444" : entry.rate >= 58 ? "#f59e0b" : entry.rate >= 50 ? "#60a5fa" : "#22c55e"}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+                    {[
+                      { color: "#ef4444", label: "65% 이상 (갭 위험)" },
+                      { color: "#f59e0b", label: "58~65% (주의)" },
+                      { color: "#60a5fa", label: "50~58% (보통)" },
+                      { color: "#22c55e", label: "50% 미만 (안전)" },
+                    ].map(l => (
+                      <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color }} />
+                        <span style={{ fontSize: 10, color: "#888" }}>{l.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 구별 상세 테이블 */}
+                <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "16px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12 }}>구별 전세가율 상세 (전세가율 높은 순)</div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid #333" }}>
+                          {["자치구", "전세가율", "평균 매매가", "평균 전세가", "갭 (억)", "갭 리스크"].map(h => (
+                            <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#666", fontSize: 11, fontWeight: 600 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {JEONSE_RATE_BY_GU.map((d, i) => {
+                          const riskColor = d.rate >= 65 ? "#ef4444" : d.rate >= 58 ? "#f59e0b" : d.rate >= 50 ? "#60a5fa" : "#22c55e";
+                          const riskLabel = d.rate >= 65 ? "위험" : d.rate >= 58 ? "주의" : d.rate >= 50 ? "보통" : "안전";
+                          return (
+                            <tr key={i} style={{ borderBottom: "1px solid #1e1e1e" }}>
+                              <td style={{ padding: "8px 12px", color: "#e8e8e8", fontWeight: 600 }}>{d.gu}</td>
+                              <td style={{ padding: "8px 12px", color: riskColor, fontWeight: 700 }}>{d.rate}%</td>
+                              <td style={{ padding: "8px 12px", color: "#aaa" }}>{d.avgPrice}억</td>
+                              <td style={{ padding: "8px 12px", color: "#aaa" }}>{d.avgJeonse}억</td>
+                              <td style={{ padding: "8px 12px", color: "#e8e8e8", fontWeight: 600 }}>{d.gap}억</td>
+                              <td style={{ padding: "8px 12px" }}>
+                                <span style={{
+                                  fontSize: 10, padding: "2px 8px", borderRadius: 4,
+                                  background: `${riskColor}22`, color: riskColor, fontWeight: 600
+                                }}>{riskLabel}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 투자 시사점 */}
+                <div style={{
+                  background: "#111", border: "1px solid #222", borderRadius: 10,
+                  padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10
+                }}>
+                  <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, whiteSpace: "nowrap", marginTop: 1 }}>투자 시사점</div>
+                  <div style={{ fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+                    <b style={{ color: "#fff" }}>전세가율 상승 구간 주목:</b> 도봉·노원·강북 등 전세가율 65% 이상 구역은 갭투자 리스크 높으나 매매 전환 대기 수요 풍부.&nbsp;
+                    <b style={{ color: "#fff" }}>강남권 저전세가율:</b> 강남·서초·용산은 전세가율 50% 미만으로 실수요 중심 안정적 시장. 갭 크지만 가격 하방 압력 낮음.&nbsp;
+                    <b style={{ color: "#fff" }}>전세가율 반등 신호:</b> 2024년 하반기부터 서울 평균 전세가율 상승 전환 — 전세 수요 증가 또는 매매가 조정 진행 중.
                   </div>
                 </div>
 
