@@ -536,22 +536,22 @@ export default function RealEstateClient() {
                       <div key={card.title} style={{
                         background: "#111", border: "1px solid #222",
                         borderLeft: `3px solid ${card.color}`,
-                        borderRadius: 10, padding: "12px 14px"
+                        borderRadius: 10, padding: "14px 16px"
                       }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#e8e8e8", marginBottom: 6 }}>{card.title}</div>
-                        <div style={{ fontSize: 11, color: "#888", lineHeight: 1.6 }}>{card.desc}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>{card.title}</div>
+                        <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.75 }}>{card.desc}</div>
                       </div>
                     ))}
                   </div>
 
                   <div style={{
                     background: "#111", border: "1px solid #222", borderRadius: 10,
-                    padding: "12px 14px", display: "flex", alignItems: "flex-start", gap: 10
+                    padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10
                   }}>
-                    <div style={{ fontSize: 10, color: "#f59e0b", fontWeight: 700, whiteSpace: "nowrap", marginTop: 1 }}>종합 해석</div>
-                    <div style={{ fontSize: 11, color: "#888", lineHeight: 1.7 }}>
-                      <b style={{ color: "#ccc" }}>매수 신호:</b> 거래량 증가 + 인허가·착공 감소 + 주담대 증가 동시 발생 시 공급 부족 국면 진입 가능성 높음.&nbsp;
-                      <b style={{ color: "#ccc" }}>매도/관망 신호:</b> 거래량 감소 + 준공 급증 + 주담대 둔화 시 단기 조정 구간 가능성. 세 지표를 함께 보며 시장 사이클 위치를 판단하세요.
+                    <div style={{ fontSize: 12, color: "#f59e0b", fontWeight: 700, whiteSpace: "nowrap", marginTop: 1 }}>종합 해석</div>
+                    <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.8 }}>
+                      <b style={{ color: "#ffffff" }}>매수 신호:</b> 거래량 증가 + 인허가·착공 감소 + 주담대 증가 동시 발생 시 공급 부족 국면 진입 가능성 높음.&nbsp;
+                      <b style={{ color: "#ffffff" }}>매도/관망 신호:</b> 거래량 감소 + 준공 급증 + 주담대 둔화 시 단기 조정 구간 가능성. 세 지표를 함께 보며 시장 사이클 위치를 판단하세요.
                     </div>
                   </div>
                 </div>
