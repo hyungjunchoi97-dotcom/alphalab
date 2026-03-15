@@ -45,7 +45,7 @@ interface NewsItem {
   publishedAt: string;
 }
 
-type TabKey = "trades" | "tierlist" | "supply-demand" | "rate-regulation";
+type TabKey = "trades" | "tierlist" | "supply-demand" | "rate-regulation" | "move-in";
 
 // 서울 아파트 월별 거래량 (수요) - 출처: 국토교통부 실거래가
 const SEOUL_TRADE_DATA = [
@@ -117,6 +117,41 @@ const RATE_TIMELINE = [
   { date: "2024.11", type: "rate", label: "기준금리 인하", value: "3.00%", desc: "연속 인하, 거래량 회복 기대", color: "#22c55e" },
   { date: "2025.02", type: "rate", label: "기준금리 인하", value: "2.75%", desc: "경기 부양 목적 추가 인하", color: "#22c55e" },
 ];
+
+const MOVEIN_DATA = [
+  { year: 2023, q: "Q1", gu: "강동구", name: "올림픽파크포레온(둔촌주공)", units: 12032, type: "재건축" },
+  { year: 2024, q: "Q1", gu: "서초구", name: "래미안원펜타스", units: 641, type: "재건축" },
+  { year: 2024, q: "Q2", gu: "강남구", name: "디에이치퍼스티어아이파크", units: 6702, type: "재건축" },
+  { year: 2024, q: "Q2", gu: "서대문구", name: "e편한세상신촌", units: 1226, type: "일반" },
+  { year: 2024, q: "Q3", gu: "성동구", name: "청계SK뷰", units: 1236, type: "일반" },
+  { year: 2024, q: "Q4", gu: "광진구", name: "자양하늘채베르", units: 522, type: "일반" },
+  { year: 2025, q: "Q1", gu: "강남구", name: "개포주공1단지(디에이치퍼스티어)", units: 1690, type: "재건축" },
+  { year: 2025, q: "Q1", gu: "서초구", name: "반포주공1단지(래미안트리니원)", units: 2091, type: "재건축" },
+  { year: 2025, q: "Q2", gu: "영등포구", name: "여의도한양(브라이튼여의도)", units: 1236, type: "재건축" },
+  { year: 2025, q: "Q2", gu: "강동구", name: "둔촌주공2차", units: 890, type: "재건축" },
+  { year: 2025, q: "Q3", gu: "동대문구", name: "이문아이파크자이", units: 4321, type: "재개발" },
+  { year: 2025, q: "Q3", gu: "은평구", name: "불광미성아파트", units: 756, type: "재건축" },
+  { year: 2025, q: "Q4", gu: "마포구", name: "마포더클래시", units: 1149, type: "일반" },
+  { year: 2025, q: "Q4", gu: "노원구", name: "상계주공6단지", units: 1848, type: "재건축" },
+  { year: 2026, q: "Q1", gu: "송파구", name: "잠실진주아파트", units: 2678, type: "재건축" },
+  { year: 2026, q: "Q1", gu: "강남구", name: "압구정3구역", units: 2508, type: "재건축" },
+  { year: 2026, q: "Q2", gu: "서초구", name: "신반포15차", units: 1078, type: "재건축" },
+  { year: 2026, q: "Q2", gu: "성북구", name: "장위4구역", units: 2840, type: "재개발" },
+  { year: 2026, q: "Q3", gu: "강동구", name: "고덕강일3단지", units: 1320, type: "일반" },
+  { year: 2026, q: "Q4", gu: "동작구", name: "흑석9구역", units: 1536, type: "재개발" },
+  { year: 2027, q: "Q1", gu: "강남구", name: "압구정2구역", units: 3400, type: "재건축" },
+  { year: 2027, q: "Q2", gu: "서초구", name: "반포3주구", units: 2990, type: "재건축" },
+  { year: 2027, q: "Q3", gu: "송파구", name: "잠실우성1~3차", units: 1590, type: "재건축" },
+  { year: 2027, q: "Q4", gu: "영등포구", name: "신길음대단지", units: 2100, type: "재개발" },
+];
+
+const MOVEIN_BY_YEAR = [2023, 2024, 2025, 2026, 2027].map(year => ({
+  year: String(year),
+  total: MOVEIN_DATA.filter(d => d.year === year).reduce((s, d) => s + d.units, 0),
+  재건축: MOVEIN_DATA.filter(d => d.year === year && d.type === "재건축").reduce((s, d) => s + d.units, 0),
+  재개발: MOVEIN_DATA.filter(d => d.year === year && d.type === "재개발").reduce((s, d) => s + d.units, 0),
+  일반: MOVEIN_DATA.filter(d => d.year === year && d.type === "일반").reduce((s, d) => s + d.units, 0),
+}));
 
 function getMonthOptions() {
   const opts: { label: string; value: string }[] = [];
@@ -505,6 +540,7 @@ export default function RealEstateClient() {
               { key: "tierlist" as TabKey, label: "티어리스트" },
               { key: "supply-demand" as TabKey, label: "수요/공급" },
               { key: "rate-regulation" as TabKey, label: "금리/규제" },
+              { key: "move-in" as TabKey, label: "입주물량" },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -714,6 +750,110 @@ export default function RealEstateClient() {
                     <b style={{ color: "#fff" }}>금리 인하 사이클:</b> 현재 인하 기조 진행 중으로 대출 이자 부담 감소 → 매수 심리 회복 기대.
                     <b style={{ color: "#fff" }}> 스트레스 DSR:</b> 금리 인하에도 불구 DSR 규제로 실질 대출 한도는 제한적.
                     <b style={{ color: "#fff" }}> 핵심 관전 포인트:</b> 2025년 추가 금리 인하 여부 + 스트레스 DSR 3단계 시행 시기가 시장 방향성 결정.
+                  </div>
+                </div>
+
+              </div>
+            ) : activeTab === "move-in" ? (
+              <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+                {/* 상단 안내 */}
+                <div style={{ fontSize: 11, color: "#555" }}>
+                  마지막 업데이트: 2025년 3월 (출처: 부동산114, 각 조합)　*예정 물량은 변동될 수 있습니다.
+                </div>
+
+                {/* 연도별 요약 카드 */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+                  {MOVEIN_BY_YEAR.map(d => {
+                    const isCurrent = d.year === "2025";
+                    return (
+                      <div key={d.year} style={{
+                        background: "#111", border: `1px solid ${isCurrent ? "#f59e0b44" : "#222"}`,
+                        borderLeft: `3px solid ${isCurrent ? "#f59e0b" : "#333"}`,
+                        borderRadius: 10, padding: "12px 14px"
+                      }}>
+                        <div style={{ fontSize: 11, color: isCurrent ? "#f59e0b" : "#888", fontWeight: 700, marginBottom: 6 }}>
+                          {d.year}{isCurrent ? " (현재)" : ""}
+                        </div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: "#e8e8e8", marginBottom: 4 }}>
+                          {d.total.toLocaleString()}세대
+                        </div>
+                        <div style={{ fontSize: 10, color: "#666" }}>재건축 {d.재건축.toLocaleString()}</div>
+                        <div style={{ fontSize: 10, color: "#666" }}>재개발 {d.재개발.toLocaleString()}</div>
+                        <div style={{ fontSize: 10, color: "#666" }}>일반 {d.일반.toLocaleString()}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 연도별 입주 물량 바 차트 */}
+                <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "16px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 16 }}>연도별 입주 물량 (서울)</div>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={MOVEIN_BY_YEAR} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                      <XAxis dataKey="year" tick={{ fill: "#888", fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${(v/1000).toFixed(0)}천`} />
+                      <Tooltip
+                        contentStyle={{ background: "#1a1a1a", border: "1px solid #333", fontSize: 11 }}
+                        labelStyle={{ color: "#e8e8e8" }}
+                        formatter={(value: number, name: string) => [`${value.toLocaleString()}세대`, name]}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11, color: "#888" }} />
+                      <Bar dataKey="재건축" stackId="a" fill="#f59e0b" />
+                      <Bar dataKey="재개발" stackId="a" fill="#3b82f6" />
+                      <Bar dataKey="일반" stackId="a" fill="#6b7280" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* 분기별 상세 테이블 */}
+                <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "16px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12 }}>분기별 입주 단지 상세</div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid #333" }}>
+                          {["연도", "분기", "자치구", "단지명", "세대수", "유형"].map(h => (
+                            <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#666", fontSize: 11, fontWeight: 600 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {MOVEIN_DATA.map((d, i) => {
+                          const isCurrent = d.year === 2025;
+                          const isPast = d.year < 2025;
+                          return (
+                            <tr key={i} style={{ borderBottom: "1px solid #1e1e1e", opacity: isPast ? 0.5 : 1 }}>
+                              <td style={{ padding: "8px 12px", color: isCurrent ? "#f59e0b" : "#888" }}>{d.year}</td>
+                              <td style={{ padding: "8px 12px", color: "#888" }}>{d.q}</td>
+                              <td style={{ padding: "8px 12px", color: "#ccc" }}>{d.gu}</td>
+                              <td style={{ padding: "8px 12px", color: "#e8e8e8" }}>{d.name}</td>
+                              <td style={{ padding: "8px 12px", color: "#e8e8e8", fontWeight: 600 }}>{d.units.toLocaleString()}</td>
+                              <td style={{ padding: "8px 12px" }}>
+                                <span style={{
+                                  fontSize: 10, padding: "2px 6px", borderRadius: 4,
+                                  background: d.type === "재건축" ? "#f59e0b22" : d.type === "재개발" ? "#3b82f622" : "#6b728022",
+                                  color: d.type === "재건축" ? "#f59e0b" : d.type === "재개발" ? "#3b82f6" : "#9ca3af"
+                                }}>{d.type}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 투자 시사점 */}
+                <div style={{
+                  background: "#111", border: "1px solid #222", borderRadius: 10,
+                  padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10
+                }}>
+                  <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, whiteSpace: "nowrap", marginTop: 1 }}>투자 시사점</div>
+                  <div style={{ fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+                    <b style={{ color: "#fff" }}>2025~2026년 공급 집중:</b> 압구정·반포·잠실 재건축 대단지 입주로 강남권 일시적 공급 과잉 가능성.&nbsp;
+                    <b style={{ color: "#fff" }}>이문·장위 재개발:</b> 동북권 대규모 입주로 해당 권역 전세가 하방 압력.&nbsp;
+                    <b style={{ color: "#fff" }}>관심 구역:</b> 입주 물량 적은 마포·용산·성동구는 상대적으로 공급 부족 지속 예상.
                   </div>
                 </div>
 
