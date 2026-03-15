@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 const FMP_KEY = process.env.FMP_API_KEY!;
 const STABLE = "https://financialmodelingprep.com/stable";
-const CACHE_KEY = "macro_commodities_fmp_stable_v2";
+const CACHE_KEY = "macro_commodities_fmp_stable_v3";
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 min
 
 interface MemCache { data: CommodityResult[]; cachedAt: number }
@@ -34,6 +34,7 @@ const COMMODITIES: CommodityConfig[] = [
   { id: "HEATING_OIL", symbol: "HEATING",  yahooSymbol: "HO=F",  labelKr: "난방유",     label: "Heating Oil",      unit: "$/gal",   category: "energy",    tooltipKr: "겨울 수요 및 정제 마진",            tooltipEn: "Winter demand & refining margin" },
   { id: "CARBON",      symbol: "CARBON",   yahooSymbol: "KRBN",  labelKr: "탄소배출권", label: "Carbon Credits",   unit: "$/t",     category: "energy",    tooltipKr: "ESG 규제 및 탄소세 트렌드",         tooltipEn: "ESG regulation & carbon tax trend" },
   { id: "LNG",         symbol: "LNG",      yahooSymbol: "LNG",   labelKr: "LNG",        label: "LNG (Cheniere)",   unit: "$/share", category: "energy",    tooltipKr: "한국 최대 에너지 수입품목 프록시",   tooltipEn: "Korea's largest energy import proxy (Cheniere)" },
+  { id: "POWER",       symbol: "PCG",      yahooSymbol: "PCG",   labelKr: "전력",       label: "Power (PG&E)",     unit: "$/share", category: "energy",    tooltipKr: "전력 인프라 및 에너지 전환 프록시",  tooltipEn: "Power infrastructure & energy transition proxy" },
   // Precious
   { id: "GOLD",      symbol: "GCUSD",  yahooSymbol: "GC=F", labelKr: "금",         label: "Gold Futures",       unit: "$/oz",    category: "precious",  tooltipKr: "안전자산 수요 지표",                tooltipEn: "Safe haven demand indicator" },
   { id: "SILVER",    symbol: "SIUSD",  yahooSymbol: "SI=F", labelKr: "은",         label: "Silver Futures",     unit: "$/oz",    category: "precious",  tooltipKr: "산업용+귀금속 이중 수요",            tooltipEn: "Dual industrial + precious demand" },
@@ -45,7 +46,9 @@ const COMMODITIES: CommodityConfig[] = [
   { id: "COAL",      symbol: "BTU",    yahooSymbol: "BTU", labelKr: "석탄",   label: "Coal (Peabody BTU)",  unit: "$/share", category: "industrial", tooltipKr: "화력발전 연료 프록시",              tooltipEn: "Thermal coal proxy (Peabody Energy)" },
   { id: "ZINC",      symbol: "ZINC",   yahooSymbol: "ZINC",  labelKr: "아연", label: "Zinc",               unit: "$/t",     category: "industrial", tooltipKr: "철강 도금 핵심 소재",              tooltipEn: "Key steel coating material" },
   { id: "LEAD",      symbol: "LEAD",   yahooSymbol: "LEAD",  labelKr: "납",   label: "Lead",               unit: "$/t",     category: "industrial", tooltipKr: "배터리 원자재",                    tooltipEn: "Battery raw material" },
-  { id: "IRON_ORE", symbol: "VALE",   yahooSymbol: "VALE",  labelKr: "철광석", label: "Iron Ore (VALE)",  unit: "$/share", category: "industrial", tooltipKr: "철강 핵심 원자재 (포스코 직접 영향)", tooltipEn: "Key steel raw material (POSCO direct impact)" },
+  { id: "IRON_ORE",  symbol: "VALE",   yahooSymbol: "VALE",  labelKr: "철광석",  label: "Iron Ore (VALE)",      unit: "$/share", category: "industrial", tooltipKr: "철강 핵심 원자재 (포스코 직접 영향)", tooltipEn: "Key steel raw material (POSCO direct impact)" },
+  { id: "PALLADIUM", symbol: "PA=F",  yahooSymbol: "PA=F",  labelKr: "팔라듐",  label: "Palladium Futures",    unit: "$/oz",    category: "industrial", tooltipKr: "자동차 촉매·반도체 핵심 소재",       tooltipEn: "Auto catalyst & semiconductor key material" },
+  { id: "TIN",        symbol: "JJT",   yahooSymbol: "JJT",   labelKr: "주석",    label: "Tin (iPath JJT)",      unit: "$/share", category: "industrial", tooltipKr: "반도체 납땜·전자부품 핵심 소재",     tooltipEn: "Semiconductor solder & electronics key material" },
   // Battery
   { id: "LITHIUM",   symbol: "LTHM",   yahooSymbol: "SLI", labelKr: "리튬",   label: "Lithium (LTHM)",      unit: "$/share", category: "battery",   tooltipKr: "2차전지 핵심 소재 (EV/ESS)",        tooltipEn: "Key battery material (EV/ESS demand)" },
   { id: "NICKEL",    symbol: "NIKUSD", fallback: "JJN",  yahooSymbol: "NKEL", labelKr: "니켈", label: "Nickel Futures", unit: "$/t",    category: "battery",   tooltipKr: "배터리·스테인리스 핵심 소재",       tooltipEn: "Key battery & stainless steel material" },
