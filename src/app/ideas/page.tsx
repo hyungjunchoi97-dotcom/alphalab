@@ -197,7 +197,7 @@ function isKrMarketOpen(): boolean {
 
 export default function IdeasPage() {
   const { t, lang } = useLang();
-  const [tab, setTab] = useState<"fomo" | "rotation" | "etf" | "kr-etf" | "consensus">("fomo");
+  const [tab, setTab] = useState<"fomo" | "rotation" | "etf" | "kr-etf" | "dividend-etf" | "consensus">("fomo");
   const [selected, setSelected] = useState<FomoItem | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -284,6 +284,14 @@ export default function IdeasPage() {
   const [krEtfFetched, setKrEtfFetched] = useState(false);
   const [krEtfCollapsed, setKrEtfCollapsed] = useState<Set<string>>(new Set());
   const [krEtfCommonOpen, setKrEtfCommonOpen] = useState(true);
+
+  // Dividend ETF
+  const [divEtfs, setDivEtfs] = useState<{ code: string; name: string; holdings: { rank: number; code: string; name: string; weight: number }[] }[]>([]);
+  const [divEtfLoading, setDivEtfLoading] = useState(false);
+  const [divEtfSelected, setDivEtfSelected] = useState<string | null>(null);
+  const [divEtfFetched, setDivEtfFetched] = useState(false);
+  const [divEtfCollapsed, setDivEtfCollapsed] = useState<Set<string>>(new Set());
+  const [divEtfCommonOpen, setDivEtfCommonOpen] = useState(true);
 
   // Data
   const [fomoKr, setFomoKr] = useState<FomoItem[]>([]);
@@ -565,6 +573,19 @@ export default function IdeasPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
+  // Auto-fetch Dividend ETF when tab selected (once)
+  useEffect(() => {
+    if (tab === "dividend-etf" && !divEtfFetched) {
+      setDivEtfLoading(true);
+      fetch("/api/etf/dividend-etf")
+        .then(r => r.json())
+        .then(j => { if (j.ok) { setDivEtfs(j.etfs ?? []); setDivEtfFetched(true); } })
+        .catch(() => {})
+        .finally(() => setDivEtfLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   // Auto-fetch US FOMO when sector changes
   useEffect(() => {
     if (tab === "fomo" && fomoMarket === "US") {
@@ -674,7 +695,7 @@ export default function IdeasPage() {
         {/* Tab pills + sub-tabs */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-px rounded bg-card-border p-px w-fit">
-            {(["fomo", "rotation", "etf", "kr-etf", "consensus"] as const).map((tv) => (
+            {(["fomo", "rotation", "etf", "kr-etf", "dividend-etf", "consensus"] as const).map((tv) => (
               <button
                 key={tv}
                 onClick={() => {
@@ -693,6 +714,7 @@ export default function IdeasPage() {
                   : tv === "rotation" ? (lang === "kr" ? "섹터 로테이션" : "Sector Rotation")
                   : tv === "etf" ? (lang === "kr" ? "ETF 변동" : "ETF Changes")
                   : tv === "kr-etf" ? (lang === "kr" ? "국내 ETF" : "KR ETF")
+                  : tv === "dividend-etf" ? (lang === "kr" ? "배당 ETF" : "Dividend ETF")
                   : (lang === "kr" ? "월가 컨센서스" : "Wall St Consensus")}
               </button>
             ))}
@@ -1890,6 +1912,193 @@ export default function IdeasPage() {
             <div className="flex-1 min-w-0">
               {(() => {
                 const sel = krEtfs.find(e => e.code === krEtfSelected);
+                if (!sel) return (
+                  <div className={`${CARD} flex items-center justify-center text-muted text-sm`} style={{ height: 400 }}>
+                    {lang === "kr" ? "ETF를 선택하면 구성종목을 확인할 수 있습니다" : "Select an ETF to view holdings"}
+                  </div>
+                );
+                const maxWeight = Math.max(...sel.holdings.map(h => h.weight), 1);
+                return (
+                  <div className={CARD}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-sm font-semibold text-foreground">{sel.name}</span>
+                      <span className="text-[10px] text-muted">{sel.code}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-card-border">
+                            <th className={`${TH} w-8 text-center`}>#</th>
+                            <th className={TH}>종목명</th>
+                            <th className={`${TH} text-right`}>코드</th>
+                            <th className={`${TH} text-right`}>비중%</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sel.holdings.map((h) => (
+                            <tr key={h.code} className="border-b border-card-border/50 hover:bg-white/[0.02]">
+                              <td className={`${TD} text-center text-muted/60`}>{h.rank}</td>
+                              <td className={TD}>
+                                <div className="relative">
+                                  <div
+                                    className="absolute inset-y-0 left-0 bg-amber-400/10 rounded-sm"
+                                    style={{ width: `${(h.weight / maxWeight) * 100}%` }}
+                                  />
+                                  <span className="relative font-medium text-foreground">{h.name}</span>
+                                </div>
+                              </td>
+                              <td className={`${TD} text-right text-muted/60 tabular-nums`}>{h.code}</td>
+                              <td className={`${TD} text-right font-medium text-amber-300 tabular-nums`}>{h.weight.toFixed(2)}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+          </div>
+        )}
+
+        {/* Dividend ETF tab */}
+        {tab === "dividend-etf" && (
+          <div className="space-y-4">
+            {/* Common holdings section */}
+            {!divEtfLoading && divEtfs.length > 0 && (() => {
+              const stockMap = new Map<string, { name: string; code: string; etfs: string[]; weights: number[] }>();
+              for (const etf of divEtfs) {
+                for (const h of etf.holdings) {
+                  const key = h.name;
+                  if (!stockMap.has(key)) stockMap.set(key, { name: h.name, code: h.code, etfs: [], weights: [] });
+                  const entry = stockMap.get(key)!;
+                  entry.etfs.push(etf.name);
+                  entry.weights.push(h.weight);
+                }
+              }
+              const common = [...stockMap.values()]
+                .filter(s => s.etfs.length >= 2)
+                .sort((a, b) => b.etfs.length - a.etfs.length || (b.weights.reduce((s, w) => s + w, 0) / b.weights.length) - (a.weights.reduce((s, w) => s + w, 0) / a.weights.length))
+                .slice(0, 20);
+              if (common.length === 0) return null;
+              return (
+                <div className={`${CARD} bg-[#0c0f15]`}>
+                  <button
+                    onClick={() => setDivEtfCommonOpen(v => !v)}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <span className="text-xs font-semibold text-foreground tracking-wide">배당 ETF 공통 보유 종목</span>
+                    <span className="text-[10px] text-muted">{divEtfCommonOpen ? "▼" : "▶"}</span>
+                  </button>
+                  {divEtfCommonOpen && (
+                    <div className="mt-3 overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-card-border">
+                            <th className={`${TH} w-8 text-center`}>#</th>
+                            <th className={TH}>종목명</th>
+                            <th className={`${TH} text-right`}>코드</th>
+                            <th className={`${TH} text-center`}>담은 ETF</th>
+                            <th className={`${TH} text-right`}>평균 비중</th>
+                            <th className={TH}>ETF 목록</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {common.map((s, i) => (
+                            <tr key={s.name} className="border-b border-card-border/50 hover:bg-white/[0.02]">
+                              <td className={`${TD} text-center text-muted/60`}>{i + 1}</td>
+                              <td className={`${TD} font-medium text-foreground`}>{s.name}</td>
+                              <td className={`${TD} text-right text-muted/60 tabular-nums`}>{s.code}</td>
+                              <td className={`${TD} text-center font-medium text-amber-300`}>{s.etfs.length}개</td>
+                              <td className={`${TD} text-right tabular-nums text-amber-300`}>{(s.weights.reduce((a, b) => a + b, 0) / s.weights.length).toFixed(2)}%</td>
+                              <td className={TD}>
+                                <div className="flex flex-wrap gap-1">
+                                  {s.etfs.map((name, j) => (
+                                    <span key={j} className="inline-block rounded px-1.5 py-px text-[9px] bg-amber-400/10 text-amber-400/80">{name}</span>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+          <div className="flex gap-4" style={{ minHeight: 500 }}>
+            {/* Left: ETF list grouped by asset manager */}
+            <div className="flex flex-col gap-1 overflow-y-auto" style={{ width: 300, flexShrink: 0, maxHeight: "80vh" }}>
+              {divEtfLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <svg className="animate-spin" style={{ width: 28, height: 28, color: "#f59e0b" }} viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.2" />
+                    <path d="M12 2a10 10 0 019.8 8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                </div>
+              ) : (() => {
+                const MANAGER_MAP: [string, string][] = [
+                  ["KODEX", "삼성자산운용 KODEX"],
+                  ["TIGER", "미래에셋 TIGER"],
+                  ["KoAct", "삼성액티브 KoAct"],
+                  ["TIME", "타임폴리오 TIME"],
+                  ["RISE", "KB자산운용 RISE"],
+                  ["PLUS", "한화자산운용 PLUS"],
+                ];
+                const groups: { key: string; label: string; etfs: typeof divEtfs }[] = [];
+                const used = new Set<string>();
+                for (const [prefix, label] of MANAGER_MAP) {
+                  const matched = divEtfs.filter(e => e.name.startsWith(prefix));
+                  if (matched.length > 0) {
+                    groups.push({ key: prefix, label, etfs: matched });
+                    matched.forEach(e => used.add(e.code));
+                  }
+                }
+                const others = divEtfs.filter(e => !used.has(e.code));
+                if (others.length > 0) groups.push({ key: "_etc", label: "기타", etfs: others });
+
+                return groups.map(g => {
+                  const collapsed = divEtfCollapsed.has(g.key);
+                  return (
+                    <div key={g.key}>
+                      <button
+                        onClick={() => setDivEtfCollapsed(prev => {
+                          const next = new Set(prev);
+                          if (next.has(g.key)) next.delete(g.key); else next.add(g.key);
+                          return next;
+                        })}
+                        className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-semibold text-muted/80 hover:text-foreground transition-colors"
+                      >
+                        <span>{g.label} ({g.etfs.length})</span>
+                        <span className="text-[9px]">{collapsed ? "▶" : "▼"}</span>
+                      </button>
+                      {!collapsed && g.etfs.map(etf => (
+                        <button
+                          key={etf.code}
+                          onClick={() => setDivEtfSelected(etf.code === divEtfSelected ? null : etf.code)}
+                          className={`w-full text-left px-3 py-2 rounded text-xs transition-colors border mb-0.5 ${
+                            divEtfSelected === etf.code
+                              ? "bg-amber-400/10 border-amber-400/40 text-amber-300"
+                              : "bg-card-bg border-card-border text-muted hover:text-foreground hover:border-white/20"
+                          }`}
+                        >
+                          <div className="font-medium leading-tight">{etf.name}</div>
+                          <div className="text-[9px] text-muted/60 mt-0.5">{etf.code} · {etf.holdings.length}종목</div>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* Right: Holdings table */}
+            <div className="flex-1 min-w-0">
+              {(() => {
+                const sel = divEtfs.find(e => e.code === divEtfSelected);
                 if (!sel) return (
                   <div className={`${CARD} flex items-center justify-center text-muted text-sm`} style={{ height: 400 }}>
                     {lang === "kr" ? "ETF를 선택하면 구성종목을 확인할 수 있습니다" : "Select an ETF to view holdings"}
