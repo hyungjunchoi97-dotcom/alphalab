@@ -1,16 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
-import dynamic from "next/dynamic";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 import GuruContent from "@/components/GuruContent";
 import AiTradingContent from "@/components/AiTradingContent";
-
-const RRGChart = dynamic(() => import("@/components/RRGChart"), {
-  ssr: false,
-  loading: () => <div className="animate-pulse bg-[#1a1a1a] h-[500px] rounded" />,
-});
 
 const CARD =
   "rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_1px_2px_rgba(0,0,0,0.3)]";
@@ -199,7 +193,7 @@ function isKrMarketOpen(): boolean {
 
 export default function IdeasPage() {
   const { t, lang } = useLang();
-  const [tab, setTab] = useState<"fomo" | "rotation" | "etf" | "kr-etf" | "dividend-etf" | "dividend-screener" | "dividend-guide" | "consensus" | "gurus" | "ai-trading">("fomo");
+  const [tab, setTab] = useState<"fomo" | "etf" | "kr-etf" | "dividend-etf" | "dividend-screener" | "dividend-guide" | "consensus" | "gurus" | "ai-trading">("fomo");
   const [selected, setSelected] = useState<FomoItem | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -727,7 +721,7 @@ export default function IdeasPage() {
         {/* Tab pills + sub-tabs */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-px rounded bg-card-border p-px w-fit">
-            {(["fomo", "rotation", "etf", "kr-etf", "dividend-etf", "dividend-screener", "dividend-guide", "consensus", "gurus", "ai-trading"] as const).map((tv) => (
+            {(["fomo", "etf", "kr-etf", "dividend-etf", "dividend-screener", "dividend-guide", "consensus", "gurus", "ai-trading"] as const).map((tv) => (
               <button
                 key={tv}
                 onClick={() => {
@@ -743,7 +737,6 @@ export default function IdeasPage() {
                 }`}
               >
                 {tv === "fomo" ? "FOMO"
-                  : tv === "rotation" ? (lang === "kr" ? "섹터 로테이션" : "Sector Rotation")
                   : tv === "etf" ? (lang === "kr" ? "ETF 변동" : "ETF Changes")
                   : tv === "kr-etf" ? (lang === "kr" ? "국내 ETF" : "KR ETF")
                   : tv === "dividend-etf" ? (lang === "kr" ? "배당 ETF" : "Dividend ETF")
@@ -774,8 +767,6 @@ export default function IdeasPage() {
           </div>
         </div>
 
-        {/* Rotation tab */}
-        {tab === "rotation" && <RRGChart />}
 
         {/* Two-column layout (FOMO only) */}
         {tab === "fomo" && (
