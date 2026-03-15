@@ -877,7 +877,7 @@ export default function RealEstateClient() {
                       <Tooltip
                         contentStyle={{ background: "#1a1a1a", border: "1px solid #333", fontSize: 11 }}
                         labelStyle={{ color: "#e8e8e8" }}
-                        formatter={(value: number | undefined, name: string) => [`${(value ?? 0).toLocaleString()}세대`, name]}
+                        formatter={(value: number | undefined, name: string | undefined) => [`${(value ?? 0).toLocaleString()}세대`, name ?? ""]}
                       />
                       <Legend wrapperStyle={{ fontSize: 11, color: "#888" }} />
                       <Bar dataKey="재건축" stackId="a" fill="#f59e0b" />
