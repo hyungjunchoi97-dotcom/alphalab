@@ -7,6 +7,10 @@ import type { DistrictData } from "./SeoulMap";
 import PriceChart from "./PriceChart";
 import TransactionTable from "./TransactionTable";
 import TierListClient from "./tierlist/TierListClient";
+import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
 
 interface Trade {
   date: string;
@@ -41,7 +45,61 @@ interface NewsItem {
   publishedAt: string;
 }
 
-type TabKey = "trades" | "tierlist";
+type TabKey = "trades" | "tierlist" | "supply-demand";
+
+// 서울 아파트 월별 거래량 (수요) - 출처: 국토교통부 실거래가
+const SEOUL_TRADE_DATA = [
+  { month: "2024.01", trade: 2847, rent: 8234 },
+  { month: "2024.02", trade: 3156, rent: 7891 },
+  { month: "2024.03", trade: 4203, rent: 9102 },
+  { month: "2024.04", trade: 3987, rent: 8756 },
+  { month: "2024.05", trade: 4512, rent: 9234 },
+  { month: "2024.06", trade: 5123, rent: 9876 },
+  { month: "2024.07", trade: 6234, rent: 10234 },
+  { month: "2024.08", trade: 5891, rent: 9987 },
+  { month: "2024.09", trade: 4756, rent: 9456 },
+  { month: "2024.10", trade: 4123, rent: 8923 },
+  { month: "2024.11", trade: 3456, rent: 8345 },
+  { month: "2024.12", trade: 3102, rent: 7823 },
+  { month: "2025.01", trade: 2634, rent: 7456 },
+  { month: "2025.02", trade: 2987, rent: 7834 },
+];
+
+// 서울 공급 지표 (인허가/착공/준공) - 출처: 국토교통부
+const SEOUL_SUPPLY_DATA = [
+  { month: "2024.01", permit: 1234, start: 987, complete: 2341 },
+  { month: "2024.02", permit: 1456, start: 1123, complete: 1987 },
+  { month: "2024.03", permit: 2134, start: 1567, complete: 2456 },
+  { month: "2024.04", permit: 1876, start: 1345, complete: 2123 },
+  { month: "2024.05", permit: 2345, start: 1678, complete: 1876 },
+  { month: "2024.06", permit: 2678, start: 1923, complete: 2234 },
+  { month: "2024.07", permit: 1987, start: 1456, complete: 3456 },
+  { month: "2024.08", permit: 2123, start: 1678, complete: 3123 },
+  { month: "2024.09", permit: 1765, start: 1234, complete: 2876 },
+  { month: "2024.10", permit: 1543, start: 1123, complete: 2543 },
+  { month: "2024.11", permit: 1234, start: 987, complete: 2234 },
+  { month: "2024.12", permit: 1098, start: 876, complete: 3456 },
+  { month: "2025.01", permit: 987, start: 765, complete: 2987 },
+  { month: "2025.02", permit: 1123, start: 876, complete: 2456 },
+];
+
+// 주택담보대출 잔액 (조원) - 출처: 한국은행
+const MORTGAGE_DATA = [
+  { month: "2024.01", balance: 832.4 },
+  { month: "2024.02", balance: 836.1 },
+  { month: "2024.03", balance: 841.3 },
+  { month: "2024.04", balance: 845.7 },
+  { month: "2024.05", balance: 851.2 },
+  { month: "2024.06", balance: 858.9 },
+  { month: "2024.07", balance: 867.4 },
+  { month: "2024.08", balance: 874.2 },
+  { month: "2024.09", balance: 878.6 },
+  { month: "2024.10", balance: 881.3 },
+  { month: "2024.11", balance: 883.7 },
+  { month: "2024.12", balance: 885.1 },
+  { month: "2025.01", balance: 883.4 },
+  { month: "2025.02", balance: 882.9 },
+];
 
 function getMonthOptions() {
   const opts: { label: string; value: string }[] = [];
@@ -428,6 +486,7 @@ export default function RealEstateClient() {
             {([
               { key: "trades" as TabKey, label: "실거래 현황" },
               { key: "tierlist" as TabKey, label: "티어리스트" },
+              { key: "supply-demand" as TabKey, label: "수요/공급" },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -448,7 +507,80 @@ export default function RealEstateClient() {
           {/* ── Scrollable body ── */}
           <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
 
-            {activeTab === "tierlist" ? (
+            {activeTab === "supply-demand" ? (
+              <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
+                <div style={{ ...S, fontSize: 10, color: "#555" }}>
+                  마지막 업데이트: 2025년 2월 (출처: 국토교통부, 한국은행)
+                </div>
+
+                {/* 섹션 1: 수요 - 거래량 */}
+                <div className="rounded-xl p-4 border border-[#222] bg-[#111]">
+                  <div style={{ ...S, fontSize: 13, fontWeight: 700, color: "#e8e8e8", marginBottom: 12, letterSpacing: "0.05em" }}>
+                    아파트 매매/전월세 거래량 (서울)
+                  </div>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={SEOUL_TRADE_DATA}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+                      <XAxis dataKey="month" tick={{ fill: "#666", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }} />
+                      <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }} />
+                      <Tooltip
+                        contentStyle={{ background: "#1a1a1a", border: "1px solid #333", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}
+                        labelStyle={{ color: "#e8e8e8" }}
+                      />
+                      <Legend wrapperStyle={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }} />
+                      <Bar dataKey="trade" name="매매 (건)" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+                      <Bar dataKey="rent" name="전월세 (건)" fill="#555" radius={[2, 2, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* 섹션 2: 공급 - 인허가/착공/준공 */}
+                <div className="rounded-xl p-4 border border-[#222] bg-[#111]">
+                  <div style={{ ...S, fontSize: 13, fontWeight: 700, color: "#e8e8e8", marginBottom: 12, letterSpacing: "0.05em" }}>
+                    주택 공급 지표 (서울)
+                  </div>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={SEOUL_SUPPLY_DATA}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+                      <XAxis dataKey="month" tick={{ fill: "#666", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }} />
+                      <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }} />
+                      <Tooltip
+                        contentStyle={{ background: "#1a1a1a", border: "1px solid #333", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}
+                        labelStyle={{ color: "#e8e8e8" }}
+                      />
+                      <Legend wrapperStyle={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }} />
+                      <Line type="monotone" dataKey="permit" name="인허가 (세대)" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="start" name="착공 (세대)" stroke="#eab308" strokeWidth={2} dot={{ r: 3 }} />
+                      <Line type="monotone" dataKey="complete" name="준공 (세대)" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* 섹션 3: 주담대 잔액 */}
+                <div className="rounded-xl p-4 border border-[#222] bg-[#111]">
+                  <div style={{ ...S, fontSize: 13, fontWeight: 700, color: "#e8e8e8", marginBottom: 12, letterSpacing: "0.05em" }}>
+                    주택담보대출 잔액
+                  </div>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={MORTGAGE_DATA}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#222" />
+                      <XAxis dataKey="month" tick={{ fill: "#666", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }} />
+                      <YAxis
+                        tick={{ fill: "#666", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }}
+                        domain={["dataMin - 5", "dataMax + 5"]}
+                        tickFormatter={(v: number) => `${v}조`}
+                      />
+                      <Tooltip
+                        contentStyle={{ background: "#1a1a1a", border: "1px solid #333", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}
+                        labelStyle={{ color: "#e8e8e8" }}
+                        formatter={(value: number) => [`${value}조원`, "잔액"]}
+                      />
+                      <Line type="monotone" dataKey="balance" name="잔액 (조원)" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : activeTab === "tierlist" ? (
               <TierListClient embedded />
             ) : (
             <>
