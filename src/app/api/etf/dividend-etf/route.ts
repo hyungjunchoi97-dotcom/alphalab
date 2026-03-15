@@ -15,9 +15,17 @@ const DIV_ETF_LIST = [
   { code: "161510", name: "KODEX 고배당" },
   { code: "211560", name: "TIGER 배당성장" },
   { code: "266160", name: "KODEX 배당성장" },
+  { code: "472150", name: "TIGER 배당커버드콜액티브" },
+  { code: "161510", name: "PLUS 고배당주" },
+  { code: "315960", name: "RISE 대형고배당10TR" },
+  { code: "466940", name: "TIGER 은행고배당플러스TOP10" },
+  { code: "484880", name: "SOL 금융지주플러스고배당" },
+  { code: "0153K0", name: "KODEX 주주환원고배당주" },
+  { code: "429000", name: "TIGER 미국S&P500배당귀족" },
+  { code: "489250", name: "KODEX 미국배당다우존스" },
 ];
 
-const CACHE_KEY = "div_etf_holdings_v1";
+const CACHE_KEY = "div_etf_holdings_v2";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
 
 interface Holding {
