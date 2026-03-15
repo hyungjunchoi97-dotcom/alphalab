@@ -2231,18 +2231,16 @@ export default function MacroPage() {
                             </span>
                             <span className="text-[10px]" style={{ color: "#555" }}>{com.unit}</span>
                           </div>
-                          <div className="mt-1.5 flex items-end justify-between">
-                            <div>
-                              <div className="text-xl font-bold" style={{ color: "#e8e8e8" }}>
-                                {com?.current != null ? `$${com.current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
-                              </div>
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <div className="text-xl font-bold tabular-nums" style={{ color: "#e8e8e8" }}>
+                              {com?.current != null ? `$${com.current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
                             </div>
-                            <div className="shrink-0">
-                              <MiniSparkline
-                                data={com.sparkline ?? []}
-                                color="#60a5fa"
-                              />
-                            </div>
+                            <MiniSparkline
+                              data={com.sparkline ?? []}
+                              color={borderColor}
+                              width={120}
+                              height={40}
+                            />
                           </div>
                           {/* Tooltip */}
                           {comTooltip === com.id && (
