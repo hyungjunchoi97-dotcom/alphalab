@@ -1123,11 +1123,6 @@ function CommodityIntelPanel({ commodity, lang, commodityPrices, pricesLoading, 
         </div>
       </div>
 
-      {/* Intelligence Note */}
-      <div className="border-l-2 border-yellow-500 pl-3">
-        <span className="text-xs uppercase tracking-widest font-mono mb-1 block text-yellow-500">{tx.intelligenceNote}</span>
-        <p className="text-sm text-gray-100 leading-relaxed">{data.riskNote}</p>
-      </div>
     </motion.div>
   );
 }
