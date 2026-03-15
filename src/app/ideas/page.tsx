@@ -197,7 +197,7 @@ function isKrMarketOpen(): boolean {
 
 export default function IdeasPage() {
   const { t, lang } = useLang();
-  const [tab, setTab] = useState<"fomo" | "rotation" | "etf" | "kr-etf" | "dividend-etf" | "dividend-screener" | "dividend-guide" | "consensus">("fomo");
+  const [tab, setTab] = useState<"fomo" | "rotation" | "etf" | "kr-etf" | "dividend-etf" | "dividend-screener" | "dividend-guide" | "consensus" | "gurus" | "ai-trading">("fomo");
   const [selected, setSelected] = useState<FomoItem | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -725,7 +725,7 @@ export default function IdeasPage() {
         {/* Tab pills + sub-tabs */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-px rounded bg-card-border p-px w-fit">
-            {(["fomo", "rotation", "etf", "kr-etf", "dividend-etf", "dividend-screener", "dividend-guide", "consensus"] as const).map((tv) => (
+            {(["fomo", "rotation", "etf", "kr-etf", "dividend-etf", "dividend-screener", "dividend-guide", "consensus", "gurus", "ai-trading"] as const).map((tv) => (
               <button
                 key={tv}
                 onClick={() => {
@@ -747,7 +747,9 @@ export default function IdeasPage() {
                   : tv === "dividend-etf" ? (lang === "kr" ? "배당 ETF" : "Dividend ETF")
                   : tv === "dividend-screener" ? (lang === "kr" ? "배당주" : "Dividend")
                   : tv === "dividend-guide" ? (lang === "kr" ? "배당 가이드" : "Div Guide")
-                  : (lang === "kr" ? "월가 컨센서스" : "Wall St Consensus")}
+                  : tv === "consensus" ? (lang === "kr" ? "월가 컨센서스" : "Wall St Consensus")
+                  : tv === "gurus" ? (lang === "kr" ? "구루" : "Gurus")
+                  : (lang === "kr" ? "AI 트레이딩" : "AI Trading")}
               </button>
             ))}
           </div>
@@ -2727,6 +2729,26 @@ export default function IdeasPage() {
             </div>
           );
         })()}
+
+        {tab === "gurus" && (
+          <div style={{ height: "calc(100vh - 160px)" }}>
+            <iframe
+              src="/gurus"
+              className="w-full h-full border-0"
+              title="Gurus"
+            />
+          </div>
+        )}
+
+        {tab === "ai-trading" && (
+          <div style={{ height: "calc(100vh - 160px)" }}>
+            <iframe
+              src="/ai-trading"
+              className="w-full h-full border-0"
+              title="AI Trading"
+            />
+          </div>
+        )}
       </main>
     </div>
   );
