@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 const FMP_KEY = process.env.FMP_API_KEY!;
 const STABLE = "https://financialmodelingprep.com/stable";
-const CACHE_KEY = "macro_commodities_fmp_stable_v3";
+const CACHE_KEY = "macro_commodities_fmp_stable_v4";
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 min
 
 interface MemCache { data: CommodityResult[]; cachedAt: number }
@@ -44,15 +44,15 @@ const COMMODITIES: CommodityConfig[] = [
   { id: "ALUMINUM",  symbol: "ALUSD",  fallback: "JJU",  yahooSymbol: "ALI=F", labelKr: "알루미늄", label: "Aluminum", unit: "$/t",    category: "industrial", tooltipKr: "경량화 트렌드 핵심 소재",           tooltipEn: "Key lightweight material (auto/aero)" },
   { id: "WHEAT",     symbol: "ZMUSD",  fallback: "WEAT", yahooSymbol: "ZW=F", labelKr: "밀",   label: "Wheat Futures",  unit: "¢/bu",  category: "industrial", tooltipKr: "식량 안보 지표",                   tooltipEn: "Food security indicator" },
   { id: "COAL",      symbol: "BTU",    yahooSymbol: "BTU", labelKr: "석탄",   label: "Coal (Peabody BTU)",  unit: "$/share", category: "industrial", tooltipKr: "화력발전 연료 프록시",              tooltipEn: "Thermal coal proxy (Peabody Energy)" },
-  { id: "ZINC",      symbol: "ZINC",   yahooSymbol: "ZINC",  labelKr: "아연", label: "Zinc",               unit: "$/t",     category: "industrial", tooltipKr: "철강 도금 핵심 소재",              tooltipEn: "Key steel coating material" },
+  { id: "ZINC",      symbol: "TECK",   yahooSymbol: "TECK",  labelKr: "아연", label: "Zinc (Teck Resources)", unit: "$/share", category: "industrial", tooltipKr: "아연 최대 생산업체 Teck Resources 프록시", tooltipEn: "Zinc proxy via Teck Resources (largest producer)" },
   { id: "LEAD",      symbol: "LEAD",   yahooSymbol: "LEAD",  labelKr: "납",   label: "Lead",               unit: "$/t",     category: "industrial", tooltipKr: "배터리 원자재",                    tooltipEn: "Battery raw material" },
   { id: "IRON_ORE",  symbol: "VALE",   yahooSymbol: "VALE",  labelKr: "철광석",  label: "Iron Ore (VALE)",      unit: "$/share", category: "industrial", tooltipKr: "철강 핵심 원자재 (포스코 직접 영향)", tooltipEn: "Key steel raw material (POSCO direct impact)" },
   { id: "PALLADIUM", symbol: "PA=F",  yahooSymbol: "PA=F",  labelKr: "팔라듐",  label: "Palladium Futures",    unit: "$/oz",    category: "industrial", tooltipKr: "자동차 촉매·반도체 핵심 소재",       tooltipEn: "Auto catalyst & semiconductor key material" },
   { id: "TIN",        symbol: "JJT",   yahooSymbol: "JJT",   labelKr: "주석",    label: "Tin (iPath JJT)",      unit: "$/share", category: "industrial", tooltipKr: "반도체 납땜·전자부품 핵심 소재",     tooltipEn: "Semiconductor solder & electronics key material" },
   // Battery
   { id: "LITHIUM",   symbol: "LTHM",   yahooSymbol: "SLI", labelKr: "리튬",   label: "Lithium (LTHM)",      unit: "$/share", category: "battery",   tooltipKr: "2차전지 핵심 소재 (EV/ESS)",        tooltipEn: "Key battery material (EV/ESS demand)" },
-  { id: "NICKEL",    symbol: "NIKUSD", fallback: "JJN",  yahooSymbol: "NKEL", labelKr: "니켈", label: "Nickel Futures", unit: "$/t",    category: "battery",   tooltipKr: "배터리·스테인리스 핵심 소재",       tooltipEn: "Key battery & stainless steel material" },
-  { id: "COBALT",    symbol: "COBALT", yahooSymbol: "JJCTF", labelKr: "코발트", label: "Cobalt",           unit: "$/t",    category: "battery",   tooltipKr: "EV 배터리 핵심 소재 (양극재)",      tooltipEn: "Key EV battery cathode material" },
+  { id: "NICKEL",    symbol: "NIKL",   yahooSymbol: "NIKL",  labelKr: "니켈", label: "Nickel (NIKL ETF)", unit: "$/share", category: "battery",   tooltipKr: "배터리·스테인리스 핵심 소재 ETF",   tooltipEn: "Key battery & stainless steel material ETF" },
+  { id: "COBALT",    symbol: "GLNCY", yahooSymbol: "GLNCY", labelKr: "코발트", label: "Cobalt (Glencore ADR)", unit: "$/share", category: "battery",   tooltipKr: "코발트 최대 생산업체 Glencore ADR 프록시", tooltipEn: "Cobalt proxy via Glencore ADR (largest producer)" },
 ];
 
 export interface HistoryPoint { date: string; close: number }
