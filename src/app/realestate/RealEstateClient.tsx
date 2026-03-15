@@ -45,7 +45,7 @@ interface NewsItem {
   publishedAt: string;
 }
 
-type TabKey = "trades" | "tierlist" | "supply-demand";
+type TabKey = "trades" | "tierlist" | "supply-demand" | "rate-regulation";
 
 // 서울 아파트 월별 거래량 (수요) - 출처: 국토교통부 실거래가
 const SEOUL_TRADE_DATA = [
@@ -99,6 +99,23 @@ const MORTGAGE_DATA = [
   { month: "2024.12", balance: 885.1 },
   { month: "2025.01", balance: 883.4 },
   { month: "2025.02", balance: 882.9 },
+];
+
+const RATE_TIMELINE = [
+  { date: "2021.08", type: "rate", label: "기준금리 인상 시작", value: "0.75%", desc: "코로나 저금리 종료, 인상 사이클 시작", color: "#ef4444" },
+  { date: "2021.11", type: "rate", label: "기준금리 인상", value: "1.00%", desc: "연속 인상, 부동산 과열 억제 신호", color: "#ef4444" },
+  { date: "2022.01", type: "reg", label: "DSR 2단계 시행", value: "DSR 40%", desc: "총부채원리금상환비율 규제 강화, 대출 한도 축소", color: "#f59e0b" },
+  { date: "2022.04", type: "rate", label: "기준금리 인상", value: "1.50%", desc: "인플레이션 대응 금리 인상 가속", color: "#ef4444" },
+  { date: "2022.07", type: "rate", label: "빅스텝 단행", value: "2.25%", desc: "0.5%p 인상, 역대급 금리 인상", color: "#ef4444" },
+  { date: "2022.10", type: "reg", label: "규제지역 해제", value: "일부 해제", desc: "지방 투기과열지구·조정대상지역 대거 해제", color: "#3b82f6" },
+  { date: "2023.01", type: "reg", label: "서울 규제 완화", value: "LTV 70%", desc: "강남3구·용산 제외 규제지역 해제, 생애최초 LTV 80%", color: "#3b82f6" },
+  { date: "2023.02", type: "rate", label: "금리 동결 시작", value: "3.50%", desc: "인상 사이클 종료, 동결 기조 전환", color: "#60a5fa" },
+  { date: "2023.08", type: "reg", label: "스트레스 DSR 예고", value: "DSR 강화", desc: "스트레스 DSR 도입 예고, 시장 관망세", color: "#f59e0b" },
+  { date: "2024.02", type: "reg", label: "스트레스 DSR 1단계", value: "가산금리 0.38%", desc: "수도권 주담대 스트레스 금리 적용", color: "#f59e0b" },
+  { date: "2024.09", type: "reg", label: "스트레스 DSR 2단계", value: "가산금리 0.75%", desc: "규제 강화로 대출 한도 추가 축소", color: "#f59e0b" },
+  { date: "2024.10", type: "rate", label: "기준금리 인하", value: "3.25%", desc: "인하 사이클 시작, 부동산 시장 기대감", color: "#22c55e" },
+  { date: "2024.11", type: "rate", label: "기준금리 인하", value: "3.00%", desc: "연속 인하, 거래량 회복 기대", color: "#22c55e" },
+  { date: "2025.02", type: "rate", label: "기준금리 인하", value: "2.75%", desc: "경기 부양 목적 추가 인하", color: "#22c55e" },
 ];
 
 function getMonthOptions() {
@@ -487,6 +504,7 @@ export default function RealEstateClient() {
               { key: "trades" as TabKey, label: "실거래 현황" },
               { key: "tierlist" as TabKey, label: "티어리스트" },
               { key: "supply-demand" as TabKey, label: "수요/공급" },
+              { key: "rate-regulation" as TabKey, label: "금리/규제" },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -622,6 +640,83 @@ export default function RealEstateClient() {
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+              </div>
+            ) : activeTab === "rate-regulation" ? (
+              <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+                {/* 상단 요약 카드 */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  {[
+                    { label: "현재 기준금리", value: "2.75%", sub: "2025.02 인하", color: "#22c55e" },
+                    { label: "스트레스 DSR", value: "2단계", sub: "가산금리 0.75%", color: "#f59e0b" },
+                    { label: "서울 규제지역", value: "강남3구+용산", sub: "투기과열지구", color: "#ef4444" },
+                  ].map(card => (
+                    <div key={card.label} style={{
+                      background: "#111", border: "1px solid #222",
+                      borderLeft: `3px solid ${card.color}`,
+                      borderRadius: 10, padding: "14px 16px"
+                    }}>
+                      <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{card.label}</div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: card.color, marginBottom: 2 }}>{card.value}</div>
+                      <div style={{ fontSize: 11, color: "#666" }}>{card.sub}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 타임라인 */}
+                <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "16px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 16 }}>금리 · 규제 타임라인</div>
+                  <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                    {[
+                      { type: "rate", label: "금리 인상", color: "#ef4444" },
+                      { type: "rate-down", label: "금리 인하", color: "#22c55e" },
+                      { type: "rate-hold", label: "금리 동결", color: "#60a5fa" },
+                      { type: "reg", label: "규제 변화", color: "#f59e0b" },
+                    ].map(l => (
+                      <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color }} />
+                        <span style={{ fontSize: 10, color: "#888" }}>{l.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ position: "relative", paddingLeft: 16 }}>
+                    <div style={{ position: "absolute", left: 16, top: 0, bottom: 0, width: 1, background: "#333" }} />
+                    {RATE_TIMELINE.map((item, i) => (
+                      <div key={i} style={{ display: "flex", gap: 16, marginBottom: 16, position: "relative" }}>
+                        <div style={{
+                          position: "absolute", left: -20, top: 4,
+                          width: 8, height: 8, borderRadius: "50%",
+                          background: item.color, flexShrink: 0
+                        }} />
+                        <div style={{ minWidth: 60, fontSize: 11, color: "#666", paddingTop: 2 }}>{item.date}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#e8e8e8" }}>{item.label}</span>
+                            <span style={{
+                              fontSize: 10, fontWeight: 600, color: item.color,
+                              background: `${item.color}22`, padding: "1px 6px", borderRadius: 4
+                            }}>{item.value}</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: "#888", lineHeight: 1.5 }}>{item.desc}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 투자 시사점 */}
+                <div style={{
+                  background: "#111", border: "1px solid #222", borderRadius: 10,
+                  padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10
+                }}>
+                  <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, whiteSpace: "nowrap", marginTop: 1 }}>투자 시사점</div>
+                  <div style={{ fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+                    <b style={{ color: "#fff" }}>금리 인하 사이클:</b> 현재 인하 기조 진행 중으로 대출 이자 부담 감소 → 매수 심리 회복 기대.
+                    <b style={{ color: "#fff" }}> 스트레스 DSR:</b> 금리 인하에도 불구 DSR 규제로 실질 대출 한도는 제한적.
+                    <b style={{ color: "#fff" }}> 핵심 관전 포인트:</b> 2025년 추가 금리 인하 여부 + 스트레스 DSR 3단계 시행 시기가 시장 방향성 결정.
+                  </div>
+                </div>
+
               </div>
             ) : activeTab === "tierlist" ? (
               <TierListClient embedded />
