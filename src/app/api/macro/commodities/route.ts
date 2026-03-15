@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 const FMP_KEY = process.env.FMP_API_KEY!;
 const STABLE = "https://financialmodelingprep.com/stable";
-const CACHE_KEY = "macro_commodities_fmp_stable_v4";
+const CACHE_KEY = "macro_commodities_fmp_stable_v5";
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 min
 
 interface MemCache { data: CommodityResult[]; cachedAt: number }
@@ -48,7 +48,7 @@ const COMMODITIES: CommodityConfig[] = [
   { id: "LEAD",      symbol: "LEAD",   yahooSymbol: "LEAD",  labelKr: "납",   label: "Lead",               unit: "$/t",     category: "industrial", tooltipKr: "배터리 원자재",                    tooltipEn: "Battery raw material" },
   { id: "IRON_ORE",  symbol: "VALE",   yahooSymbol: "VALE",  labelKr: "철광석",  label: "Iron Ore (VALE)",      unit: "$/share", category: "industrial", tooltipKr: "철강 핵심 원자재 (포스코 직접 영향)", tooltipEn: "Key steel raw material (POSCO direct impact)" },
   { id: "PALLADIUM", symbol: "PA=F",  yahooSymbol: "PA=F",  labelKr: "팔라듐",  label: "Palladium Futures",    unit: "$/oz",    category: "industrial", tooltipKr: "자동차 촉매·반도체 핵심 소재",       tooltipEn: "Auto catalyst & semiconductor key material" },
-  { id: "TIN",        symbol: "JJT",   yahooSymbol: "JJT",   labelKr: "주석",    label: "Tin (iPath JJT)",      unit: "$/share", category: "industrial", tooltipKr: "반도체 납땜·전자부품 핵심 소재",     tooltipEn: "Semiconductor solder & electronics key material" },
+  { id: "RARE_EARTH", symbol: "REMX",  yahooSymbol: "REMX",  labelKr: "희토류",  label: "Rare Earth (REMX ETF)", unit: "$/share", category: "industrial", tooltipKr: "전기차·반도체·방산 핵심 소재 ETF",   tooltipEn: "Key material for EV/semiconductor/defense ETF" },
   // Battery
   { id: "LITHIUM",   symbol: "LTHM",   yahooSymbol: "SLI", labelKr: "리튬",   label: "Lithium (LTHM)",      unit: "$/share", category: "battery",   tooltipKr: "2차전지 핵심 소재 (EV/ESS)",        tooltipEn: "Key battery material (EV/ESS demand)" },
   { id: "NICKEL",    symbol: "NIKL",   yahooSymbol: "NIKL",  labelKr: "니켈", label: "Nickel (NIKL ETF)", unit: "$/share", category: "battery",   tooltipKr: "배터리·스테인리스 핵심 소재 ETF",   tooltipEn: "Key battery & stainless steel material ETF" },
