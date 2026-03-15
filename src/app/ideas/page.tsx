@@ -299,6 +299,7 @@ export default function IdeasPage() {
   const [divStocksFetched, setDivStocksFetched] = useState(false);
   const [divMinRate, setDivMinRate] = useState(3);
   const [divMaxRate, setDivMaxRate] = useState(10);
+  const [divGrowthOnly, setDivGrowthOnly] = useState(false);
   const [divCalcAmount, setDivCalcAmount] = useState(10000);
   const [divCalcRate, setDivCalcRate] = useState(4);
   const [divCalcYears, setDivCalcYears] = useState(10);
@@ -2216,8 +2217,18 @@ export default function IdeasPage() {
               >
                 검색
               </button>
+              <button
+                onClick={() => setDivGrowthOnly(v => !v)}
+                className={`px-3 py-1 text-xs rounded border transition-colors ${
+                  divGrowthOnly
+                    ? "bg-green-500/20 border-green-500/40 text-green-400"
+                    : "bg-card-bg border-card-border text-muted hover:text-foreground"
+                }`}
+              >
+                연속증가만 보기
+              </button>
               {!divStocksLoading && divStocks.length > 0 && (
-                <span className="text-[11px] text-muted ml-auto">{divStocks.length}개 종목</span>
+                <span className="text-[11px] text-muted ml-auto">{divStocks.filter(s => !divGrowthOnly || s.dividendGrowth).length}개 종목</span>
               )}
             </div>
 
@@ -2243,7 +2254,7 @@ export default function IdeasPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {divStocks.map((s) => (
+                      {divStocks.filter(s => !divGrowthOnly || s.dividendGrowth).map((s) => (
                         <tr key={s.code} className="border-b border-card-border/40 hover:bg-card-border/20 transition-colors">
                           <td className={`${TD} text-accent`}>{s.code}</td>
                           <td className={TD}>{s.name}</td>
