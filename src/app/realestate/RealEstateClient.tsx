@@ -45,7 +45,7 @@ interface NewsItem {
   publishedAt: string;
 }
 
-type TabKey = "trades" | "tierlist" | "supply-demand" | "rate-regulation" | "move-in";
+type TabKey = "trades" | "tierlist" | "supply-demand" | "rate-regulation" | "move-in" | "reconstruction";
 
 // 서울 아파트 월별 거래량 (수요) - 출처: 국토교통부 실거래가
 const SEOUL_TRADE_DATA = [
@@ -152,6 +152,40 @@ const MOVEIN_BY_YEAR = [2023, 2024, 2025, 2026, 2027].map(year => ({
   재개발: MOVEIN_DATA.filter(d => d.year === year && d.type === "재개발").reduce((s, d) => s + d.units, 0),
   일반: MOVEIN_DATA.filter(d => d.year === year && d.type === "일반").reduce((s, d) => s + d.units, 0),
 }));
+
+const RECON_STAGES = ["안전진단", "정비구역지정", "추진위설립", "조합설립", "사업시행인가", "관리처분인가", "착공", "준공"] as const;
+type ReconStage = typeof RECON_STAGES[number];
+
+interface ReconProject {
+  name: string;
+  gu: string;
+  type: "재건축" | "재개발";
+  stage: ReconStage;
+  units: number;
+  estimatedYear: string;
+  note: string;
+}
+
+const RECON_DATA: ReconProject[] = [
+  { name: "압구정2구역", gu: "강남구", type: "재건축", stage: "사업시행인가", units: 3400, estimatedYear: "2027", note: "현대1~6차 통합" },
+  { name: "압구정3구역", gu: "강남구", type: "재건축", stage: "관리처분인가", units: 2508, estimatedYear: "2026", note: "현대7~14차" },
+  { name: "압구정4구역", gu: "강남구", type: "재건축", stage: "조합설립", units: 1800, estimatedYear: "2028", note: "미성1·2차" },
+  { name: "은마아파트", gu: "강남구", type: "재건축", stage: "안전진단", units: 4424, estimatedYear: "2030+", note: "안전진단 재추진 중" },
+  { name: "대치쌍용1차", gu: "강남구", type: "재건축", stage: "조합설립", units: 1260, estimatedYear: "2029", note: "대치동 재건축" },
+  { name: "잠실진주", gu: "송파구", type: "재건축", stage: "착공", units: 2678, estimatedYear: "2026", note: "착공 완료" },
+  { name: "잠실우성1~3차", gu: "송파구", type: "재건축", stage: "관리처분인가", units: 1590, estimatedYear: "2027", note: "잠실권역 정비" },
+  { name: "반포3주구", gu: "서초구", type: "재건축", stage: "착공", units: 2990, estimatedYear: "2027", note: "래미안 브랜드" },
+  { name: "신반포15차", gu: "서초구", type: "재건축", stage: "관리처분인가", units: 1078, estimatedYear: "2026", note: "아크로리버파크 인근" },
+  { name: "방배13구역", gu: "서초구", type: "재건축", stage: "사업시행인가", units: 1470, estimatedYear: "2028", note: "방배동 재건축" },
+  { name: "여의도한양", gu: "영등포구", type: "재건축", stage: "착공", units: 1236, estimatedYear: "2025", note: "브라이튼여의도" },
+  { name: "여의도시범", gu: "영등포구", type: "재건축", stage: "조합설립", units: 3150, estimatedYear: "2029", note: "여의도 최대 단지" },
+  { name: "이문1구역", gu: "동대문구", type: "재개발", stage: "착공", units: 4321, estimatedYear: "2025", note: "이문아이파크자이" },
+  { name: "장위4구역", gu: "성북구", type: "재개발", stage: "관리처분인가", units: 2840, estimatedYear: "2026", note: "장위동 재개발" },
+  { name: "흑석9구역", gu: "동작구", type: "재개발", stage: "착공", units: 1536, estimatedYear: "2026", note: "흑석동 한강변" },
+  { name: "신길음1구역", gu: "영등포구", type: "재개발", stage: "사업시행인가", units: 2100, estimatedYear: "2027", note: "신길동 재개발" },
+  { name: "수색증산4구역", gu: "은평구", type: "재개발", stage: "관리처분인가", units: 1890, estimatedYear: "2027", note: "DMC 인근" },
+  { name: "돈의문1구역", gu: "종로구", type: "재개발", stage: "조합설립", units: 890, estimatedYear: "2029", note: "도심 재개발" },
+];
 
 function getMonthOptions() {
   const opts: { label: string; value: string }[] = [];
@@ -541,6 +575,7 @@ export default function RealEstateClient() {
               { key: "supply-demand" as TabKey, label: "수요/공급" },
               { key: "rate-regulation" as TabKey, label: "금리/규제" },
               { key: "move-in" as TabKey, label: "입주물량" },
+              { key: "reconstruction" as TabKey, label: "재건축/재개발" },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -854,6 +889,107 @@ export default function RealEstateClient() {
                     <b style={{ color: "#fff" }}>2025~2026년 공급 집중:</b> 압구정·반포·잠실 재건축 대단지 입주로 강남권 일시적 공급 과잉 가능성.&nbsp;
                     <b style={{ color: "#fff" }}>이문·장위 재개발:</b> 동북권 대규모 입주로 해당 권역 전세가 하방 압력.&nbsp;
                     <b style={{ color: "#fff" }}>관심 구역:</b> 입주 물량 적은 마포·용산·성동구는 상대적으로 공급 부족 지속 예상.
+                  </div>
+                </div>
+
+              </div>
+            ) : activeTab === "reconstruction" ? (
+              <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+                {/* 상단 안내 */}
+                <div style={{ fontSize: 11, color: "#555" }}>
+                  마지막 업데이트: 2025년 3월 (출처: 서울시 정비사업 정보몽땅, 각 조합)　*단계 및 예정연도는 변동될 수 있습니다.
+                </div>
+
+                {/* 단계 범례 + 요약 */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {/* 단계 설명 */}
+                  <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "14px 16px" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 10 }}>사업 진행 단계</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {RECON_STAGES.map((stage, i) => {
+                        const colors = ["#555","#666","#777","#888","#f59e0b","#fb923c","#22c55e","#3b82f6"];
+                        return (
+                          <div key={stage} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ width: 20, height: 20, borderRadius: 4, background: colors[i], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 700, flexShrink: 0 }}>{i+1}</div>
+                            <span style={{ fontSize: 11, color: i >= 4 ? "#e8e8e8" : "#888" }}>{stage}</span>
+                            {i >= 6 && <span style={{ fontSize: 9, color: colors[i], marginLeft: "auto" }}>진행중</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {/* 요약 통계 */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {[
+                      { label: "전체 프로젝트", value: `${RECON_DATA.length}개`, color: "#e8e8e8" },
+                      { label: "총 예정 세대수", value: `${RECON_DATA.reduce((s,d) => s+d.units, 0).toLocaleString()}세대`, color: "#f59e0b" },
+                      { label: "착공 이상 단계", value: `${RECON_DATA.filter(d => ["착공","준공"].includes(d.stage)).length}개`, color: "#22c55e" },
+                      { label: "관리처분 이상 단계", value: `${RECON_DATA.filter(d => ["관리처분인가","착공","준공"].includes(d.stage)).length}개`, color: "#fb923c" },
+                    ].map(s => (
+                      <div key={s.label} style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 12, color: "#888" }}>{s.label}</span>
+                        <span style={{ fontSize: 16, fontWeight: 700, color: s.color }}>{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 프로젝트 테이블 */}
+                <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "16px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12 }}>주요 정비사업 현황</div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid #333" }}>
+                          {["구역명", "자치구", "유형", "현재단계", "예정세대", "준공예정", "비고"].map(h => (
+                            <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#666", fontSize: 11, fontWeight: 600 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...RECON_DATA].sort((a, b) => RECON_STAGES.indexOf(b.stage) - RECON_STAGES.indexOf(a.stage)).map((d, i) => {
+                          const stageIdx = RECON_STAGES.indexOf(d.stage);
+                          const stageColors = ["#555","#666","#777","#888","#f59e0b","#fb923c","#22c55e","#3b82f6"];
+                          const stageColor = stageColors[stageIdx];
+                          return (
+                            <tr key={i} style={{ borderBottom: "1px solid #1e1e1e" }}>
+                              <td style={{ padding: "9px 12px", color: "#e8e8e8", fontWeight: 600 }}>{d.name}</td>
+                              <td style={{ padding: "9px 12px", color: "#aaa" }}>{d.gu}</td>
+                              <td style={{ padding: "9px 12px" }}>
+                                <span style={{
+                                  fontSize: 10, padding: "2px 6px", borderRadius: 4,
+                                  background: d.type === "재건축" ? "#f59e0b22" : "#3b82f622",
+                                  color: d.type === "재건축" ? "#f59e0b" : "#3b82f6"
+                                }}>{d.type}</span>
+                              </td>
+                              <td style={{ padding: "9px 12px" }}>
+                                <span style={{
+                                  fontSize: 10, padding: "2px 8px", borderRadius: 4,
+                                  background: `${stageColor}22`, color: stageColor, fontWeight: 600
+                                }}>{d.stage}</span>
+                              </td>
+                              <td style={{ padding: "9px 12px", color: "#e8e8e8", fontWeight: 600 }}>{d.units.toLocaleString()}</td>
+                              <td style={{ padding: "9px 12px", color: d.estimatedYear.includes("+") ? "#666" : "#aaa" }}>{d.estimatedYear}</td>
+                              <td style={{ padding: "9px 12px", color: "#666", fontSize: 11 }}>{d.note}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 투자 시사점 */}
+                <div style={{
+                  background: "#111", border: "1px solid #222", borderRadius: 10,
+                  padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10
+                }}>
+                  <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, whiteSpace: "nowrap", marginTop: 1 }}>투자 시사점</div>
+                  <div style={{ fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+                    <b style={{ color: "#fff" }}>착공 단계 주목:</b> 착공 이상 단계 진입 단지는 이주 수요 발생으로 인근 전세가 상승 가능.&nbsp;
+                    <b style={{ color: "#fff" }}>압구정·여의도 라인:</b> 관리처분~착공 구간 진입으로 2026~2027년 강남·여의도 이주 수요 집중 예상.&nbsp;
+                    <b style={{ color: "#fff" }}>은마·여의도시범:</b> 초기 단계로 장기 투자 관점에서 접근, 사업 지연 리스크 고려 필요.
                   </div>
                 </div>
 
