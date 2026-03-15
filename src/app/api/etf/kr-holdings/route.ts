@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const KR_ETF_LIST = [
   { code: "091160", name: "KODEX 반도체" },
@@ -40,7 +40,7 @@ const KR_ETF_LIST = [
   { code: "494220", name: "UNICORN SK하이닉스밸류체인액티브" },
 ];
 
-const CACHE_KEY = "kr_etf_holdings_v10";
+const CACHE_KEY = "kr_etf_holdings_v11";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
 
 interface Holding {
@@ -105,11 +105,13 @@ export async function GET(request: Request) {
   } catch { /* cache miss */ }
 
   try {
-    const etfs: { code: string; name: string; holdings: Holding[] }[] = [];
-    for (const etf of KR_ETF_LIST) {
-      const holdings = await fetchHoldings(etf.code);
-      etfs.push({ code: etf.code, name: etf.name, holdings });
-    }
+    const results = await Promise.all(
+      KR_ETF_LIST.map(async (etf) => {
+        const holdings = await fetchHoldings(etf.code);
+        return { code: etf.code, name: etf.name, holdings };
+      })
+    );
+    const etfs = results;
 
     const payload = { etfs };
 
