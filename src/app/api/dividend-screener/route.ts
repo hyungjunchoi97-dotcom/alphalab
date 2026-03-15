@@ -10,6 +10,42 @@ interface DividendStock {
   dividendRate: number;
   dividend: number;
   exchange: "KOSPI" | "KOSDAQ";
+  marketCap?: string;
+  marketCapValue?: number;
+}
+
+async function fetchMarketCapMap(): Promise<Map<string, { cap: string; capValue: number }>> {
+  const map = new Map<string, { cap: string; capValue: number }>();
+
+  for (const sosok of ["0", "1"]) {
+    let page = 1;
+    while (true) {
+      const url = `https://m.stock.naver.com/api/stocks/up?page=${page}&pageSize=100&sosok=${sosok}`;
+      const res = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; AlphaLab/1.0)" },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) break;
+      const data = await res.json();
+      const stocks = data.stocks ?? [];
+      if (stocks.length === 0) break;
+
+      for (const s of stocks) {
+        if (s.itemCode && s.marketValue) {
+          const capValue = parseInt(String(s.marketValue).replace(/,/g, ""), 10);
+          map.set(s.itemCode, {
+            cap: s.marketValueHangeul ?? "",
+            capValue: isNaN(capValue) ? 0 : capValue,
+          });
+        }
+      }
+
+      const totalCount = data.totalCount ?? 0;
+      if (page * 100 >= totalCount) break;
+      page++;
+    }
+  }
+  return map;
 }
 
 async function fetchPage(page: number, pageSize: number): Promise<{ items: DividendStock[]; totalCount: number }> {
@@ -39,7 +75,10 @@ export async function GET(request: Request) {
   const maxRate = parseFloat(searchParams.get("max") ?? "10");
 
   try {
-    const first = await fetchPage(1, 100);
+    const [first, capMap] = await Promise.all([
+      fetchPage(1, 100),
+      fetchMarketCapMap(),
+    ]);
     const totalPages = Math.ceil(first.totalCount / 100);
     let allItems = [...first.items];
 
@@ -51,6 +90,10 @@ export async function GET(request: Request) {
 
     const filtered = allItems
       .filter(s => s.dividendRate >= minRate && s.dividendRate <= maxRate)
+      .map(s => {
+        const mc = capMap.get(s.code);
+        return { ...s, marketCap: mc?.cap, marketCapValue: mc?.capValue };
+      })
       .sort((a, b) => b.dividendRate - a.dividendRate);
 
     return NextResponse.json(
