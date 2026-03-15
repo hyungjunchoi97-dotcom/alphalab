@@ -36,9 +36,14 @@ const KR_ETF_LIST = [
   { code: "0127R0", name: "RISE 미국AI클라우드인프라" },
   { code: "445290", name: "KODEX 로봇액티브" },
   { code: "0153X0", name: "PLUS 미국고배당주액티브" },
+  { code: "445150", name: "KODEX 친환경조선해운액티브" },
+  { code: "444200", name: "SOL 코리아메가테크액티브" },
+  { code: "385510", name: "KODEX 신재생에너지액티브" },
+  { code: "474590", name: "WON 반도체밸류체인액티브" },
+  { code: "494220", name: "UNICORN SK하이닉스밸류체인액티브" },
 ];
 
-const CACHE_KEY = "kr_etf_holdings_v6";
+const CACHE_KEY = "kr_etf_holdings_v7";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
 
 interface Holding {
