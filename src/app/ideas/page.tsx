@@ -197,7 +197,7 @@ function isKrMarketOpen(): boolean {
 
 export default function IdeasPage() {
   const { t, lang } = useLang();
-  const [tab, setTab] = useState<"fomo" | "rotation" | "etf" | "kr-etf" | "dividend-etf" | "dividend-screener" | "consensus">("fomo");
+  const [tab, setTab] = useState<"fomo" | "rotation" | "etf" | "kr-etf" | "dividend-etf" | "dividend-screener" | "dividend-guide" | "consensus">("fomo");
   const [selected, setSelected] = useState<FomoItem | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -299,6 +299,12 @@ export default function IdeasPage() {
   const [divStocksFetched, setDivStocksFetched] = useState(false);
   const [divMinRate, setDivMinRate] = useState(3);
   const [divMaxRate, setDivMaxRate] = useState(10);
+  const [divCalcAmount, setDivCalcAmount] = useState(10000);
+  const [divCalcRate, setDivCalcRate] = useState(4);
+  const [divCalcYears, setDivCalcYears] = useState(10);
+  const [divCalcGrowth, setDivCalcGrowth] = useState(7);
+  const [divCalcKrRatio, setDivCalcKrRatio] = useState(50);
+  const [divCalcFxRate, setDivCalcFxRate] = useState(1400);
 
   // Data
   const [fomoKr, setFomoKr] = useState<FomoItem[]>([]);
@@ -715,7 +721,7 @@ export default function IdeasPage() {
         {/* Tab pills + sub-tabs */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-px rounded bg-card-border p-px w-fit">
-            {(["fomo", "rotation", "etf", "kr-etf", "dividend-etf", "dividend-screener", "consensus"] as const).map((tv) => (
+            {(["fomo", "rotation", "etf", "kr-etf", "dividend-etf", "dividend-screener", "dividend-guide", "consensus"] as const).map((tv) => (
               <button
                 key={tv}
                 onClick={() => {
@@ -736,6 +742,7 @@ export default function IdeasPage() {
                   : tv === "kr-etf" ? (lang === "kr" ? "국내 ETF" : "KR ETF")
                   : tv === "dividend-etf" ? (lang === "kr" ? "배당 ETF" : "Dividend ETF")
                   : tv === "dividend-screener" ? (lang === "kr" ? "배당주" : "Dividend")
+                  : tv === "dividend-guide" ? (lang === "kr" ? "배당 가이드" : "Div Guide")
                   : (lang === "kr" ? "월가 컨센서스" : "Wall St Consensus")}
               </button>
             ))}
@@ -2274,6 +2281,175 @@ export default function IdeasPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {tab === "dividend-guide" && (
+          <div className="space-y-4 max-w-[900px]">
+
+            {/* 핵심 원칙 3개 카드 */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                {
+                  title: "배당 성장주",
+                  desc: "배당수익률보다 배당 성장률이 중요합니다. 연 7~10% 성장하는 종목이 10년 후 실질 수익률을 극대화합니다.",
+                  stat: "연평균 +8~12%",
+                  statLabel: "장기 기대 수익률 (배당 재투자 포함)",
+                  color: "text-amber-400",
+                  border: "border-amber-400/20",
+                },
+                {
+                  title: "섹터 분산",
+                  desc: "금융 30% · 통신 20% · 필수소비재 20% · 유틸리티 15% · 리츠 15% 구성이 하락장 방어에 유리합니다.",
+                  stat: "낙폭 -30~40%↓",
+                  statLabel: "고배당 섹터의 하락장 방어 효과",
+                  color: "text-blue-400",
+                  border: "border-blue-400/20",
+                },
+                {
+                  title: "배당성향 기준",
+                  desc: "배당성향 40~70% 사이 종목이 이상적입니다. 80% 초과는 지속 불가, 20% 미만은 주주환원 의지 부족.",
+                  stat: "40~70%",
+                  statLabel: "지속 가능한 배당성향 구간",
+                  color: "text-green-400",
+                  border: "border-green-400/20",
+                },
+              ].map((card) => (
+                <div key={card.title} className={`${CARD} border ${card.border} space-y-2`}>
+                  <div className="text-xs font-semibold text-foreground">{card.title}</div>
+                  <div className="text-[11px] text-muted leading-relaxed">{card.desc}</div>
+                  <div className="pt-1 border-t border-card-border">
+                    <div className={`text-sm font-bold ${card.color}`}>{card.stat}</div>
+                    <div className="text-[9px] text-muted/60 mt-0.5">{card.statLabel}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 한국 vs 미국 비교 */}
+            <div className={`${CARD} space-y-3`}>
+              <div className="text-xs font-semibold text-foreground">한국 vs 미국 배당주 분산 투자</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="text-[11px] font-medium text-blue-400">한국 배당주</div>
+                  <div className="space-y-1.5 text-[11px] text-muted">
+                    <div className="flex gap-2"><span className="text-green-400">+</span><span>배당소득세 15.4% 단일 과세</span></div>
+                    <div className="flex gap-2"><span className="text-green-400">+</span><span>환율 리스크 없음</span></div>
+                    <div className="flex gap-2"><span className="text-green-400">+</span><span>ISA/연금계좌 세제 혜택</span></div>
+                    <div className="flex gap-2"><span className="text-red-400">-</span><span>배당 성장 역사 짧음 (10~15년)</span></div>
+                    <div className="flex gap-2"><span className="text-red-400">-</span><span>배당 삭감 리스크 상대적으로 높음</span></div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-[11px] font-medium text-amber-400">미국 배당주</div>
+                  <div className="space-y-1.5 text-[11px] text-muted">
+                    <div className="flex gap-2"><span className="text-green-400">+</span><span>배당귀족 25년+ 연속 증가 종목 다수</span></div>
+                    <div className="flex gap-2"><span className="text-green-400">+</span><span>원화 약세 시 환차익 (2020~2024: +27%)</span></div>
+                    <div className="flex gap-2"><span className="text-green-400">+</span><span>달러 자산으로 인플레 헤지</span></div>
+                    <div className="flex gap-2"><span className="text-red-400">-</span><span>미국 15% + 국내 0.4% 원천징수</span></div>
+                    <div className="flex gap-2"><span className="text-red-400">-</span><span>미국 현지 계좌 보유 시 유산세 리스크 ($60K 초과분 최고 40%)</span></div>
+                  </div>
+                </div>
+              </div>
+              <div className="text-[10px] text-muted/50 pt-1 border-t border-card-border">
+                * 본 내용은 참고용이며 실제 세무·법률은 전문가 상담을 권장합니다.
+              </div>
+            </div>
+
+            {/* 세후 배당 계산기 */}
+            <div className={`${CARD} space-y-4`}>
+              <div className="text-xs font-semibold text-foreground">배당 수익 시뮬레이터</div>
+
+              {/* 입력 */}
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { label: "투자금", value: divCalcAmount, setter: setDivCalcAmount, unit: "만원", min: 100, max: 100000, step: 100 },
+                  { label: "배당수익률", value: divCalcRate, setter: setDivCalcRate, unit: "%", min: 1, max: 15, step: 0.5 },
+                  { label: "연 배당성장률", value: divCalcGrowth, setter: setDivCalcGrowth, unit: "%", min: 0, max: 20, step: 1 },
+                  { label: "투자기간", value: divCalcYears, setter: setDivCalcYears, unit: "년", min: 1, max: 30, step: 1 },
+                  { label: "한국 비중", value: divCalcKrRatio, setter: setDivCalcKrRatio, unit: "%", min: 0, max: 100, step: 10 },
+                  { label: "환율 (원/달러)", value: divCalcFxRate, setter: setDivCalcFxRate, unit: "원", min: 1000, max: 2000, step: 50 },
+                ].map((item) => (
+                  <div key={item.label} className="space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-[10px] text-muted">{item.label}</span>
+                      <span className="text-[10px] font-medium text-foreground tabular-nums">{item.value.toLocaleString()}{item.unit}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={item.min}
+                      max={item.max}
+                      step={item.step}
+                      value={item.value}
+                      onChange={e => item.setter(Number(e.target.value))}
+                      className="w-full h-1 accent-amber-400"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* 결과 */}
+              {(() => {
+                const krRatio = divCalcKrRatio / 100;
+                const usRatio = 1 - krRatio;
+                const taxKr = 0.154;
+                const taxUs = 0.154;
+
+                let totalDividend = 0;
+                let currentRate = divCalcRate / 100;
+                for (let y = 1; y <= divCalcYears; y++) {
+                  const annualDiv = divCalcAmount * currentRate;
+                  const krDiv = annualDiv * krRatio * (1 - taxKr);
+                  const usDivRaw = annualDiv * usRatio * (1 - taxUs);
+                  const fxEffect = divCalcFxRate / 1400;
+                  const usDiv = usDivRaw * fxEffect;
+                  totalDividend += krDiv + usDiv;
+                  currentRate *= (1 + divCalcGrowth / 100);
+                }
+
+                const lastYearDiv = divCalcAmount * currentRate / (1 + divCalcGrowth / 100);
+                const effectiveRate = (lastYearDiv / divCalcAmount) * 100;
+
+                return (
+                  <div className="grid grid-cols-4 gap-3 pt-2 border-t border-card-border">
+                    <div className="space-y-1">
+                      <div className="text-[9px] text-muted uppercase tracking-wider">총 수령 배당 (세후)</div>
+                      <div className="text-lg font-bold text-amber-400 tabular-nums">{Math.round(totalDividend).toLocaleString()}만원</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[9px] text-muted uppercase tracking-wider">{divCalcYears}년 후 연 배당수익률</div>
+                      <div className="text-lg font-bold text-green-400 tabular-nums">{effectiveRate.toFixed(1)}%</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[9px] text-muted uppercase tracking-wider">한국 배당 (세후/년)</div>
+                      <div className="text-lg font-bold text-blue-400 tabular-nums">{Math.round(divCalcAmount * (divCalcRate/100) * krRatio * (1 - taxKr)).toLocaleString()}만원</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[9px] text-muted uppercase tracking-wider">미국 배당 (세후/년, 환율반영)</div>
+                      <div className="text-lg font-bold text-amber-300 tabular-nums">{Math.round(divCalcAmount * (divCalcRate/100) * usRatio * (1 - taxUs) * (divCalcFxRate/1400)).toLocaleString()}만원</div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* 함정 배당 경고 */}
+            <div className={`${CARD} border border-red-400/20 space-y-2`}>
+              <div className="text-xs font-semibold text-red-400">함정 배당 체크리스트</div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { flag: "배당수익률 10% 초과", desc: "주가 급락으로 인한 착시일 수 있음. 실적 확인 필수." },
+                  { flag: "배당성향 80% 초과", desc: "이익 대부분을 배당으로 지급 → 투자 여력 없음, 삭감 위험." },
+                  { flag: "최근 2년 EPS 마이너스", desc: "적자 기업의 배당은 원금 훼손. 배당 지속 불가능." },
+                ].map((item) => (
+                  <div key={item.flag} className="space-y-1">
+                    <div className="text-[11px] font-medium text-red-400">{item.flag}</div>
+                    <div className="text-[10px] text-muted">{item.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
         )}
 
