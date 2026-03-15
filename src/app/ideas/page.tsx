@@ -2285,7 +2285,7 @@ export default function IdeasPage() {
         )}
 
         {tab === "dividend-guide" && (
-          <div className="space-y-4 max-w-[900px]">
+          <div className="space-y-4">
 
             {/* 핵심 원칙 3개 카드 */}
             <div className="grid grid-cols-3 gap-3">
@@ -2316,11 +2316,11 @@ export default function IdeasPage() {
                 },
               ].map((card) => (
                 <div key={card.title} className={`${CARD} border ${card.border} space-y-2`}>
-                  <div className="text-xs font-semibold text-foreground">{card.title}</div>
-                  <div className="text-[11px] text-muted leading-relaxed">{card.desc}</div>
+                  <div className="text-sm font-semibold text-foreground">{card.title}</div>
+                  <div className="text-xs text-muted leading-relaxed">{card.desc}</div>
                   <div className="pt-1 border-t border-card-border">
-                    <div className={`text-sm font-bold ${card.color}`}>{card.stat}</div>
-                    <div className="text-[9px] text-muted/60 mt-0.5">{card.statLabel}</div>
+                    <div className={`text-base font-bold ${card.color}`}>{card.stat}</div>
+                    <div className="text-[10px] text-muted/60 mt-0.5">{card.statLabel}</div>
                   </div>
                 </div>
               ))}
@@ -2328,11 +2328,11 @@ export default function IdeasPage() {
 
             {/* 한국 vs 미국 비교 */}
             <div className={`${CARD} space-y-3`}>
-              <div className="text-xs font-semibold text-foreground">한국 vs 미국 배당주 분산 투자</div>
+              <div className="text-sm font-semibold text-foreground">한국 vs 미국 배당주 분산 투자</div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <div className="text-[11px] font-medium text-blue-400">한국 배당주</div>
-                  <div className="space-y-1.5 text-[11px] text-muted">
+                  <div className="text-xs font-medium text-blue-400">한국 배당주</div>
+                  <div className="space-y-1.5 text-xs text-muted">
                     <div className="flex gap-2"><span className="text-green-400">+</span><span>배당소득세 15.4% 단일 과세</span></div>
                     <div className="flex gap-2"><span className="text-green-400">+</span><span>환율 리스크 없음</span></div>
                     <div className="flex gap-2"><span className="text-green-400">+</span><span>ISA/연금계좌 세제 혜택</span></div>
@@ -2341,8 +2341,8 @@ export default function IdeasPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <div className="text-[11px] font-medium text-amber-400">미국 배당주</div>
-                  <div className="space-y-1.5 text-[11px] text-muted">
+                  <div className="text-xs font-medium text-amber-400">미국 배당주</div>
+                  <div className="space-y-1.5 text-xs text-muted">
                     <div className="flex gap-2"><span className="text-green-400">+</span><span>배당귀족 25년+ 연속 증가 종목 다수</span></div>
                     <div className="flex gap-2"><span className="text-green-400">+</span><span>원화 약세 시 환차익 (2020~2024: +27%)</span></div>
                     <div className="flex gap-2"><span className="text-green-400">+</span><span>달러 자산으로 인플레 헤지</span></div>
@@ -2351,14 +2351,14 @@ export default function IdeasPage() {
                   </div>
                 </div>
               </div>
-              <div className="text-[10px] text-muted/50 pt-1 border-t border-card-border">
+              <div className="text-[11px] text-muted/50 pt-1 border-t border-card-border">
                 * 본 내용은 참고용이며 실제 세무·법률은 전문가 상담을 권장합니다.
               </div>
             </div>
 
             {/* 세후 배당 계산기 */}
             <div className={`${CARD} space-y-4`}>
-              <div className="text-xs font-semibold text-foreground">배당 수익 시뮬레이터</div>
+              <div className="text-sm font-semibold text-foreground">배당 수익 시뮬레이터</div>
 
               {/* 입력 */}
               <div className="grid grid-cols-3 gap-4">
@@ -2372,8 +2372,8 @@ export default function IdeasPage() {
                 ].map((item) => (
                   <div key={item.label} className="space-y-1">
                     <div className="flex justify-between">
-                      <span className="text-[10px] text-muted">{item.label}</span>
-                      <span className="text-[10px] font-medium text-foreground tabular-nums">{item.value.toLocaleString()}{item.unit}</span>
+                      <span className="text-[11px] text-muted">{item.label}</span>
+                      <span className="text-[11px] font-medium text-foreground tabular-nums">{item.value.toLocaleString()}{item.unit}</span>
                     </div>
                     <input
                       type="range"
@@ -2413,20 +2413,20 @@ export default function IdeasPage() {
                 return (
                   <div className="grid grid-cols-4 gap-3 pt-2 border-t border-card-border">
                     <div className="space-y-1">
-                      <div className="text-[9px] text-muted uppercase tracking-wider">총 수령 배당 (세후)</div>
-                      <div className="text-lg font-bold text-amber-400 tabular-nums">{Math.round(totalDividend).toLocaleString()}만원</div>
+                      <div className="text-[10px] text-muted uppercase tracking-wider">총 수령 배당 (세후)</div>
+                      <div className="text-xl font-bold text-amber-400 tabular-nums">{Math.round(totalDividend).toLocaleString()}만원</div>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-[9px] text-muted uppercase tracking-wider">{divCalcYears}년 후 연 배당수익률</div>
-                      <div className="text-lg font-bold text-green-400 tabular-nums">{effectiveRate.toFixed(1)}%</div>
+                      <div className="text-[10px] text-muted uppercase tracking-wider">{divCalcYears}년 후 연 배당수익률</div>
+                      <div className="text-xl font-bold text-green-400 tabular-nums">{effectiveRate.toFixed(1)}%</div>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-[9px] text-muted uppercase tracking-wider">한국 배당 (세후/년)</div>
-                      <div className="text-lg font-bold text-blue-400 tabular-nums">{Math.round(divCalcAmount * (divCalcRate/100) * krRatio * (1 - taxKr)).toLocaleString()}만원</div>
+                      <div className="text-[10px] text-muted uppercase tracking-wider">한국 배당 (세후/년)</div>
+                      <div className="text-xl font-bold text-blue-400 tabular-nums">{Math.round(divCalcAmount * (divCalcRate/100) * krRatio * (1 - taxKr)).toLocaleString()}만원</div>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-[9px] text-muted uppercase tracking-wider">미국 배당 (세후/년, 환율반영)</div>
-                      <div className="text-lg font-bold text-amber-300 tabular-nums">{Math.round(divCalcAmount * (divCalcRate/100) * usRatio * (1 - taxUs) * (divCalcFxRate/1400)).toLocaleString()}만원</div>
+                      <div className="text-[10px] text-muted uppercase tracking-wider">미국 배당 (세후/년, 환율반영)</div>
+                      <div className="text-xl font-bold text-amber-300 tabular-nums">{Math.round(divCalcAmount * (divCalcRate/100) * usRatio * (1 - taxUs) * (divCalcFxRate/1400)).toLocaleString()}만원</div>
                     </div>
                   </div>
                 );
@@ -2435,7 +2435,7 @@ export default function IdeasPage() {
 
             {/* 함정 배당 경고 */}
             <div className={`${CARD} border border-red-400/20 space-y-2`}>
-              <div className="text-xs font-semibold text-red-400">함정 배당 체크리스트</div>
+              <div className="text-sm font-semibold text-red-400">함정 배당 체크리스트</div>
               <div className="grid grid-cols-3 gap-3">
                 {[
                   { flag: "배당수익률 10% 초과", desc: "주가 급락으로 인한 착시일 수 있음. 실적 확인 필수." },
@@ -2443,8 +2443,8 @@ export default function IdeasPage() {
                   { flag: "최근 2년 EPS 마이너스", desc: "적자 기업의 배당은 원금 훼손. 배당 지속 불가능." },
                 ].map((item) => (
                   <div key={item.flag} className="space-y-1">
-                    <div className="text-[11px] font-medium text-red-400">{item.flag}</div>
-                    <div className="text-[10px] text-muted">{item.desc}</div>
+                    <div className="text-xs font-medium text-red-400">{item.flag}</div>
+                    <div className="text-[11px] text-muted">{item.desc}</div>
                   </div>
                 ))}
               </div>
