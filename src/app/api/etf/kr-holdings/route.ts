@@ -18,7 +18,6 @@ const KR_ETF_LIST = [
   { code: "0162Y0", name: "TIME 코스닥액티브" },
   { code: "385720", name: "TIME 코스피액티브" },
   { code: "456600", name: "TIME 글로벌AI인공지능액티브" },
-  { code: "441800", name: "TIME Korea플러스배당액티브" },
   { code: "0163Y0", name: "KoAct 코스닥액티브" },
   { code: "495230", name: "KoAct 코리아밸류업액티브" },
   { code: "487130", name: "KoAct AI인프라액티브" },
@@ -26,7 +25,6 @@ const KR_ETF_LIST = [
   { code: "0132D0", name: "KoAct 글로벌K컬처밸류체인액티브" },
   { code: "496080", name: "TIGER 코리아밸류업" },
   { code: "471780", name: "TIGER 코리아테크액티브" },
-  { code: "0052D0", name: "TIGER 코리아배당다우존스" },
   { code: "0138D0", name: "RISE 동학개미" },
   { code: "140570", name: "RISE 수출주" },
   { code: "253280", name: "RISE 헬스케어" },
@@ -35,7 +33,6 @@ const KR_ETF_LIST = [
   { code: "475380", name: "RISE 글로벌리얼티인컴" },
   { code: "0127R0", name: "RISE 미국AI클라우드인프라" },
   { code: "445290", name: "KODEX 로봇액티브" },
-  { code: "0153X0", name: "PLUS 미국고배당주액티브" },
   { code: "445150", name: "KODEX 친환경조선해운액티브" },
   { code: "444200", name: "SOL 코리아메가테크액티브" },
   { code: "385510", name: "KODEX 신재생에너지액티브" },
@@ -43,7 +40,7 @@ const KR_ETF_LIST = [
   { code: "494220", name: "UNICORN SK하이닉스밸류체인액티브" },
 ];
 
-const CACHE_KEY = "kr_etf_holdings_v8";
+const CACHE_KEY = "kr_etf_holdings_v10";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1h
 
 interface Holding {
@@ -58,7 +55,7 @@ async function fetchHoldings(etfCode: string): Promise<Holding[]> {
   let cursor: string | null = null;
   for (let page = 0; page < 20; page++) {
     const url = cursor
-      ? `https://m.stock.naver.com/api/etf/${etfCode}/constituent?limit=100&nextCursor=${encodeURIComponent(cursor)}`
+      ? `https://m.stock.naver.com/api/etf/${etfCode}/constituent?limit=100&cursor=${encodeURIComponent(cursor)}`
       : `https://m.stock.naver.com/api/etf/${etfCode}/constituent?limit=100`;
     const res = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; AlphaLab/1.0; +https://thealphalabs.net)" },
