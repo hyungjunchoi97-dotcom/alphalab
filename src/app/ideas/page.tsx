@@ -294,7 +294,7 @@ export default function IdeasPage() {
   const [divEtfCommonOpen, setDivEtfCommonOpen] = useState(true);
 
   // Dividend Screener
-  const [divStocks, setDivStocks] = useState<{ code: string; name: string; price: number; dividendRate: number; dividend: number; exchange: "KOSPI" | "KOSDAQ" }[]>([]);
+  const [divStocks, setDivStocks] = useState<{ code: string; name: string; price: number; dividendRate: number; dividend: number; exchange: "KOSPI" | "KOSDAQ"; marketCap?: string; marketCapValue?: number; dividend1: number; dividend2: number; dividend3: number; consecutiveYears: number; dividendGrowth: boolean }[]>([]);
   const [divStocksLoading, setDivStocksLoading] = useState(false);
   const [divStocksFetched, setDivStocksFetched] = useState(false);
   const [divMinRate, setDivMinRate] = useState(3);
@@ -2231,6 +2231,8 @@ export default function IdeasPage() {
                         <th className={`${TH} text-right`}>배당수익률</th>
                         <th className={`${TH} text-right`}>배당금</th>
                         <th className={TH}>시장</th>
+                        <th className={`${TH} text-center`}>연속배당</th>
+                        <th className={`${TH} text-center`}>배당성장</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2246,11 +2248,23 @@ export default function IdeasPage() {
                               {s.exchange}
                             </span>
                           </td>
+                          <td className={`${TD} text-center tabular-nums`}>
+                            <span className={`text-[11px] font-medium ${
+                              s.consecutiveYears === 4 ? "text-amber-400" :
+                              s.consecutiveYears >= 2 ? "text-foreground" : "text-muted"
+                            }`}>{s.consecutiveYears}년</span>
+                          </td>
+                          <td className={`${TD} text-center`}>
+                            {s.dividendGrowth
+                              ? <span className="text-green-400 text-[10px] font-medium">연속증가</span>
+                              : <span className="text-muted/40 text-[10px]">-</span>
+                            }
+                          </td>
                         </tr>
                       ))}
                       {divStocks.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="py-8 text-center text-muted text-sm">
+                          <td colSpan={8} className="py-8 text-center text-muted text-sm">
                             조건에 맞는 종목이 없습니다
                           </td>
                         </tr>

@@ -12,6 +12,11 @@ interface DividendStock {
   exchange: "KOSPI" | "KOSDAQ";
   marketCap?: string;
   marketCapValue?: number;
+  dividend1: number;
+  dividend2: number;
+  dividend3: number;
+  consecutiveYears: number;
+  dividendGrowth: boolean;
 }
 
 async function fetchMarketCapMap(): Promise<Map<string, { cap: string; capValue: number }>> {
@@ -56,16 +61,35 @@ async function fetchPage(page: number, pageSize: number): Promise<{ items: Divid
   });
   if (!res.ok) return { items: [], totalCount: 0 };
   const data = await res.json();
+  const parseDividend = (v: unknown) => parseInt(String(v ?? "0").replace(/,/g, ""), 10);
   const items: DividendStock[] = (data.dividends ?? [])
     .filter((d: Record<string, unknown>) => d.dividendRate && d.closePrice)
-    .map((d: Record<string, unknown>) => ({
-      code: d.itemCode as string,
-      name: d.stockName as string,
-      price: parseInt(String(d.closePrice).replace(/,/g, ""), 10),
-      dividendRate: parseFloat(String(d.dividendRate)),
-      dividend: parseInt(String(d.dividend ?? "0").replace(/,/g, ""), 10),
-      exchange: (d.stockExchangeType as Record<string, string>)?.code === "KS" ? "KOSPI" : "KOSDAQ",
-    }));
+    .map((d: Record<string, unknown>) => {
+      const div0 = parseDividend(d.dividend);
+      const div1 = parseDividend(d.dividend1);
+      const div2 = parseDividend(d.dividend2);
+      const div3 = parseDividend(d.dividend3);
+      const years = [div0, div1, div2, div3];
+      let consecutiveYears = 0;
+      for (const y of years) {
+        if (y > 0) consecutiveYears++;
+        else break;
+      }
+      const dividendGrowth = consecutiveYears === 4 && div0 > div1 && div1 > div2 && div2 > div3;
+      return {
+        code: d.itemCode as string,
+        name: d.stockName as string,
+        price: parseInt(String(d.closePrice).replace(/,/g, ""), 10),
+        dividendRate: parseFloat(String(d.dividendRate)),
+        dividend: div0,
+        exchange: ((d.stockExchangeType as Record<string, string>)?.code === "KS" ? "KOSPI" : "KOSDAQ") as "KOSPI" | "KOSDAQ",
+        dividend1: div1,
+        dividend2: div2,
+        dividend3: div3,
+        consecutiveYears,
+        dividendGrowth,
+      };
+    });
   return { items, totalCount: data.totalCount ?? 0 };
 }
 
