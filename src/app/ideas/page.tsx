@@ -197,7 +197,7 @@ function isKrMarketOpen(): boolean {
 
 export default function IdeasPage() {
   const { t, lang } = useLang();
-  const [tab, setTab] = useState<"fomo" | "rotation" | "etf" | "kr-etf" | "dividend-etf" | "consensus">("fomo");
+  const [tab, setTab] = useState<"fomo" | "rotation" | "etf" | "kr-etf" | "dividend-etf" | "dividend-screener" | "consensus">("fomo");
   const [selected, setSelected] = useState<FomoItem | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -292,6 +292,13 @@ export default function IdeasPage() {
   const [divEtfFetched, setDivEtfFetched] = useState(false);
   const [divEtfCollapsed, setDivEtfCollapsed] = useState<Set<string>>(new Set());
   const [divEtfCommonOpen, setDivEtfCommonOpen] = useState(true);
+
+  // Dividend Screener
+  const [divStocks, setDivStocks] = useState<{ code: string; name: string; price: number; dividendRate: number; dividend: number; exchange: "KOSPI" | "KOSDAQ" }[]>([]);
+  const [divStocksLoading, setDivStocksLoading] = useState(false);
+  const [divStocksFetched, setDivStocksFetched] = useState(false);
+  const [divMinRate, setDivMinRate] = useState(3);
+  const [divMaxRate, setDivMaxRate] = useState(10);
 
   // Data
   const [fomoKr, setFomoKr] = useState<FomoItem[]>([]);
@@ -586,6 +593,19 @@ export default function IdeasPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
+  // Auto-fetch Dividend Screener when tab selected (once)
+  useEffect(() => {
+    if (tab === "dividend-screener" && !divStocksFetched) {
+      setDivStocksLoading(true);
+      fetch(`/api/dividend-screener?min=3&max=10`)
+        .then(r => r.json())
+        .then(j => { if (j.ok) { setDivStocks(j.stocks ?? []); setDivStocksFetched(true); } })
+        .catch(() => {})
+        .finally(() => setDivStocksLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   // Auto-fetch US FOMO when sector changes
   useEffect(() => {
     if (tab === "fomo" && fomoMarket === "US") {
@@ -695,7 +715,7 @@ export default function IdeasPage() {
         {/* Tab pills + sub-tabs */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-px rounded bg-card-border p-px w-fit">
-            {(["fomo", "rotation", "etf", "kr-etf", "dividend-etf", "consensus"] as const).map((tv) => (
+            {(["fomo", "rotation", "etf", "kr-etf", "dividend-etf", "dividend-screener", "consensus"] as const).map((tv) => (
               <button
                 key={tv}
                 onClick={() => {
@@ -715,6 +735,7 @@ export default function IdeasPage() {
                   : tv === "etf" ? (lang === "kr" ? "ETF 변동" : "ETF Changes")
                   : tv === "kr-etf" ? (lang === "kr" ? "국내 ETF" : "KR ETF")
                   : tv === "dividend-etf" ? (lang === "kr" ? "배당 ETF" : "Dividend ETF")
+                  : tv === "dividend-screener" ? (lang === "kr" ? "배당주" : "Dividend")
                   : (lang === "kr" ? "월가 컨센서스" : "Wall St Consensus")}
               </button>
             ))}
@@ -2146,6 +2167,99 @@ export default function IdeasPage() {
               })()}
             </div>
           </div>
+          </div>
+        )}
+
+        {/* Dividend Screener tab */}
+        {tab === "dividend-screener" && (
+          <div className="space-y-4">
+            {/* 필터 */}
+            <div className={`${CARD} flex items-center gap-6`}>
+              <span className="text-xs font-medium text-foreground">배당수익률 범위</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-muted">최소</span>
+                <select
+                  value={divMinRate}
+                  onChange={e => setDivMinRate(Number(e.target.value))}
+                  className="bg-card-bg border border-card-border text-xs text-foreground rounded px-2 py-1"
+                >
+                  {[1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}%</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-muted">최대</span>
+                <select
+                  value={divMaxRate}
+                  onChange={e => setDivMaxRate(Number(e.target.value))}
+                  className="bg-card-bg border border-card-border text-xs text-foreground rounded px-2 py-1"
+                >
+                  {[5,6,7,8,9,10,15,20,30].map(n => <option key={n} value={n}>{n}%</option>)}
+                </select>
+              </div>
+              <button
+                onClick={() => {
+                  setDivStocksLoading(true);
+                  fetch(`/api/dividend-screener?min=${divMinRate}&max=${divMaxRate}`)
+                    .then(r => r.json())
+                    .then(j => { if (j.ok) setDivStocks(j.stocks ?? []); })
+                    .catch(() => {})
+                    .finally(() => setDivStocksLoading(false));
+                }}
+                className="px-3 py-1 text-xs bg-accent text-white rounded hover:bg-accent/80 transition-colors"
+              >
+                검색
+              </button>
+              {!divStocksLoading && divStocks.length > 0 && (
+                <span className="text-[11px] text-muted ml-auto">{divStocks.length}개 종목</span>
+              )}
+            </div>
+
+            {/* 테이블 */}
+            {divStocksLoading ? (
+              <div className={`${CARD} flex items-center justify-center text-muted text-sm`} style={{ height: 300 }}>
+                <span className="animate-pulse">배당주 데이터 로딩 중…</span>
+              </div>
+            ) : (
+              <div className={CARD}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-card-border">
+                        <th className={TH}>종목코드</th>
+                        <th className={TH}>종목명</th>
+                        <th className={`${TH} text-right`}>현재가</th>
+                        <th className={`${TH} text-right`}>배당수익률</th>
+                        <th className={`${TH} text-right`}>배당금</th>
+                        <th className={TH}>시장</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {divStocks.map((s) => (
+                        <tr key={s.code} className="border-b border-card-border/40 hover:bg-card-border/20 transition-colors">
+                          <td className={`${TD} text-accent`}>{s.code}</td>
+                          <td className={TD}>{s.name}</td>
+                          <td className={`${TD} text-right tabular-nums`}>{s.price.toLocaleString()}원</td>
+                          <td className={`${TD} text-right tabular-nums font-medium text-amber-400`}>{s.dividendRate.toFixed(2)}%</td>
+                          <td className={`${TD} text-right tabular-nums`}>{s.dividend.toLocaleString()}원</td>
+                          <td className={TD}>
+                            <span className={`inline-block rounded px-1.5 py-px text-[9px] font-medium ${s.exchange === "KOSPI" ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"}`}>
+                              {s.exchange}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {divStocks.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-muted text-sm">
+                            조건에 맞는 종목이 없습니다
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
