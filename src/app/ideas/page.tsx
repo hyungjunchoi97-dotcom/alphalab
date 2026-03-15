@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "rea
 import dynamic from "next/dynamic";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
+import GuruContent from "@/components/GuruContent";
+import AiTradingContent from "@/components/AiTradingContent";
 
 const RRGChart = dynamic(() => import("@/components/RRGChart"), {
   ssr: false,
@@ -2765,25 +2767,9 @@ export default function IdeasPage() {
           );
         })()}
 
-        {tab === "gurus" && (
-          <div style={{ height: "calc(100vh - 160px)" }}>
-            <iframe
-              src="/gurus"
-              className="w-full h-full border-0"
-              title="Gurus"
-            />
-          </div>
-        )}
+        {tab === "gurus" && <GuruContent />}
 
-        {tab === "ai-trading" && (
-          <div style={{ height: "calc(100vh - 160px)" }}>
-            <iframe
-              src="/ai-trading"
-              className="w-full h-full border-0"
-              title="AI Trading"
-            />
-          </div>
-        )}
+        {tab === "ai-trading" && <AiTradingContent />}
       </main>
     </div>
   );

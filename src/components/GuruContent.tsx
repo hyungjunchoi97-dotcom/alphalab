@@ -1,0 +1,527 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useLang } from "@/lib/LangContext";
+
+// ── Types ─────────────────────────────────────────────────────
+
+interface Holding {
+  ticker: string;
+  company: string;
+  shares: number;
+  value: number;
+  weight: number;
+  putCall: string | null;
+}
+
+interface GuruData {
+  id: string;
+  name: string;
+  fund: string;
+  cik: string;
+  holdings: Holding[];
+  totalValue: number;
+  lastFiled: string;
+}
+
+// ── Categories ────────────────────────────────────────────────
+
+interface Category {
+  id: string;
+  labelKr: string;
+  labelEn: string;
+  guruIds: string[];
+  accent: string;
+}
+
+const CATEGORIES: Category[] = [
+  { id: "value", labelKr: "가치투자", labelEn: "Value", guruIds: ["berkshire", "pabrai", "burry", "einhorn", "klarman", "greenblatt", "lilu", "spier"], accent: "#60a5fa" },
+  { id: "macro", labelKr: "매크로/글로벌", labelEn: "Macro/Global", guruIds: ["druckenmiller", "tepper", "cohen", "englander"], accent: "#34d399" },
+  { id: "growth", labelKr: "성장/테크", labelEn: "Growth/Tech", guruIds: ["ark", "coleman", "halvorsen", "twosigma", "laffont", "ainslie", "loeb"], accent: "#c084fc" },
+  { id: "activist", labelKr: "행동주의", labelEn: "Activist", guruIds: ["ackman", "griffin", "peltz"], accent: "#fbbf24" },
+];
+
+// ── Guru meta (initials, colors, style tag) ───────────────────
+
+interface GuruMeta {
+  initials: string;
+  accent: string;
+  styleKr: string;
+  styleEn: string;
+}
+
+const GURU_META: Record<string, GuruMeta> = {
+  // Value
+  berkshire: { initials: "WB", accent: "#60a5fa", styleKr: "집중 가치투자", styleEn: "Concentrated Value" },
+  pabrai: { initials: "MP", accent: "#60a5fa", styleKr: "딥밸류", styleEn: "Deep Value" },
+  burry: { initials: "MB", accent: "#60a5fa", styleKr: "역발상 가치투자", styleEn: "Contrarian Value" },
+  einhorn: { initials: "DE", accent: "#60a5fa", styleKr: "밸류 숏셀러", styleEn: "Value Short Seller" },
+  klarman: { initials: "SK", accent: "#60a5fa", styleKr: "안전마진 가치투자", styleEn: "Margin of Safety" },
+  // Macro
+  druckenmiller: { initials: "SD", accent: "#34d399", styleKr: "매크로 트레이딩", styleEn: "Macro Trading" },
+  tepper: { initials: "DT", accent: "#34d399", styleKr: "이벤트 드리븐", styleEn: "Event Driven" },
+  cohen: { initials: "SC", accent: "#34d399", styleKr: "퀀트 멀티전략", styleEn: "Quant Multi-Strategy" },
+  englander: { initials: "IE", accent: "#34d399", styleKr: "멀티매니저", styleEn: "Multi-Manager" },
+  // Growth
+  ark: { initials: "CW", accent: "#c084fc", styleKr: "파괴적 혁신", styleEn: "Disruptive Innovation" },
+  coleman: { initials: "CC", accent: "#c084fc", styleKr: "글로벌 테크", styleEn: "Global Tech" },
+  halvorsen: { initials: "AH", accent: "#c084fc", styleKr: "롱숏 펀더멘털", styleEn: "Long/Short Fundamental" },
+  twosigma: { initials: "2Σ", accent: "#c084fc", styleKr: "퀀트 시스템", styleEn: "Quant Systematic" },
+  // Value (additional)
+  greenblatt: { initials: "JG", accent: "#60a5fa", styleKr: "마법공식 퀀트밸류", styleEn: "Magic Formula Quant Value" },
+  lilu: { initials: "LL", accent: "#60a5fa", styleKr: "집중 가치투자", styleEn: "Concentrated Value" },
+  spier: { initials: "GS", accent: "#60a5fa", styleKr: "버핏 스타일 가치투자", styleEn: "Buffett-Style Value" },
+  // Growth (additional)
+  laffont: { initials: "PL", accent: "#c084fc", styleKr: "테크 헤지펀드", styleEn: "Tech Hedge Fund" },
+  ainslie: { initials: "LA", accent: "#c084fc", styleKr: "롱숏 에쿼티", styleEn: "Long/Short Equity" },
+  loeb: { initials: "DL", accent: "#c084fc", styleKr: "이벤트 드리븐", styleEn: "Event Driven" },
+  // Activist
+  ackman: { initials: "BA", accent: "#fbbf24", styleKr: "행동주의 집중투자", styleEn: "Activist Concentrated" },
+  griffin: { initials: "KG", accent: "#fbbf24", styleKr: "마켓메이킹 멀티전략", styleEn: "Market Making Multi-Strategy" },
+  peltz: { initials: "NP", accent: "#fbbf24", styleKr: "행동주의 가치투자", styleEn: "Activist Value" },
+};
+
+function formatValue(v: number): string {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}B`;
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}M`;
+  return `$${v}K`;
+}
+
+function formatShares(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+
+function WeightBar({ weight, color }: { weight: number; color: string }) {
+  return (
+    <div style={{ width: 60, height: 8, background: "#222", borderRadius: 4, overflow: "hidden" }}>
+      <div style={{ width: `${Math.min(weight, 100)}%`, height: "100%", background: color, borderRadius: 4 }} />
+    </div>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────
+
+export default function GuruContent() {
+  const { lang } = useLang();
+  const [gurus, setGurus] = useState<GuruData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/gurus/holdings")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) setGurus(d.gurus);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const guruMap = new Map(gurus.map((g) => [g.id, g]));
+  const selected = selectedId ? guruMap.get(selectedId) || null : null;
+  const meta = selectedId ? GURU_META[selectedId] : null;
+
+  return (
+    <>
+      <main style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 16px" }}>
+        {/* Title */}
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: "#fff", margin: 0 }}>
+            {lang === "kr" ? "슈퍼 투자자 포트폴리오" : "Super Investor Portfolios"}
+          </h2>
+          <p style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
+            {lang === "kr"
+              ? "SEC 13F 공시 기반 22인의 슈퍼 투자자 포트폴리오 추적"
+              : "Track 22 super investor portfolios via SEC 13F filings"}
+          </p>
+        </div>
+
+        {loading ? (
+          /* Loading skeleton */
+          <div style={{ marginBottom: 32 }}>
+            {/* Overview skeleton */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ width: 200, height: 12, background: "#222", borderRadius: 4, marginBottom: 8 }} />
+              <div style={{ width: 300, height: 10, background: "#1a1a1a", borderRadius: 4, marginBottom: 16 }} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="overview-grid">
+                {[0, 1].map((i) => (
+                  <div key={i} style={{ background: "#111", border: "1px solid #222", borderRadius: 8, padding: 20 }}>
+                    <div style={{ width: 160, height: 10, background: "#222", borderRadius: 4, marginBottom: 16 }} />
+                    {[0, 1, 2, 3, 4].map((j) => (
+                      <div key={j} style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                        <div style={{ width: 50, height: 10, background: "#1a1a1a", borderRadius: 4 }} />
+                        <div style={{ flex: 1, height: 10, background: "#1a1a1a", borderRadius: 4 }} />
+                        <div style={{ width: 60, height: 10, background: "#1a1a1a", borderRadius: 4 }} />
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Guru cards skeleton */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }} className="guru-grid">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: 16, height: 160 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#222" }} />
+                    <div>
+                      <div style={{ width: 80, height: 10, background: "#222", borderRadius: 4, marginBottom: 6 }} />
+                      <div style={{ width: 100, height: 8, background: "#1a1a1a", borderRadius: 4 }} />
+                    </div>
+                  </div>
+                  <div style={{ width: 70, height: 8, background: "#1a1a1a", borderRadius: 4, marginBottom: 16 }} />
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <div style={{ width: 40, height: 16, background: "#1a1a1a", borderRadius: 4 }} />
+                    <div style={{ width: 30, height: 16, background: "#1a1a1a", borderRadius: 4 }} />
+                    <div style={{ width: 40, height: 16, background: "#1a1a1a", borderRadius: 4 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Category sections */}
+            {CATEGORIES.map((cat) => (
+              <div key={cat.id} style={{ marginBottom: 28 }}>
+                {/* Category header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <div style={{ width: 3, height: 18, borderRadius: 2, background: cat.accent }} />
+                  <h3 style={{ fontSize: 14, fontWeight: 600, color: "#e8e8e8", margin: 0 }}>
+                    {lang === "kr" ? cat.labelKr : cat.labelEn}
+                  </h3>
+                  <span style={{ fontSize: 11, color: "#555" }}>({cat.guruIds.length})</span>
+                </div>
+
+                {/* Guru cards grid - 4 columns */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, 1fr)",
+                    gap: 12,
+                  }}
+                  className="guru-grid"
+                >
+                  {cat.guruIds.map((gid) => {
+                    const guru = guruMap.get(gid);
+                    const m = GURU_META[gid] || { initials: "??", accent: "#888", styleKr: "", styleEn: "" };
+                    // Hide cards with no data (AUM N/A and 0 holdings)
+                    if (guru && guru.totalValue <= 0 && guru.holdings.length === 0) return null;
+                    const isSelected = selectedId === gid;
+                    return (
+                      <button
+                        key={gid}
+                        onClick={() => setSelectedId(isSelected ? null : gid)}
+                        style={{
+                          background: isSelected ? `${m.accent}08` : "#111",
+                          border: `1px solid ${isSelected ? m.accent : "#222"}`,
+                          borderRadius: 10,
+                          padding: 16,
+                          textAlign: "left",
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                          outline: "none",
+                        }}
+                      >
+                        {/* Top row: avatar + name */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                          <div
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: "50%",
+                              background: `linear-gradient(135deg, ${m.accent}33, ${m.accent}11)`,
+                              border: `2px solid ${m.accent}`,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 14,
+                              fontWeight: 700,
+                              color: m.accent,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {m.initials}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {guru?.name || gid}
+                            </div>
+                            <div style={{ fontSize: 11, color: "#666", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {guru?.fund || ""}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Style tag */}
+                        <div
+                          style={{
+                            display: "inline-block",
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 500,
+                            background: `${m.accent}15`,
+                            color: m.accent,
+                            marginBottom: 10,
+                          }}
+                        >
+                          {lang === "kr" ? m.styleKr : m.styleEn}
+                        </div>
+
+                        {/* Recent filing badge */}
+                        {(() => {
+                          if (!guru?.lastFiled) return null;
+                          const filed = new Date(guru.lastFiled);
+                          const now = new Date();
+                          const diffDays = Math.floor((now.getTime() - filed.getTime()) / (1000 * 60 * 60 * 24));
+                          if (diffDays > 30) return null;
+                          return (
+                            <div
+                              style={{
+                                display: "inline-block",
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                                fontSize: 9,
+                                fontWeight: 600,
+                                background: "#22c55e22",
+                                color: "#22c55e",
+                                marginBottom: 6,
+                              }}
+                            >
+                              {lang === "kr" ? "최근 변동" : "Recently Updated"}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Stats row */}
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 4 }}>
+                          <div>
+                            <div style={{ fontSize: 10, color: "#555" }}>{lang === "kr" ? "AUM" : "AUM"}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: m.accent }}>
+                              {guru && guru.totalValue > 0 ? formatValue(guru.totalValue) : "N/A"}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: "#555" }}>{lang === "kr" ? "종목" : "Holdings"}</div>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: "#ccc" }}>
+                              {guru?.holdings.length || 0}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: "#555" }}>{lang === "kr" ? "공시" : "Filed"}</div>
+                            <div style={{ fontSize: 11, fontWeight: 500, color: "#888" }}>
+                              {guru?.lastFiled?.slice(5) || "—"}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {/* Portfolio Detail */}
+            {selected && meta && (
+              <div
+                style={{
+                  background: "#111",
+                  border: `1px solid ${meta.accent}33`,
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  marginTop: 8,
+                }}
+              >
+                {/* Detail Header */}
+                <div
+                  style={{
+                    padding: "16px 20px",
+                    borderBottom: "1px solid #222",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        background: `${meta.accent}22`,
+                        border: `2px solid ${meta.accent}`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: meta.accent,
+                      }}
+                    >
+                      {meta.initials}
+                    </div>
+                    <div>
+                      <span style={{ fontSize: 15, fontWeight: 600, color: "#fff" }}>{selected.name}</span>
+                      <span style={{ fontSize: 12, color: "#888", marginLeft: 8 }}>{selected.fund}</span>
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                          fontSize: 10,
+                          fontWeight: 500,
+                          background: `${meta.accent}15`,
+                          color: meta.accent,
+                        }}
+                      >
+                        {lang === "kr" ? meta.styleKr : meta.styleEn}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Close */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div
+                      style={{
+                        padding: "6px 14px",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 500,
+                        background: meta.accent,
+                        color: "#000",
+                      }}
+                    >
+                      {lang === "kr" ? "보유 종목" : "Holdings"}
+                    </div>
+                    <button
+                      onClick={() => setSelectedId(null)}
+                      style={{
+                        marginLeft: 8,
+                        padding: "4px 8px",
+                        borderRadius: 4,
+                        fontSize: 12,
+                        border: "none",
+                        cursor: "pointer",
+                        background: "#222",
+                        color: "#888",
+                      }}
+                    >
+                      X
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table */}
+                {(
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid #222" }}>
+                          <th style={{ padding: "10px 16px", textAlign: "left", color: "#666", fontWeight: 500, fontSize: 11 }}>#</th>
+                          <th style={{ padding: "10px 16px", textAlign: "left", color: "#666", fontWeight: 500, fontSize: 11 }}>
+                            {lang === "kr" ? "종목" : "Company"}
+                          </th>
+                          <th style={{ padding: "10px 16px", textAlign: "right", color: "#666", fontWeight: 500, fontSize: 11 }}>
+                            {lang === "kr" ? "주식 수" : "Shares"}
+                          </th>
+                          <th style={{ padding: "10px 16px", textAlign: "right", color: "#666", fontWeight: 500, fontSize: 11 }}>
+                            {lang === "kr" ? "가치" : "Value"}
+                          </th>
+                          <th style={{ padding: "10px 16px", textAlign: "right", color: "#666", fontWeight: 500, fontSize: 11 }}>
+                            {lang === "kr" ? "비중" : "Weight"}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selected.holdings.map((h, i) => {
+                          const hasTicker = !!(h.ticker && h.ticker !== "—");
+                          return (
+                          <tr
+                            key={`${h.company}-${i}`}
+                            style={{
+                              borderBottom: "1px solid #1a1a1a",
+                            }}
+                          >
+                            <td style={{ padding: "10px 16px", color: "#555", fontSize: 12 }}>{i + 1}</td>
+                            <td style={{ padding: "10px 16px" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                {hasTicker ? (
+                                  <span style={{ fontWeight: 600, color: "#fff" }}>{h.ticker}</span>
+                                ) : (
+                                  <span style={{ fontWeight: 600, color: "#fff" }}>{h.company}</span>
+                                )}
+                                {h.putCall === "PUT" && (
+                                  <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 600, background: "#7f1d1d", color: "#fca5a5" }}>PUT</span>
+                                )}
+                                {h.putCall === "CALL" && (
+                                  <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 600, background: "#14532d", color: "#86efac" }}>CALL</span>
+                                )}
+                              </div>
+                              {hasTicker && (
+                                <div style={{ fontSize: 11, color: "#888", marginTop: 1 }}>{h.company}</div>
+                              )}
+                            </td>
+                            <td style={{ padding: "10px 16px", textAlign: "right", color: "#ccc" }}>
+                              {formatShares(h.shares)}
+                            </td>
+                            <td style={{ padding: "10px 16px", textAlign: "right", color: "#fff", fontWeight: 500 }}>
+                              {formatValue(h.value)}
+                            </td>
+                            <td style={{ padding: "10px 16px", textAlign: "right" }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                                <span style={{ color: meta.accent, fontWeight: 600, fontSize: 12 }}>
+                                  {h.weight.toFixed(1)}%
+                                </span>
+                                <WeightBar weight={h.weight} color={meta.accent} />
+                              </div>
+                            </td>
+                          </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div
+                  style={{
+                    padding: "12px 20px",
+                    borderTop: "1px solid #1a1a1a",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontSize: 11,
+                    color: "#666",
+                  }}
+                >
+                  <span>{lang === "kr" ? "출처: SEC EDGAR 13F 공시" : "Source: SEC EDGAR 13F Filings"}</span>
+                  <span>{lang === "kr" ? "공시일" : "Filed"}: {selected.lastFiled || "—"}</span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* Responsive grid CSS */}
+      <style>{`
+        @media (max-width: 1024px) {
+          .guru-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          .overview-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 768px) {
+          .guru-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        @media (max-width: 480px) {
+          .guru-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+    </>
+  );
+}
