@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
 import dynamic from "next/dynamic";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
@@ -300,6 +300,9 @@ export default function IdeasPage() {
   const [divMinRate, setDivMinRate] = useState(3);
   const [divMaxRate, setDivMaxRate] = useState(10);
   const [divGrowthOnly, setDivGrowthOnly] = useState(false);
+  const [divNewsMap, setDivNewsMap] = useState<Record<string, { title: string; officeName: string; datetime: string; url: string }[]>>({});
+  const [divNewsLoading, setDivNewsLoading] = useState<string | null>(null);
+  const [divExpandedCode, setDivExpandedCode] = useState<string | null>(null);
   const [divCalcAmount, setDivCalcAmount] = useState(10000);
   const [divCalcRate, setDivCalcRate] = useState(4);
   const [divCalcYears, setDivCalcYears] = useState(10);
@@ -2255,7 +2258,27 @@ export default function IdeasPage() {
                     </thead>
                     <tbody>
                       {divStocks.filter(s => !divGrowthOnly || s.dividendGrowth).map((s) => (
-                        <tr key={s.code} className="border-b border-card-border/40 hover:bg-card-border/20 transition-colors">
+                        <Fragment key={s.code}>
+                        <tr
+                          className="border-b border-card-border/40 hover:bg-card-border/20 transition-colors cursor-pointer"
+                          onClick={() => {
+                            if (divExpandedCode === s.code) {
+                              setDivExpandedCode(null);
+                              return;
+                            }
+                            setDivExpandedCode(s.code);
+                            if (!divNewsMap[s.code]) {
+                              setDivNewsLoading(s.code);
+                              fetch(`/api/stock-news?code=${s.code}`)
+                                .then(r => r.json())
+                                .then(j => {
+                                  if (j.ok) setDivNewsMap(prev => ({ ...prev, [s.code]: j.items }));
+                                })
+                                .catch(() => {})
+                                .finally(() => setDivNewsLoading(null));
+                            }
+                          }}
+                        >
                           <td className={`${TD} text-accent`}>{s.code}</td>
                           <td className={TD}>{s.name}</td>
                           <td className={`${TD} text-right tabular-nums`}>{s.price.toLocaleString()}원</td>
@@ -2279,6 +2302,39 @@ export default function IdeasPage() {
                             }
                           </td>
                         </tr>
+                        {divExpandedCode === s.code && (
+                          <tr className="bg-white/[0.02]">
+                            <td colSpan={8} className="px-4 py-3">
+                              {divNewsLoading === s.code ? (
+                                <div className="text-[11px] text-muted animate-pulse">뉴스 불러오는 중...</div>
+                              ) : (divNewsMap[s.code] ?? []).length === 0 ? (
+                                <div className="text-[11px] text-muted">관련 뉴스가 없습니다.</div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {(divNewsMap[s.code] ?? []).map((news, ni) => (
+                                    <a
+                                      key={ni}
+                                      href={news.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={e => e.stopPropagation()}
+                                      className="flex items-start gap-3 group"
+                                    >
+                                      <span className="text-[10px] text-muted/50 tabular-nums shrink-0 mt-0.5">
+                                        {`${news.datetime.slice(0,4)}.${news.datetime.slice(4,6)}.${news.datetime.slice(6,8)}`}
+                                      </span>
+                                      <span className="text-[11px] text-muted group-hover:text-foreground transition-colors leading-snug">
+                                        {news.title}
+                                      </span>
+                                      <span className="text-[9px] text-muted/40 shrink-0 mt-0.5">{news.officeName}</span>
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
                       ))}
                       {divStocks.length === 0 && (
                         <tr>
