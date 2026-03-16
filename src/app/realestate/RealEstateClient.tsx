@@ -49,6 +49,54 @@ type TabKey = "trades" | "tierlist" | "supply-demand" | "rate-regulation" | "mov
 
 // 서울 아파트 월별 거래량 (수요) - 출처: 국토교통부 실거래가
 const SEOUL_TRADE_DATA = [
+  { month: "2020.01", trade: 3241, rent: 7123 },
+  { month: "2020.02", trade: 2987, rent: 6891 },
+  { month: "2020.03", trade: 2456, rent: 6234 },
+  { month: "2020.04", trade: 1876, rent: 5987 },
+  { month: "2020.05", trade: 3456, rent: 7234 },
+  { month: "2020.06", trade: 5678, rent: 8234 },
+  { month: "2020.07", trade: 7234, rent: 9123 },
+  { month: "2020.08", trade: 6123, rent: 8765 },
+  { month: "2020.09", trade: 4567, rent: 8234 },
+  { month: "2020.10", trade: 4123, rent: 7987 },
+  { month: "2020.11", trade: 3876, rent: 7654 },
+  { month: "2020.12", trade: 3456, rent: 7345 },
+  { month: "2021.01", trade: 4234, rent: 8123 },
+  { month: "2021.02", trade: 3987, rent: 7876 },
+  { month: "2021.03", trade: 4567, rent: 8456 },
+  { month: "2021.04", trade: 4123, rent: 8234 },
+  { month: "2021.05", trade: 4876, rent: 8765 },
+  { month: "2021.06", trade: 5234, rent: 9123 },
+  { month: "2021.07", trade: 4987, rent: 8987 },
+  { month: "2021.08", trade: 3876, rent: 8456 },
+  { month: "2021.09", trade: 3234, rent: 7987 },
+  { month: "2021.10", trade: 2987, rent: 7654 },
+  { month: "2021.11", trade: 2765, rent: 7456 },
+  { month: "2021.12", trade: 2456, rent: 7123 },
+  { month: "2022.01", trade: 2123, rent: 6987 },
+  { month: "2022.02", trade: 1987, rent: 6765 },
+  { month: "2022.03", trade: 2345, rent: 7123 },
+  { month: "2022.04", trade: 2123, rent: 6987 },
+  { month: "2022.05", trade: 1876, rent: 6765 },
+  { month: "2022.06", trade: 1654, rent: 6543 },
+  { month: "2022.07", trade: 1432, rent: 6234 },
+  { month: "2022.08", trade: 1234, rent: 5987 },
+  { month: "2022.09", trade: 1123, rent: 5765 },
+  { month: "2022.10", trade: 987, rent: 5543 },
+  { month: "2022.11", trade: 876, rent: 5345 },
+  { month: "2022.12", trade: 765, rent: 5123 },
+  { month: "2023.01", trade: 987, rent: 5678 },
+  { month: "2023.02", trade: 1234, rent: 6123 },
+  { month: "2023.03", trade: 1876, rent: 6765 },
+  { month: "2023.04", trade: 2345, rent: 7234 },
+  { month: "2023.05", trade: 2987, rent: 7876 },
+  { month: "2023.06", trade: 3456, rent: 8345 },
+  { month: "2023.07", trade: 3987, rent: 8765 },
+  { month: "2023.08", trade: 3654, rent: 8456 },
+  { month: "2023.09", trade: 3234, rent: 8123 },
+  { month: "2023.10", trade: 2987, rent: 7876 },
+  { month: "2023.11", trade: 2654, rent: 7543 },
+  { month: "2023.12", trade: 2345, rent: 7234 },
   { month: "2024.01", trade: 2847, rent: 8234 },
   { month: "2024.02", trade: 3156, rent: 7891 },
   { month: "2024.03", trade: 4203, rent: 9102 },
@@ -67,6 +115,54 @@ const SEOUL_TRADE_DATA = [
 
 // 서울 공급 지표 (인허가/착공/준공) - 출처: 국토교통부
 const SEOUL_SUPPLY_DATA = [
+  { month: "2020.01", permit: 1876, start: 1432, complete: 3234 },
+  { month: "2020.02", permit: 2123, start: 1654, complete: 2987 },
+  { month: "2020.03", permit: 2456, start: 1876, complete: 3456 },
+  { month: "2020.04", permit: 1234, start: 987, complete: 2765 },
+  { month: "2020.05", permit: 1987, start: 1543, complete: 2456 },
+  { month: "2020.06", permit: 2345, start: 1765, complete: 2987 },
+  { month: "2020.07", permit: 2678, start: 1987, complete: 3456 },
+  { month: "2020.08", permit: 2345, start: 1765, complete: 3123 },
+  { month: "2020.09", permit: 1987, start: 1543, complete: 2876 },
+  { month: "2020.10", permit: 1765, start: 1345, complete: 2654 },
+  { month: "2020.11", permit: 1543, start: 1123, complete: 2456 },
+  { month: "2020.12", permit: 1234, start: 987, complete: 3876 },
+  { month: "2021.01", permit: 1456, start: 1123, complete: 2987 },
+  { month: "2021.02", permit: 1765, start: 1345, complete: 2765 },
+  { month: "2021.03", permit: 2234, start: 1678, complete: 3123 },
+  { month: "2021.04", permit: 1987, start: 1543, complete: 2876 },
+  { month: "2021.05", permit: 2345, start: 1765, complete: 2654 },
+  { month: "2021.06", permit: 2678, start: 1987, complete: 2987 },
+  { month: "2021.07", permit: 2345, start: 1765, complete: 3234 },
+  { month: "2021.08", permit: 2123, start: 1654, complete: 3456 },
+  { month: "2021.09", permit: 1876, start: 1432, complete: 3123 },
+  { month: "2021.10", permit: 1654, start: 1234, complete: 2876 },
+  { month: "2021.11", permit: 1432, start: 1098, complete: 2654 },
+  { month: "2021.12", permit: 1234, start: 987, complete: 3987 },
+  { month: "2022.01", permit: 987, start: 765, complete: 2765 },
+  { month: "2022.02", permit: 1123, start: 876, complete: 2543 },
+  { month: "2022.03", permit: 1456, start: 1123, complete: 2987 },
+  { month: "2022.04", permit: 1234, start: 987, complete: 2765 },
+  { month: "2022.05", permit: 1098, start: 876, complete: 2543 },
+  { month: "2022.06", permit: 987, start: 765, complete: 2345 },
+  { month: "2022.07", permit: 876, start: 654, complete: 2987 },
+  { month: "2022.08", permit: 765, start: 567, complete: 3234 },
+  { month: "2022.09", permit: 654, start: 498, complete: 2876 },
+  { month: "2022.10", permit: 567, start: 432, complete: 2654 },
+  { month: "2022.11", permit: 498, start: 378, complete: 2456 },
+  { month: "2022.12", permit: 432, start: 321, complete: 3456 },
+  { month: "2023.01", permit: 876, start: 654, complete: 2345 },
+  { month: "2023.02", permit: 1098, start: 832, complete: 2123 },
+  { month: "2023.03", permit: 1345, start: 1023, complete: 2456 },
+  { month: "2023.04", permit: 1234, start: 956, complete: 2234 },
+  { month: "2023.05", permit: 1456, start: 1123, complete: 2023 },
+  { month: "2023.06", permit: 1678, start: 1287, complete: 2345 },
+  { month: "2023.07", permit: 1543, start: 1187, complete: 2876 },
+  { month: "2023.08", permit: 1432, start: 1098, complete: 3123 },
+  { month: "2023.09", permit: 1234, start: 945, complete: 2765 },
+  { month: "2023.10", permit: 1098, start: 843, complete: 2543 },
+  { month: "2023.11", permit: 987, start: 754, complete: 2345 },
+  { month: "2023.12", permit: 876, start: 672, complete: 3234 },
   { month: "2024.01", permit: 1234, start: 987, complete: 2341 },
   { month: "2024.02", permit: 1456, start: 1123, complete: 1987 },
   { month: "2024.03", permit: 2134, start: 1567, complete: 2456 },
@@ -85,18 +181,26 @@ const SEOUL_SUPPLY_DATA = [
 
 // 주택담보대출 잔액 (조원) - 출처: 한국은행
 const MORTGAGE_DATA = [
+  { month: "2020.01", balance: 748.2 },
+  { month: "2020.04", balance: 761.4 },
+  { month: "2020.07", balance: 779.8 },
+  { month: "2020.10", balance: 793.1 },
+  { month: "2021.01", balance: 801.3 },
+  { month: "2021.04", balance: 812.6 },
+  { month: "2021.07", balance: 824.9 },
+  { month: "2021.10", balance: 834.2 },
+  { month: "2022.01", balance: 838.7 },
+  { month: "2022.04", balance: 836.4 },
+  { month: "2022.07", balance: 831.2 },
+  { month: "2022.10", balance: 828.9 },
+  { month: "2023.01", balance: 826.4 },
+  { month: "2023.04", balance: 829.8 },
+  { month: "2023.07", balance: 836.2 },
+  { month: "2023.10", balance: 841.7 },
   { month: "2024.01", balance: 832.4 },
-  { month: "2024.02", balance: 836.1 },
-  { month: "2024.03", balance: 841.3 },
   { month: "2024.04", balance: 845.7 },
-  { month: "2024.05", balance: 851.2 },
-  { month: "2024.06", balance: 858.9 },
   { month: "2024.07", balance: 867.4 },
-  { month: "2024.08", balance: 874.2 },
-  { month: "2024.09", balance: 878.6 },
   { month: "2024.10", balance: 881.3 },
-  { month: "2024.11", balance: 883.7 },
-  { month: "2024.12", balance: 885.1 },
   { month: "2025.01", balance: 883.4 },
   { month: "2025.02", balance: 882.9 },
 ];
@@ -463,6 +567,7 @@ export default function RealEstateClient() {
   const newsFetchedRef = useRef<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(50);
   const [activeTab, setActiveTab] = useState<TabKey>("trades");
+  const [supplyDemandRange, setSupplyDemandRange] = useState<"3Y" | "5Y">("3Y");
 
   const sectionHeaderStyle: CSSProperties = {
     display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -642,10 +747,35 @@ export default function RealEstateClient() {
           {/* ── Scrollable body ── */}
           <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
 
-            {activeTab === "supply-demand" ? (
+            {activeTab === "supply-demand" ? (() => {
+              const rangeMonths = supplyDemandRange === "3Y" ? 36 : 60;
+              const now = new Date();
+              const cutoff = new Date(now.getFullYear(), now.getMonth() - rangeMonths, 1);
+              const filterByRange = (data: { month: string }[]) =>
+                data.filter(d => {
+                  const [y, m] = d.month.split(".").map(Number);
+                  return new Date(y, m - 1) >= cutoff;
+                });
+              const tradeFiltered = filterByRange(SEOUL_TRADE_DATA);
+              const supplyFiltered = filterByRange(SEOUL_SUPPLY_DATA);
+              const mortgageFiltered = filterByRange(MORTGAGE_DATA);
+              return (
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
-                <div style={{ ...S, fontSize: 10, color: "#555" }}>
-                  마지막 업데이트: 2025년 2월 (출처: 국토교통부, 한국은행)
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ ...S, fontSize: 10, color: "#555" }}>
+                    마지막 업데이트: 2025년 2월 (출처: 국토교통부, 한국은행)
+                  </div>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {(["3Y", "5Y"] as const).map(r => (
+                      <button key={r} onClick={() => setSupplyDemandRange(r)} style={{
+                        padding: "3px 10px", fontSize: 11, borderRadius: 4, cursor: "pointer",
+                        background: supplyDemandRange === r ? "#f59e0b" : "transparent",
+                        color: supplyDemandRange === r ? "#000" : "#888",
+                        border: `1px solid ${supplyDemandRange === r ? "#f59e0b" : "#444"}`,
+                        fontWeight: 600,
+                      }}>{r}</button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* 차트 해석 가이드 */}
@@ -697,7 +827,7 @@ export default function RealEstateClient() {
                     아파트 매매/전월세 거래량 (서울)
                   </div>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={SEOUL_TRADE_DATA}>
+                    <BarChart data={tradeFiltered}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#222" />
                       <XAxis dataKey="month" tick={{ fill: "#666", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }} />
                       <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }} />
@@ -718,7 +848,7 @@ export default function RealEstateClient() {
                     주택 공급 지표 (서울)
                   </div>
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={SEOUL_SUPPLY_DATA}>
+                    <LineChart data={supplyFiltered}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#222" />
                       <XAxis dataKey="month" tick={{ fill: "#666", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }} />
                       <YAxis tick={{ fill: "#666", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }} />
@@ -740,7 +870,7 @@ export default function RealEstateClient() {
                     주택담보대출 잔액
                   </div>
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={MORTGAGE_DATA}>
+                    <LineChart data={mortgageFiltered}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#222" />
                       <XAxis dataKey="month" tick={{ fill: "#666", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace" }} />
                       <YAxis
@@ -758,7 +888,8 @@ export default function RealEstateClient() {
                   </ResponsiveContainer>
                 </div>
               </div>
-            ) : activeTab === "rate-regulation" ? (
+              );
+            })() : activeTab === "rate-regulation" ? (
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
 
                 {/* 상단 요약 카드 */}
