@@ -36,7 +36,7 @@ function changeToBg(chg: number): string {
   return "#b40000";
 }
 
-type Market = "KR" | "US" | "JP";
+type Market = "KR" | "JP";
 
 // ── Tooltip state ──────────────────────────────────────────
 
@@ -127,10 +127,6 @@ export default function HeatmapTreemap() {
   const [krLoading, setKrLoading] = useState(true);
   const [krAsOf, setKrAsOf] = useState<string>("");
 
-  const [usSectors, setUsSectors] = useState<Sector[]>([]);
-  const [usLoading, setUsLoading] = useState(true);
-  const [usAsOf, setUsAsOf] = useState<string>("");
-
   const jpSectors: Sector[] = [];
   const jpLoading = false;
   const jpAsOf = "";
@@ -147,10 +143,8 @@ export default function HeatmapTreemap() {
 
   // Per-market error + consecutive failure tracking
   const [krError, setKrError] = useState(false);
-  const [usError, setUsError] = useState(false);
   const jpError = false;
   const krFail = useRef(0);
-  const usFail = useRef(0);
   // KR heatmap – 60s, AbortController, backoff after 3 failures
   useEffect(() => {
     let abortCtrl: AbortController | null = null;
@@ -179,38 +173,10 @@ export default function HeatmapTreemap() {
     return () => { abortCtrl?.abort(); clearTimeout(timeoutId); };
   }, []);
 
-  // US heatmap – 60s, AbortController, backoff after 3 failures
-  useEffect(() => {
-    let abortCtrl: AbortController | null = null;
-    let timeoutId: ReturnType<typeof setTimeout>;
-    async function run() {
-      abortCtrl = new AbortController();
-      try {
-        const res = await fetch("/api/heatmap?market=us", { signal: abortCtrl.signal });
-        const json = await res.json();
-        if (json.ok) {
-          setUsSectors(json.sectors);
-          setUsAsOf(json.asOf);
-          setUsError(false);
-          usFail.current = 0;
-        } else { throw new Error(); }
-      } catch (e) {
-        if ((e as Error).name === "AbortError") return;
-        usFail.current++;
-        setUsError(true);
-      } finally {
-        setUsLoading(false);
-        timeoutId = setTimeout(run, usFail.current >= 3 ? 5 * 60 * 1000 : 60 * 1000);
-      }
-    }
-    run();
-    return () => { abortCtrl?.abort(); clearTimeout(timeoutId); };
-  }, []);
-
-  const sectors = activeMarket === "KR" ? krSectors : activeMarket === "US" ? usSectors : jpSectors;
-  const asOf = activeMarket === "KR" ? krAsOf : activeMarket === "US" ? usAsOf : jpAsOf;
-  const isLoading = activeMarket === "KR" ? krLoading : activeMarket === "US" ? usLoading : jpLoading;
-  const hasError = activeMarket === "KR" ? krError : activeMarket === "US" ? usError : jpError;
+  const sectors = activeMarket === "KR" ? krSectors : jpSectors;
+  const asOf = activeMarket === "KR" ? krAsOf : jpAsOf;
+  const isLoading = activeMarket === "KR" ? krLoading : jpLoading;
+  const hasError = activeMarket === "KR" ? krError : jpError;
 
   const sectorCaps = sectors.map((s) => ({
     cap: s.stocks.reduce((sum, st) => sum + st.cap, 0),
@@ -235,7 +201,7 @@ export default function HeatmapTreemap() {
     <div className="flex flex-col h-full">
       <div className="mb-2 flex items-center justify-between shrink-0">
         <div className="inline-flex gap-px rounded bg-card-border p-px">
-          {(["KR", "US"] as const).map((m) => (
+          {(["KR"] as const).map((m) => (
             <button
               key={m}
               onClick={() => { setActiveMarket(m); setTooltip(null); }}
