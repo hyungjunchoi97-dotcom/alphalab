@@ -359,6 +359,8 @@ function fmtPrice(manwon: number): string {
 function fmtPyeong(manwon: number): string {
   if (!manwon) return "—";
   if (manwon >= 10000) return `${(manwon / 10000).toFixed(1)}억/평`;
+  const rounded = Math.round(manwon / 100) * 100;
+  if (rounded >= 1000) return `${(manwon / 1000).toFixed(1)}천만/평`;
   return `${manwon.toLocaleString()}만/평`;
 }
 

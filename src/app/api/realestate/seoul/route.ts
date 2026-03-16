@@ -327,7 +327,7 @@ export async function GET(request: NextRequest) {
         const area = parseArea(item.excluUseAr);
         if (code && price > 0 && area > 0) {
           if (!map[code]) map[code] = [];
-          map[code].push(price / (area / 3.305));
+          map[code].push(price / (area / 3.3058));
         }
       }
     }

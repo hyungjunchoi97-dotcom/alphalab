@@ -30,19 +30,19 @@ const NAME_TO_CODE: Record<string, string> = {
 
 const LEGEND_ITEMS = [
   { color: "#1a1a1a", label: "데이터 없음" },
-  { color: "#153025", label: "~2,000만" },
-  { color: "#1e4a28", label: "2,000~3,000만" },
-  { color: "#4a4012", label: "3,000~4,000만" },
-  { color: "#5a2e0c", label: "4,000~5,000만" },
-  { color: "#6a1010", label: "5,000만+" },
+  { color: "#153025", label: "~2,000만/평" },
+  { color: "#1e4a28", label: "2,000~3,500만/평" },
+  { color: "#4a4012", label: "3,500~5,000만/평" },
+  { color: "#5a2e0c", label: "5,000~7,000만/평" },
+  { color: "#6a1010", label: "7,000만+/평" },
 ];
 
-function priceColor(avgPricePerPyeong: number): string {
-  if (avgPricePerPyeong <= 0) return "#1a1a1a";
-  if (avgPricePerPyeong < 2000) return "#153025";
-  if (avgPricePerPyeong < 3000) return "#1e4a28";
-  if (avgPricePerPyeong < 4000) return "#4a4012";
-  if (avgPricePerPyeong < 5000) return "#5a2e0c";
+function priceColor(ppp: number): string {
+  if (ppp <= 0) return "#1a1a1a";
+  if (ppp < 2000) return "#153025";
+  if (ppp < 3500) return "#1e4a28";
+  if (ppp < 5000) return "#4a4012";
+  if (ppp < 7000) return "#5a2e0c";
   return "#6a1010";
 }
 
@@ -56,6 +56,8 @@ function fmtPrice(manwon: number): string {
 function fmtPyeong(manwon: number): string {
   if (!manwon) return "—";
   if (manwon >= 10000) return `${(manwon / 10000).toFixed(1)}억/평`;
+  const rounded = Math.round(manwon / 100) * 100;
+  if (rounded >= 1000) return `${(manwon / 1000).toFixed(1)}천만/평`;
   return `${manwon.toLocaleString()}만/평`;
 }
 
@@ -379,6 +381,7 @@ export default function SeoulMap({ districts, selected, onSelect }: Props) {
         >
           <div className="font-semibold mb-1" style={{ color: "#e8e8e8", fontSize: 13 }}>{tooltip.name}</div>
           <div style={{ color: "#f5a623" }}>평당 {fmtPyeong(tooltip.avgPricePerPyeong)}</div>
+          <div style={{ color: "#aaa", fontSize: 10 }}>평균 {fmtPrice(tooltip.avgPrice)}</div>
           <div style={{ color: "#888888" }}>거래 {tooltip.count}건</div>
           {tooltip.change != null && (
             <div style={{ color: tooltip.change >= 0 ? "#22c55e" : "#ef4444" }}>
