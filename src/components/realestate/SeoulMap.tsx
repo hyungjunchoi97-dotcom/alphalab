@@ -7,6 +7,7 @@ export interface DistrictData {
   code: string;
   name: string;
   avgPrice: number; // 만원
+  avgPricePerPyeong?: number; // 만원/평
   count: number;
   change: number | null;
 }
@@ -29,20 +30,19 @@ const NAME_TO_CODE: Record<string, string> = {
 
 const LEGEND_ITEMS = [
   { color: "#1a1a1a", label: "데이터 없음" },
-  { color: "#153025", label: "~10억" },
-  { color: "#1e4a28", label: "10~15억" },
-  { color: "#4a4012", label: "15~20억" },
-  { color: "#5a2e0c", label: "20~25억" },
-  { color: "#6a1010", label: "25억+" },
+  { color: "#153025", label: "~2,000만" },
+  { color: "#1e4a28", label: "2,000~3,000만" },
+  { color: "#4a4012", label: "3,000~4,000만" },
+  { color: "#5a2e0c", label: "4,000~5,000만" },
+  { color: "#6a1010", label: "5,000만+" },
 ];
 
-function priceColor(avgPrice: number): string {
-  const ok = avgPrice / 10000;
-  if (ok <= 0) return "#1a1a1a";
-  if (ok < 10) return "#153025";
-  if (ok < 15) return "#1e4a28";
-  if (ok < 20) return "#4a4012";
-  if (ok < 25) return "#5a2e0c";
+function priceColor(avgPricePerPyeong: number): string {
+  if (avgPricePerPyeong <= 0) return "#1a1a1a";
+  if (avgPricePerPyeong < 2000) return "#153025";
+  if (avgPricePerPyeong < 3000) return "#1e4a28";
+  if (avgPricePerPyeong < 4000) return "#4a4012";
+  if (avgPricePerPyeong < 5000) return "#5a2e0c";
   return "#6a1010";
 }
 
@@ -51,6 +51,12 @@ function fmtPrice(manwon: number): string {
   const ok = manwon / 10000;
   if (ok >= 1) return `${ok.toFixed(1)}억`;
   return `${manwon.toLocaleString()}만`;
+}
+
+function fmtPyeong(manwon: number): string {
+  if (!manwon) return "—";
+  if (manwon >= 10000) return `${(manwon / 10000).toFixed(1)}억/평`;
+  return `${manwon.toLocaleString()}만/평`;
 }
 
 // Han River in geographic coordinates
@@ -82,6 +88,7 @@ type GeoCollection = { type: string; features: GeoFeature[] };
 interface TooltipState {
   name: string;
   avgPrice: number;
+  avgPricePerPyeong: number;
   count: number;
   change: number | null;
   x: number;
@@ -206,7 +213,7 @@ export default function SeoulMap({ districts, selected, onSelect }: Props) {
       const code = NAME_TO_CODE[geoName];
       const data = code ? districtMap.get(code) : undefined;
       const isSelected = selected === code;
-      const fillColor = data ? priceColor(data.avgPrice) : "#1a1a1a";
+      const fillColor = data ? priceColor(data.avgPricePerPyeong ?? 0) : "#1a1a1a";
       const shortName = geoName.replace("구", "");
       const centroid = pathGen.centroid(f as Parameters<typeof pathGen.centroid>[0]);
       return {
@@ -297,6 +304,7 @@ export default function SeoulMap({ districts, selected, onSelect }: Props) {
                   setTooltip({
                     name: p.geoName,
                     avgPrice: p.data.avgPrice,
+                    avgPricePerPyeong: p.data.avgPricePerPyeong ?? 0,
                     count: p.data.count,
                     change: p.data.change,
                     x: e.clientX - (rect?.left ?? 0),
@@ -370,7 +378,7 @@ export default function SeoulMap({ districts, selected, onSelect }: Props) {
           }}
         >
           <div className="font-semibold mb-1" style={{ color: "#e8e8e8", fontSize: 13 }}>{tooltip.name}</div>
-          <div style={{ color: "#f5a623" }}>평균 {fmtPrice(tooltip.avgPrice)}</div>
+          <div style={{ color: "#f5a623" }}>평당 {fmtPyeong(tooltip.avgPricePerPyeong)}</div>
           <div style={{ color: "#888888" }}>거래 {tooltip.count}건</div>
           {tooltip.change != null && (
             <div style={{ color: tooltip.change >= 0 ? "#22c55e" : "#ef4444" }}>

@@ -356,6 +356,12 @@ function fmtPrice(manwon: number): string {
   return ok >= 1 ? `${ok.toFixed(1)}억` : `${manwon.toLocaleString()}만`;
 }
 
+function fmtPyeong(manwon: number): string {
+  if (!manwon) return "—";
+  if (manwon >= 10000) return `${(manwon / 10000).toFixed(1)}억/평`;
+  return `${manwon.toLocaleString()}만/평`;
+}
+
 const DISTRICT_NAME_TO_CODE: Record<string, string> = {
   "종로구": "11110", "중구": "11140", "용산구": "11170", "성동구": "11200",
   "광진구": "11215", "동대문구": "11230", "중랑구": "11260", "성북구": "11290",
@@ -398,9 +404,9 @@ function DistrictDetail({ data, onClear, trades }: DistrictDetailProps) {
       </div>
 
       <div style={{ background: "#161616", border: "1px solid #1e1e1e", padding: "10px 12px" }}>
-        <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", marginBottom: 4, letterSpacing: "0.5px" }}>평균 매매가</div>
+        <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", marginBottom: 4, letterSpacing: "0.5px" }}>평당 매매가</div>
         <div style={{ fontSize: 28, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: "#f59e0b", lineHeight: 1 }}>
-          {fmtPrice(data.avgPrice)}
+          {fmtPyeong(data.avgPricePerPyeong ?? 0)}
         </div>
       </div>
 
@@ -475,9 +481,9 @@ function OverallSummary({ loading, overallAvg, validCount, gangnam3Avg, nonGangn
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div>
-        <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", marginBottom: 3 }}>서울 평균 매매가</div>
+        <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", marginBottom: 3 }}>서울 평당 매매가</div>
         <div style={{ fontSize: 28, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: "#f59e0b", lineHeight: 1 }}>
-          {fmtPrice(Math.round(overallAvg))}
+          {fmtPyeong(Math.round(overallAvg))}
         </div>
         <div style={{ fontSize: 10, fontFamily: "monospace", color: "#333", marginTop: 3 }}>{validCount}개 구 · 구 클릭시 상세</div>
       </div>
@@ -496,8 +502,8 @@ function OverallSummary({ loading, overallAvg, validCount, gangnam3Avg, nonGangn
               <div style={{ flex: 1, height: 2, background: "#222" }}>
                 <div style={{ width: row.w, height: "100%", background: row.color }} />
               </div>
-              <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: row.color, width: 52, textAlign: "right", flexShrink: 0 }}>
-                {fmtPrice(Math.round(row.avg))}
+              <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: row.color, width: 62, textAlign: "right", flexShrink: 0 }}>
+                {fmtPyeong(Math.round(row.avg))}
               </span>
             </div>
           ))}
@@ -520,7 +526,7 @@ function OverallSummary({ loading, overallAvg, validCount, gangnam3Avg, nonGangn
               <span style={{ fontSize: 12, fontFamily: "'IBM Plex Sans KR', 'Noto Sans KR', sans-serif", color: "#e0e0e0" }}>{d.name}</span>
             </div>
             <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: "#f59e0b" }}>
-              {fmtPrice(d.avgPrice)}
+              {fmtPyeong(d.avgPricePerPyeong ?? 0)}
             </span>
           </div>
         ))}
@@ -587,7 +593,7 @@ export default function RealEstateClient() {
       const json: ApiResponse = await res.json();
       if (!json.ok) throw new Error("API 오류");
       // If all districts have avgPrice=0, refetch once with refresh=true
-      if (!refresh && json.districts?.every(d => d.avgPrice === 0)) {
+      if (!refresh && json.districts?.every((d: { avgPrice: number }) => d.avgPrice === 0)) {
         const retryRes = await fetch(`/api/realestate/seoul?ym=${month}&refresh=true`);
         const retryJson: ApiResponse = await retryRes.json();
         if (retryJson.ok) { setData(retryJson); return; }
@@ -636,16 +642,16 @@ export default function RealEstateClient() {
 
   // Derived
   const districts = data?.districts ?? [];
-  const validDistricts = districts.filter(d => d.avgPrice > 0);
-  const sortedByPrice = [...validDistricts].sort((a, b) => b.avgPrice - a.avgPrice);
-  const maxPrice = sortedByPrice[0]?.avgPrice ?? 1;
+  const validDistricts = districts.filter(d => (d.avgPricePerPyeong ?? 0) > 0);
+  const sortedByPrice = [...validDistricts].sort((a, b) => (b.avgPricePerPyeong ?? 0) - (a.avgPricePerPyeong ?? 0));
+  const maxPrice = sortedByPrice[0]?.avgPricePerPyeong ?? 1;
 
   const overallAvg = validDistricts.length
-    ? validDistricts.reduce((s, d) => s + d.avgPrice, 0) / validDistricts.length : 0;
+    ? validDistricts.reduce((s, d) => s + (d.avgPricePerPyeong ?? 0), 0) / validDistricts.length : 0;
   const gangnam3 = validDistricts.filter(d => ["강남구", "서초구", "송파구"].includes(d.name));
-  const gangnam3Avg = gangnam3.length ? gangnam3.reduce((s, d) => s + d.avgPrice, 0) / gangnam3.length : 0;
+  const gangnam3Avg = gangnam3.length ? gangnam3.reduce((s, d) => s + (d.avgPricePerPyeong ?? 0), 0) / gangnam3.length : 0;
   const nonGangnam = validDistricts.filter(d => !["강남구", "서초구", "송파구"].includes(d.name));
-  const nonGangnamAvg = nonGangnam.length ? nonGangnam.reduce((s, d) => s + d.avgPrice, 0) / nonGangnam.length : 0;
+  const nonGangnamAvg = nonGangnam.length ? nonGangnam.reduce((s, d) => s + (d.avgPricePerPyeong ?? 0), 0) / nonGangnam.length : 0;
   const top3Price = sortedByPrice.slice(0, 3);
   const top3Count = [...validDistricts].sort((a, b) => b.count - a.count).slice(0, 3);
 
@@ -1455,7 +1461,7 @@ export default function RealEstateClient() {
             {!loading && sortedByPrice.length > 0 && (
               <div style={{ borderBottom: "1px solid #1e1e1e", background: "#0d0d0d" }}>
                 <div style={sectionHeaderStyle} onClick={() => setRankingOpen(v => !v)}>
-                  <span style={{ ...sectionTitleStyle, fontSize: 12 }}>구별 평균 매매가 랭킹</span>
+                  <span style={{ ...sectionTitleStyle, fontSize: 12 }}>구별 평당 매매가 랭킹</span>
                   <span style={{
                     fontSize: 14, color: "#ffffff", transition: "transform 0.2s",
                     transform: rankingOpen ? "rotate(180deg)" : "rotate(0deg)",
@@ -1466,7 +1472,7 @@ export default function RealEstateClient() {
                   <div style={{ padding: "0 14px 10px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 24px" }}>
                     {sortedByPrice.map((d, i) => {
                       const isSel = selectedDistrict === d.code;
-                      const w = `${Math.round((d.avgPrice / maxPrice) * 100)}%`;
+                      const w = `${Math.round(((d.avgPricePerPyeong ?? 0) / maxPrice) * 100)}%`;
                       return (
                         <div
                           key={d.code}
@@ -1480,8 +1486,8 @@ export default function RealEstateClient() {
                           <div style={{ flex: 1, height: 3, background: "#1a1a1a" }}>
                             <div style={{ width: w, height: "100%", background: isSel ? "#f59e0b" : "#2d4a2d", transition: "width 0.3s" }} />
                           </div>
-                          <span style={{ fontSize: 11, ...S, color: "#ffffff", width: 42, textAlign: "right", flexShrink: 0 }}>
-                            {(d.avgPrice / 10000).toFixed(1)}억
+                          <span style={{ fontSize: 10, ...S, color: "#ffffff", width: 62, textAlign: "right", flexShrink: 0 }}>
+                            {fmtPyeong(d.avgPricePerPyeong ?? 0)}
                           </span>
                         </div>
                       );

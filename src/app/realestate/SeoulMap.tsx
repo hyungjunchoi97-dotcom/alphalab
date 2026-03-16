@@ -7,6 +7,7 @@ export interface DistrictData {
   code: string;
   name: string;
   avgPrice: number; // 만원
+  avgPricePerPyeong?: number; // 만원/평
   count: number;
   change: number | null;
 }

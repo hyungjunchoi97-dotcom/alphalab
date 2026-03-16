@@ -66,6 +66,7 @@ export interface DistrictStats {
   name: string;
   avgPrice: number;        // 만원
   avgPriceInBillion: number; // 억원 (소수점 1자리)
+  avgPricePerPyeong: number; // 만원/평
   count: number;
   change: number | null;
 }
@@ -315,6 +316,26 @@ export async function GET(request: NextRequest) {
   const currMap = buildPriceMap(currResults);
   const prevMap = buildPriceMap(prevResults);
 
+  // 평당 가격 계산용 맵: code → (price / (area / 3.305))[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const buildPyeongMap = (results: any[][]): Record<string, number[]> => {
+    const map: Record<string, number[]> = {};
+    for (const items of results) {
+      for (const item of items) {
+        const code = String(item.sggCd ?? "").trim().padStart(5, "0");
+        const price = parsePrice(item.dealAmount);
+        const area = parseArea(item.excluUseAr);
+        if (code && price > 0 && area > 0) {
+          if (!map[code]) map[code] = [];
+          map[code].push(price / (area / 3.305));
+        }
+      }
+    }
+    return map;
+  };
+  const currPyeongMap = buildPyeongMap(currResults);
+  const prevPyeongMap = buildPyeongMap(prevResults);
+
   const districtStats: DistrictStats[] = SEOUL_DISTRICTS.map((d) => {
     const currPrices = currMap[d.code] ?? [];
     const prevPrices = prevMap[d.code] ?? [];
@@ -330,11 +351,18 @@ export async function GET(request: NextRequest) {
       ? Math.round(((currAvg - prevAvg) / prevAvg) * 1000) / 10
       : null;
     const avgPrice = Math.round(currAvg > 0 ? currAvg : prevAvg);
+    const currPpArr = currPyeongMap[d.code] ?? [];
+    const prevPpArr = prevPyeongMap[d.code] ?? [];
+    const ppArr = currPpArr.length > 0 ? currPpArr : prevPpArr;
+    const avgPricePerPyeong = ppArr.length > 0
+      ? Math.round(ppArr.reduce((s, v) => s + v, 0) / ppArr.length)
+      : 0;
     return {
       code: d.code,
       name: d.name,
       avgPrice,
       avgPriceInBillion: Math.round(avgPrice / 1000) / 10,
+      avgPricePerPyeong,
       count: currPrices.length > 0 ? currPrices.length : prevPrices.length,
       change,
     };
