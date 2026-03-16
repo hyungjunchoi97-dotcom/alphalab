@@ -471,6 +471,7 @@ export default function CommunityPage() {
   const [subcategory, setSubcategory] = useState<Subcategory>("all");
   const [sortMode, setSortMode] = useState<SortMode>("hot");
   const [showEditor, setShowEditor] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
   const fetchPosts = useCallback(async () => {
@@ -520,69 +521,112 @@ export default function CommunityPage() {
   };
 
   const sorted = sortPosts(posts, sortMode);
-  const topPosts = [...posts].sort((a, b) => b.likes - a.likes).slice(0, 5);
 
   return (
     <div className="min-h-screen bg-background">
       <AppHeader active="community" />
 
       <main className="mx-auto max-w-[1200px] px-4 py-5">
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[200px_1fr_260px]">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[auto_1fr]">
           {/* Left sidebar: categories */}
-          <aside className="hidden lg:block space-y-1">
-            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted px-2">
-              {lang === "kr" ? "카테고리" : "Categories"}
-            </h3>
-            {MAIN_CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => {
-                  setCategory(cat);
-                  setSubcategory("all");
-                }}
-                className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs transition-colors ${
-                  category === cat
-                    ? "bg-accent/10 text-accent font-medium"
-                    : "text-muted hover:bg-card-border/30 hover:text-foreground"
-                }`}
-              >
-                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={CAT_SIDEBAR_ICON[cat] || CAT_SIDEBAR_ICON.all} />
-                </svg>
-                {t(MAIN_CAT_LABEL[cat])}
-              </button>
-            ))}
+          <aside className={`hidden lg:flex flex-col transition-all duration-200 ${sidebarOpen ? "w-[200px]" : "w-[32px]"} shrink-0`}>
+            {/* 토글 버튼 */}
+            <button
+              onClick={() => setSidebarOpen(v => !v)}
+              className="flex items-center justify-center w-7 h-7 rounded hover:bg-card-border/50 text-muted hover:text-foreground transition-colors mb-2 ml-auto"
+              title={sidebarOpen ? "접기" : "펼치기"}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={sidebarOpen ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} />
+              </svg>
+            </button>
 
-            {/* Subcategory filters (only when stock_discussion selected) */}
-            {category === "stock_discussion" && (
-              <div className="ml-6 mt-1 space-y-0.5 border-l border-card-border pl-2">
-                {SUBCATEGORIES.map((sub) => (
+            {/* 카테고리 내용 - 펼쳐졌을 때만 표시 */}
+            {sidebarOpen && (
+              <div className="space-y-1">
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted px-2">
+                  {lang === "kr" ? "카테고리" : "Categories"}
+                </h3>
+                {MAIN_CATEGORIES.map((cat) => (
                   <button
-                    key={sub}
-                    onClick={() => setSubcategory(sub)}
-                    className={`block w-full rounded px-2 py-1.5 text-left text-[11px] transition-colors ${
-                      subcategory === sub
-                        ? "text-accent font-medium"
-                        : "text-muted hover:text-foreground"
+                    key={cat}
+                    onClick={() => {
+                      setCategory(cat);
+                      setSubcategory("all");
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs transition-colors ${
+                      category === cat
+                        ? "bg-accent/10 text-accent font-medium"
+                        : "text-muted hover:text-foreground hover:bg-card-border/30"
                     }`}
                   >
-                    {t(SUB_LABEL[sub])}
+                    <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d={CAT_SIDEBAR_ICON[cat] || CAT_SIDEBAR_ICON.all} />
+                    </svg>
+                    {t(MAIN_CAT_LABEL[cat])}
                   </button>
                 ))}
+
+                {category === "stock_discussion" && (
+                  <div className="ml-6 mt-1 space-y-0.5 border-l border-card-border pl-2">
+                    {SUBCATEGORIES.map((sub) => (
+                      <button
+                        key={sub}
+                        onClick={() => setSubcategory(sub)}
+                        className={`block w-full rounded px-2 py-1.5 text-left text-[11px] transition-colors ${
+                          subcategory === sub
+                            ? "text-accent font-medium"
+                            : "text-muted hover:text-foreground"
+                        }`}
+                      >
+                        {t(SUB_LABEL[sub])}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-4 border-t border-card-border pt-3">
+                  <button
+                    onClick={openEditor}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    {t("newPost")}
+                  </button>
+                </div>
               </div>
             )}
 
-            <div className="mt-4 border-t border-card-border pt-3">
-              <button
-                onClick={openEditor}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                {t("newPost")}
-              </button>
-            </div>
+            {/* 접혔을 때 아이콘만 표시 */}
+            {!sidebarOpen && (
+              <div className="flex flex-col items-center gap-3 mt-1">
+                {MAIN_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => { setCategory(cat); setSubcategory("all"); setSidebarOpen(true); }}
+                    className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${
+                      category === cat ? "bg-accent/10 text-accent" : "text-muted hover:text-foreground"
+                    }`}
+                    title={t(MAIN_CAT_LABEL[cat])}
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d={CAT_SIDEBAR_ICON[cat] || CAT_SIDEBAR_ICON.all} />
+                    </svg>
+                  </button>
+                ))}
+                <button
+                  onClick={() => { openEditor(); setSidebarOpen(true); }}
+                  className="flex items-center justify-center w-7 h-7 rounded-lg bg-accent/10 text-accent hover:opacity-90 transition-colors mt-2"
+                  title={t("newPost")}
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </aside>
 
           {/* Center: feed */}
@@ -671,49 +715,6 @@ export default function CommunityPage() {
             )}
           </div>
 
-          {/* Right sidebar: popular + rules */}
-          <aside className="hidden lg:block space-y-4">
-            <div className="rounded-xl border border-card-border bg-card-bg p-3">
-              <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                {lang === "kr" ? "인기 포스트" : "Popular Posts"}
-              </h3>
-              <div className="space-y-2">
-                {topPosts.map((post, i) => (
-                  <button
-                    key={post.id}
-                    onClick={() => router.push(`/community/${post.id}`)}
-                    className="flex w-full items-start gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-card-border/30"
-                  >
-                    <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted mt-0.5">
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-medium leading-snug line-clamp-2">{post.title}</p>
-                      <p className="mt-0.5 text-[9px] text-muted">
-                        {post.likes} likes &middot; {post.commentCount} comments
-                      </p>
-                    </div>
-                  </button>
-                ))}
-                {topPosts.length === 0 && (
-                  <p className="text-[10px] text-muted py-2 text-center">{t("noPosts")}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-card-border bg-card-bg p-3">
-              <h3 className="mb-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                {lang === "kr" ? "커뮤니티 규칙" : "Community Rules"}
-              </h3>
-              <ol className="space-y-1.5 text-[10px] text-muted leading-relaxed list-decimal list-inside">
-                <li>{lang === "kr" ? "서로 존중하는 대화" : "Be respectful to others"}</li>
-                <li>{lang === "kr" ? "투자 조언이 아닌 정보 공유" : "Share information, not financial advice"}</li>
-                <li>{lang === "kr" ? "스팸 및 홍보 금지" : "No spam or self-promotion"}</li>
-                <li>{lang === "kr" ? "출처가 있는 뉴스 공유" : "Share news with sources"}</li>
-                <li>{lang === "kr" ? "개인정보 보호" : "Protect personal information"}</li>
-              </ol>
-            </div>
-          </aside>
         </div>
       </main>
 
