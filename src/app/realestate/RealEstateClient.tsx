@@ -761,6 +761,10 @@ export default function RealEstateClient() {
               const mortgageFiltered = filterByRange(MORTGAGE_DATA);
               return (
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
+                <div style={{ background: "#0d0d0d", border: "1px solid #2a2a2a", borderLeft: "3px solid #f59e0b", borderRadius: 10, padding: "16px 20px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>서울 주택 수요·공급 사이클 분석</div>
+                  <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"2022년 금리 급등으로 붕괴된 거래량은 2023년 하반기부터 점진적 회복세를 보이고 있습니다.\n공급 측면에서는 2022~2023년 인허가·착공 급감으로 인해 2025~2027년 입주 물량 부족이 예상됩니다.\n주담대 잔액은 2024년 하반기 재차 증가 전환되어 레버리지 수요가 살아나고 있음을 시사합니다.\n현 국면은 수요 회복 초입 + 공급 공백 시작 구간으로, 중기적으로 가격 지지 요인이 우세합니다."}</div>
+                </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ ...S, fontSize: 10, color: "#555" }}>
                     마지막 업데이트: 2025년 2월 (출처: 국토교통부, 한국은행)
@@ -891,6 +895,10 @@ export default function RealEstateClient() {
               );
             })() : activeTab === "rate-regulation" ? (
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
+                <div style={{ background: "#0d0d0d", border: "1px solid #2a2a2a", borderLeft: "3px solid #f59e0b", borderRadius: 10, padding: "16px 20px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>금리·정책 사이클과 서울 부동산 시장</div>
+                  <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"2021~2022년 급격한 금리 인상과 DSR 규제 강화가 맞물리며 서울 아파트 시장은 역대급 거래 절벽을 경험했습니다.\n현재는 인하 사이클로 전환되었으나, 스트레스 DSR 2단계 시행으로 실질 대출 한도는 금리 인하 효과를 상쇄 중입니다.\n역사적으로 금리 인하 후 6~12개월 내 거래량 반등이 나타난 점에 주목해야 합니다.\n2025년 추가 인하 여부와 스트레스 DSR 3단계 도입 시기가 시장 방향성의 핵심 변수입니다."}</div>
+                </div>
 
                 {/* 상단 요약 카드 */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
@@ -968,6 +976,10 @@ export default function RealEstateClient() {
               </div>
             ) : activeTab === "move-in" ? (
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
+                <div style={{ background: "#0d0d0d", border: "1px solid #2a2a2a", borderLeft: "3px solid #f59e0b", borderRadius: 10, padding: "16px 20px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>2025~2027년 서울 입주 물량 집중과 권역별 영향</div>
+                  <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"2025년 서울 입주 물량은 약 1.4만 세대로 전년 대비 증가하며, 강남·서초 재건축 대단지 이주 수요가 인근 전세 시장을 자극할 전망입니다.\n2026~2027년에는 압구정·반포·잠실 라인의 대규모 입주가 예정되어 강남권 일시적 공급 과잉 가능성이 있습니다.\n반면 마포·용산·성동 등 공급이 제한된 권역은 전세 수급 타이트 상태가 지속될 것으로 판단됩니다.\n입주 물량이 많은 해에 해당 권역 갭투자보다는 입주 후 안정화 시점을 노리는 전략이 유효합니다."}</div>
+                </div>
 
                 {/* 상단 안내 */}
                 <div style={{ fontSize: 11, color: "#555" }}>
@@ -1072,6 +1084,10 @@ export default function RealEstateClient() {
               </div>
             ) : activeTab === "reconstruction" ? (
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
+                <div style={{ background: "#0d0d0d", border: "1px solid #2a2a2a", borderLeft: "3px solid #f59e0b", borderRadius: 10, padding: "16px 20px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>서울 정비사업 현황과 중장기 투자 시사점</div>
+                  <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"현재 관리처분인가 이상 단계에 진입한 10개 구역, 약 2.3만 세대가 향후 3~5년 내 이주·입주 사이클에 진입합니다.\n압구정 2·3구역, 반포, 잠실 등 강남 핵심 재건축 단지는 이주 개시 시 인근 전세 수요를 급격히 끌어올리는 경향이 있습니다.\n초기 단계(안전진단~조합설립) 단지는 사업 지연 리스크가 크므로 분담금 및 사업성 분석이 선행되어야 합니다.\n재건축 투자 적기는 통상 사업시행인가~관리처분인가 구간으로, 불확실성과 수익성의 균형점입니다."}</div>
+                </div>
 
                 {/* 상단 안내 */}
                 <div style={{ fontSize: 11, color: "#555" }}>
@@ -1173,6 +1189,10 @@ export default function RealEstateClient() {
               </div>
             ) : activeTab === "jeonse-rate" ? (
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
+                <div style={{ background: "#0d0d0d", border: "1px solid #2a2a2a", borderLeft: "3px solid #f59e0b", borderRadius: 10, padding: "16px 20px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>전세가율로 읽는 서울 권역별 투자 매력도</div>
+                  <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"전세가율은 매매가 대비 전세가 비율로, 높을수록 실투자금(갭)이 적어 갭투자가 용이하나 전세 보증금 미반환 리스크도 증가합니다.\n강남·서초·용산은 전세가율 44~46%로 실수요 중심의 안정적 시장이며, 가격 하방 경직성이 강합니다.\n도봉·노원·강북은 전세가율 65~68%로 갭 리스크가 높으나, 금리 인하 및 재건축 기대감으로 수요 전환 가능성이 있습니다.\n2024년 하반기 이후 서울 평균 전세가율이 상승 전환된 점은 전세 수요 증가 또는 매매가 선행 조정 신호로 해석됩니다."}</div>
+                </div>
 
                 {/* 상단 안내 */}
                 <div style={{ fontSize: 11, color: "#555" }}>
