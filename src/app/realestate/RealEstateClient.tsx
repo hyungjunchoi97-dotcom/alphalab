@@ -1209,7 +1209,7 @@ export default function RealEstateClient() {
                       <Tooltip
                         contentStyle={{ background: "#1a1a1a", border: "1px solid #333", fontSize: 11 }}
                         labelStyle={{ color: "#e8e8e8" }}
-                        formatter={(value: number) => [`${value}%`, "전세가율"]}
+                        formatter={(value: number | undefined) => [`${value ?? 0}%`, "전세가율"]}
                       />
                       <Line type="monotone" dataKey="rate" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: "#f59e0b" }} />
                     </LineChart>
@@ -1226,7 +1226,7 @@ export default function RealEstateClient() {
                       <YAxis type="category" dataKey="gu" tick={{ fill: "#aaa", fontSize: 10 }} axisLine={false} tickLine={false} width={55} />
                       <Tooltip
                         contentStyle={{ background: "#1a1a1a", border: "1px solid #333", fontSize: 11 }}
-                        formatter={(value: number) => [`${value}%`, "전세가율"]}
+                        formatter={(value: number | undefined) => [`${value ?? 0}%`, "전세가율"]}
                       />
                       <Bar dataKey="rate" radius={[0, 4, 4, 0]}>
                         {JEONSE_RATE_BY_GU.map((entry) => (
