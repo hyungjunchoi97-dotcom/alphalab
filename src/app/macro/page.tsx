@@ -15,6 +15,7 @@ import {
 import dynamic from "next/dynamic";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
+import MacroProContent from "@/components/MacroProContent";
 
 const LiquidityDashboard = dynamic(() => import("@/components/LiquidityDashboard"), {
   ssr: false,
@@ -1583,7 +1584,7 @@ function CAPEChart({
 
 // ── Page ──────────────────────────────────────────────────────
 
-type MacroTab = "indicators" | "liquidity" | "rrg";
+type MacroTab = "indicators" | "liquidity" | "rrg" | "commodities";
 
 export default function MacroPage() {
   const { lang } = useLang();
@@ -1817,6 +1818,7 @@ export default function MacroPage() {
             { key: "indicators" as MacroTab, labelKr: "매크로 지표", labelEn: "Macro Indicators" },
             { key: "liquidity" as MacroTab, labelKr: "유동성", labelEn: "Liquidity" },
             { key: "rrg" as MacroTab, labelKr: "RRG", labelEn: "RRG" },
+            { key: "commodities" as MacroTab, labelKr: "원자재", labelEn: "Commodities" },
           ]).map((tab) => (
             <button
               key={tab.key}
@@ -1838,6 +1840,9 @@ export default function MacroPage() {
 
         {/* ── RRG Tab ──────────────────────────────────────────── */}
         {activeTab === "rrg" && <RRGChart />}
+
+        {/* ── Commodities Tab ────────────────────────────────── */}
+        {activeTab === "commodities" && <MacroProContent />}
 
         {/* ── Macro Indicators Tab ─────────────────────────────── */}
         {activeTab === "indicators" && (<>
