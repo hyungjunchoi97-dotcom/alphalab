@@ -356,14 +356,6 @@ function fmtPrice(manwon: number): string {
   return ok >= 1 ? `${ok.toFixed(1)}억` : `${manwon.toLocaleString()}만`;
 }
 
-function fmtPyeong(manwon: number): string {
-  if (!manwon) return "—";
-  if (manwon >= 10000) return `${(manwon / 10000).toFixed(1)}억/평`;
-  const rounded = Math.round(manwon / 100) * 100;
-  if (rounded >= 1000) return `${(manwon / 1000).toFixed(1)}천만/평`;
-  return `${manwon.toLocaleString()}만/평`;
-}
-
 const DISTRICT_NAME_TO_CODE: Record<string, string> = {
   "종로구": "11110", "중구": "11140", "용산구": "11170", "성동구": "11200",
   "광진구": "11215", "동대문구": "11230", "중랑구": "11260", "성북구": "11290",
@@ -406,9 +398,9 @@ function DistrictDetail({ data, onClear, trades }: DistrictDetailProps) {
       </div>
 
       <div style={{ background: "#161616", border: "1px solid #1e1e1e", padding: "10px 12px" }}>
-        <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", marginBottom: 4, letterSpacing: "0.5px" }}>평당 매매가</div>
+        <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", marginBottom: 4, letterSpacing: "0.5px" }}>평균 매매가</div>
         <div style={{ fontSize: 28, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: "#f59e0b", lineHeight: 1 }}>
-          {fmtPyeong(data.avgPricePerPyeong ?? 0)}
+          {fmtPrice(data.avgPrice)}
         </div>
       </div>
 
@@ -483,9 +475,9 @@ function OverallSummary({ loading, overallAvg, validCount, gangnam3Avg, nonGangn
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div>
-        <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", marginBottom: 3 }}>서울 평당 매매가</div>
+        <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", marginBottom: 3 }}>서울 평균 매매가</div>
         <div style={{ fontSize: 28, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: "#f59e0b", lineHeight: 1 }}>
-          {fmtPyeong(Math.round(overallAvg))}
+          {fmtPrice(Math.round(overallAvg))}
         </div>
         <div style={{ fontSize: 10, fontFamily: "monospace", color: "#333", marginTop: 3 }}>{validCount}개 구 · 구 클릭시 상세</div>
       </div>
@@ -504,8 +496,8 @@ function OverallSummary({ loading, overallAvg, validCount, gangnam3Avg, nonGangn
               <div style={{ flex: 1, height: 2, background: "#222" }}>
                 <div style={{ width: row.w, height: "100%", background: row.color }} />
               </div>
-              <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: row.color, width: 62, textAlign: "right", flexShrink: 0 }}>
-                {fmtPyeong(Math.round(row.avg))}
+              <span style={{ fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: row.color, width: 52, textAlign: "right", flexShrink: 0 }}>
+                {fmtPrice(Math.round(row.avg))}
               </span>
             </div>
           ))}
@@ -528,7 +520,7 @@ function OverallSummary({ loading, overallAvg, validCount, gangnam3Avg, nonGangn
               <span style={{ fontSize: 12, fontFamily: "'IBM Plex Sans KR', 'Noto Sans KR', sans-serif", color: "#e0e0e0" }}>{d.name}</span>
             </div>
             <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: "#f59e0b" }}>
-              {fmtPyeong(d.avgPricePerPyeong ?? 0)}
+              {fmtPrice(d.avgPrice)}
             </span>
           </div>
         ))}
@@ -595,7 +587,7 @@ export default function RealEstateClient() {
       const json: ApiResponse = await res.json();
       if (!json.ok) throw new Error("API 오류");
       // If all districts have avgPrice=0, refetch once with refresh=true
-      if (!refresh && json.districts?.every((d: { avgPrice: number }) => d.avgPrice === 0)) {
+      if (!refresh && json.districts?.every(d => d.avgPrice === 0)) {
         const retryRes = await fetch(`/api/realestate/seoul?ym=${month}&refresh=true`);
         const retryJson: ApiResponse = await retryRes.json();
         if (retryJson.ok) { setData(retryJson); return; }
@@ -644,16 +636,16 @@ export default function RealEstateClient() {
 
   // Derived
   const districts = data?.districts ?? [];
-  const validDistricts = districts.filter(d => (d.avgPricePerPyeong ?? 0) > 0);
-  const sortedByPrice = [...validDistricts].sort((a, b) => (b.avgPricePerPyeong ?? 0) - (a.avgPricePerPyeong ?? 0));
-  const maxPrice = sortedByPrice[0]?.avgPricePerPyeong ?? 1;
+  const validDistricts = districts.filter(d => d.avgPrice > 0);
+  const sortedByPrice = [...validDistricts].sort((a, b) => b.avgPrice - a.avgPrice);
+  const maxPrice = sortedByPrice[0]?.avgPrice ?? 1;
 
   const overallAvg = validDistricts.length
-    ? validDistricts.reduce((s, d) => s + (d.avgPricePerPyeong ?? 0), 0) / validDistricts.length : 0;
+    ? validDistricts.reduce((s, d) => s + d.avgPrice, 0) / validDistricts.length : 0;
   const gangnam3 = validDistricts.filter(d => ["강남구", "서초구", "송파구"].includes(d.name));
-  const gangnam3Avg = gangnam3.length ? gangnam3.reduce((s, d) => s + (d.avgPricePerPyeong ?? 0), 0) / gangnam3.length : 0;
+  const gangnam3Avg = gangnam3.length ? gangnam3.reduce((s, d) => s + d.avgPrice, 0) / gangnam3.length : 0;
   const nonGangnam = validDistricts.filter(d => !["강남구", "서초구", "송파구"].includes(d.name));
-  const nonGangnamAvg = nonGangnam.length ? nonGangnam.reduce((s, d) => s + (d.avgPricePerPyeong ?? 0), 0) / nonGangnam.length : 0;
+  const nonGangnamAvg = nonGangnam.length ? nonGangnam.reduce((s, d) => s + d.avgPrice, 0) / nonGangnam.length : 0;
   const top3Price = sortedByPrice.slice(0, 3);
   const top3Count = [...validDistricts].sort((a, b) => b.count - a.count).slice(0, 3);
 
@@ -965,88 +957,6 @@ export default function RealEstateClient() {
                         </div>
                       </div>
                     ))}
-                  </div>
-                </div>
-
-                {/* 세금 정책 섹션 */}
-                <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "16px" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 16 }}>부동산 세금 가이드</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                    {[
-                      {
-                        title: "취득세",
-                        color: "#3b82f6",
-                        items: [
-                          { label: "1주택 (6억 이하)", value: "1%" },
-                          { label: "1주택 (6~9억)", value: "1~3%" },
-                          { label: "1주택 (9억 초과)", value: "3%" },
-                          { label: "2주택 (조정지역)", value: "8%" },
-                          { label: "3주택+ (조정지역)", value: "12%" },
-                          { label: "법인", value: "12%" },
-                        ],
-                        note: "2024년 1월 기준. 일시적 2주택 예외 적용 가능"
-                      },
-                      {
-                        title: "종합부동산세",
-                        color: "#f59e0b",
-                        items: [
-                          { label: "1주택 (공시가 12억↓)", value: "비과세" },
-                          { label: "1주택 기본공제", value: "12억원" },
-                          { label: "다주택 기본공제", value: "9억원" },
-                          { label: "일반 세율", value: "0.5~2.7%" },
-                          { label: "다주택(조정) 세율", value: "0.5~5.0%" },
-                          { label: "법인", value: "2.7~5.0%" },
-                        ],
-                        note: "공시가격 기준. 보유 기간 및 연령 공제 있음"
-                      },
-                      {
-                        title: "양도소득세",
-                        color: "#22c55e",
-                        items: [
-                          { label: "1주택 비과세", value: "2년 보유·거주" },
-                          { label: "고가주택 기준", value: "12억 초과" },
-                          { label: "단기(1년 미만)", value: "70%" },
-                          { label: "단기(1~2년)", value: "60%" },
-                          { label: "일반 세율", value: "6~45%" },
-                          { label: "다주택 중과", value: "+20~30%p" },
-                        ],
-                        note: "2주택 중과 한시적 배제 중 (2026.5까지)"
-                      },
-                    ].map(section => (
-                      <div key={section.title} style={{
-                        background: "#0d0d0d", border: "1px solid #2a2a2a",
-                        borderLeft: `3px solid ${section.color}`,
-                        borderRadius: 8, padding: "12px 14px"
-                      }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 10 }}>{section.title}</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-                          {section.items.map(item => (
-                            <div key={item.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <span style={{ fontSize: 11, color: "#888" }}>{item.label}</span>
-                              <span style={{ fontSize: 11, fontWeight: 600, color: section.color }}>{item.value}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div style={{ fontSize: 10, color: "#555", borderTop: "1px solid #222", paddingTop: 8, lineHeight: 1.5 }}>
-                          {section.note}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* 세금 절감 팁 */}
-                  <div style={{
-                    marginTop: 12, background: "#0d0d0d", border: "1px solid #2a2a2a",
-                    borderLeft: "3px solid #f59e0b", borderRadius: 8, padding: "12px 14px",
-                    display: "flex", alignItems: "flex-start", gap: 10
-                  }}>
-                    <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, whiteSpace: "nowrap", marginTop: 1 }}>절세 포인트</div>
-                    <div style={{ fontSize: 11, color: "#aaa", lineHeight: 1.8 }}>
-                      <b style={{ color: "#fff" }}>1주택 비과세:</b> 취득 후 2년 보유·거주 충족 시 12억까지 양도세 면제.&nbsp;
-                      <b style={{ color: "#fff" }}>일시적 2주택:</b> 신규 취득 후 3년 내 기존 주택 처분 시 1주택 취급.&nbsp;
-                      <b style={{ color: "#fff" }}>장기보유특별공제:</b> 1주택 10년 이상 보유·거주 시 최대 80% 공제.&nbsp;
-                      <b style={{ color: "#fff" }}>종부세 고령자 공제:</b> 60세 이상 + 5년 이상 보유 시 최대 80% 세액공제.
-                    </div>
                   </div>
                 </div>
 
@@ -1545,7 +1455,7 @@ export default function RealEstateClient() {
             {!loading && sortedByPrice.length > 0 && (
               <div style={{ borderBottom: "1px solid #1e1e1e", background: "#0d0d0d" }}>
                 <div style={sectionHeaderStyle} onClick={() => setRankingOpen(v => !v)}>
-                  <span style={{ ...sectionTitleStyle, fontSize: 12 }}>구별 평당 매매가 랭킹</span>
+                  <span style={{ ...sectionTitleStyle, fontSize: 12 }}>구별 평균 매매가 랭킹</span>
                   <span style={{
                     fontSize: 14, color: "#ffffff", transition: "transform 0.2s",
                     transform: rankingOpen ? "rotate(180deg)" : "rotate(0deg)",
@@ -1556,7 +1466,7 @@ export default function RealEstateClient() {
                   <div style={{ padding: "0 14px 10px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 24px" }}>
                     {sortedByPrice.map((d, i) => {
                       const isSel = selectedDistrict === d.code;
-                      const w = `${Math.round(((d.avgPricePerPyeong ?? 0) / maxPrice) * 100)}%`;
+                      const w = `${Math.round((d.avgPrice / maxPrice) * 100)}%`;
                       return (
                         <div
                           key={d.code}
@@ -1570,8 +1480,8 @@ export default function RealEstateClient() {
                           <div style={{ flex: 1, height: 3, background: "#1a1a1a" }}>
                             <div style={{ width: w, height: "100%", background: isSel ? "#f59e0b" : "#2d4a2d", transition: "width 0.3s" }} />
                           </div>
-                          <span style={{ fontSize: 10, ...S, color: "#ffffff", width: 62, textAlign: "right", flexShrink: 0 }}>
-                            {fmtPyeong(d.avgPricePerPyeong ?? 0)}
+                          <span style={{ fontSize: 11, ...S, color: "#ffffff", width: 42, textAlign: "right", flexShrink: 0 }}>
+                            {(d.avgPrice / 10000).toFixed(1)}억
                           </span>
                         </div>
                       );
