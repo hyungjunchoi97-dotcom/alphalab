@@ -36,23 +36,53 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Alphalab | AI-Powered Investment Community",
-  description:
-    "AI-powered investment community for alpha seekers. Chart analysis, predictions, portfolio tracking, and more.",
+  title: {
+    default: "AlphaLab | 한국 주식·부동산·매크로 투자 플랫폼",
+    template: "%s | AlphaLab",
+  },
+  description: "실시간 한국 주식 히트맵, 서울 아파트 실거래가, 매크로 지표, 배당주 스크리너, 텔레그램 투자 피드를 한 곳에서. 블룸버그 스타일 한국 투자 플랫폼.",
+  keywords: ["한국주식", "서울아파트", "실거래가", "배당주", "매크로지표", "주식스크리너", "투자플랫폼", "AlphaLab", "알파랩"],
+  authors: [{ name: "AlphaLab" }],
+  creator: "AlphaLab",
+  metadataBase: new URL("https://thealphalabs.net"),
+  alternates: {
+    canonical: "https://thealphalabs.net",
+  },
   openGraph: {
-    title: "Alphalab | AI-Powered Investment Community",
-    description:
-      "AI-powered investment community for alpha seekers. Chart analysis, predictions, portfolio tracking, and more.",
-    url: "https://alphalab-kappa.vercel.app",
-    siteName: "Alphalab",
+    title: "AlphaLab | 한국 주식·부동산·매크로 투자 플랫폼",
+    description: "실시간 한국 주식 히트맵, 서울 아파트 실거래가, 매크로 지표, 배당주 스크리너, 텔레그램 투자 피드를 한 곳에서.",
+    url: "https://thealphalabs.net",
+    siteName: "AlphaLab",
     type: "website",
-    locale: "en_US",
+    locale: "ko_KR",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "AlphaLab - 한국 투자 플랫폼",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Alphalab | AI-Powered Investment Community",
-    description:
-      "AI-powered investment community for alpha seekers. Chart analysis, predictions, portfolio tracking, and more.",
+    title: "AlphaLab | 한국 주식·부동산·매크로 투자 플랫폼",
+    description: "실시간 한국 주식 히트맵, 서울 아파트 실거래가, 매크로 지표, 배당주 스크리너.",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    google: "G-QYC0DL6BE5",
   },
 };
 
@@ -62,8 +92,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <head>
+    <html lang="ko">
+      <head />
+      <body
+        className={`${inter.variable} ${geistMono.variable} ${notoSansKR.variable} ${rajdhani.variable} ${jetbrainsMono.variable} antialiased`}
+      >
         <Script async src="https://www.googletagmanager.com/gtag/js?id=G-QYC0DL6BE5" strategy="afterInteractive" />
         <Script id="gtag-init" strategy="afterInteractive">{`
           window.dataLayer = window.dataLayer || [];
@@ -71,10 +104,6 @@ export default function RootLayout({
           gtag('js', new Date());
           gtag('config', 'G-QYC0DL6BE5');
         `}</Script>
-      </head>
-      <body
-        className={`${inter.variable} ${geistMono.variable} ${notoSansKR.variable} ${rajdhani.variable} ${jetbrainsMono.variable} antialiased`}
-      >
         <AuthProvider>
           <LangProvider>
             <div className="md:ml-56">{children}</div>
