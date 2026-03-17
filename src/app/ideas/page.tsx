@@ -740,7 +740,7 @@ export default function IdeasPage() {
                 {tv === "momentum" ? (lang === "kr" ? "모멘텀" : "Momentum")
                   : tv === "etf" ? "ETF"
                   : tv === "dividend" ? (lang === "kr" ? "배당" : "Dividend")
-                  : tv === "consensus" ? (lang === "kr" ? "미국 컨센서스" : "US Consensus")
+                  : tv === "consensus" ? (lang === "kr" ? "미국주식 컨센서스" : "US Stock Consensus")
                   : tv === "gurus" ? (lang === "kr" ? "구루" : "Gurus")
                   : (lang === "kr" ? "AI 트레이딩" : "AI Trading")}
               </button>
