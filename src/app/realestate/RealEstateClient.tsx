@@ -1340,7 +1340,7 @@ export default function RealEstateClient() {
                 ) : (
                   <SeoulMap
                     districts={validDistricts}
-                    selected={selectedDistrict}
+                    selectedCode={selectedDistrict}
                     onSelect={code => setSelectedDistrict(prev => prev === code ? null : code)}
                   />
                 )}

@@ -299,12 +299,10 @@ export default function IdeasPage() {
   const [divNewsMap, setDivNewsMap] = useState<Record<string, { items: { title: string; officeName: string; datetime: string; url: string }[]; stockInfo: { marketCap: string; per: string; pbr: string; eps: string; dividendPerShare: string; payoutRatio: string } | null }>>({});
   const [divNewsLoading, setDivNewsLoading] = useState<string | null>(null);
   const [divExpandedCode, setDivExpandedCode] = useState<string | null>(null);
-  const [divCalcAmount, setDivCalcAmount] = useState(10000);
-  const [divCalcRate, setDivCalcRate] = useState(4);
-  const [divCalcYears, setDivCalcYears] = useState(10);
-  const [divCalcGrowth, setDivCalcGrowth] = useState(7);
-  const [divCalcKrRatio, setDivCalcKrRatio] = useState(50);
-  const [divCalcFxRate, setDivCalcFxRate] = useState(1400);
+  const [simAmount, setSimAmount] = useState(1);        // 억단위
+  const [simDivRate, setSimDivRate] = useState(4);       // 배당수익률 %
+  const [simDivGrowth, setSimDivGrowth] = useState(7);   // 연배당성장률 %
+  const [simPriceGrowth, setSimPriceGrowth] = useState(5); // 주가성장률 %
 
   // Data
   const [fomoKr, setFomoKr] = useState<FomoItem[]>([]);
@@ -2455,24 +2453,24 @@ export default function IdeasPage() {
               </div>
             </div>
 
-            {/* 세후 배당 계산기 */}
+            {/* 배당 수익 시뮬레이터 */}
             <div className={`${CARD} space-y-4`}>
-              <div className="text-sm font-semibold text-foreground">배당 수익 시뮬레이터</div>
+              <div className="text-xs font-semibold text-foreground">배당 수익 시뮬레이터</div>
 
-              {/* 입력 */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* 슬라이더 4개 */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
-                  { label: "투자금", value: divCalcAmount, setter: setDivCalcAmount, unit: "만원", min: 100, max: 100000, step: 100 },
-                  { label: "배당수익률", value: divCalcRate, setter: setDivCalcRate, unit: "%", min: 1, max: 15, step: 0.5 },
-                  { label: "연 배당성장률", value: divCalcGrowth, setter: setDivCalcGrowth, unit: "%", min: 0, max: 20, step: 1 },
-                  { label: "투자기간", value: divCalcYears, setter: setDivCalcYears, unit: "년", min: 1, max: 30, step: 1 },
-                  { label: "한국 비중", value: divCalcKrRatio, setter: setDivCalcKrRatio, unit: "%", min: 0, max: 100, step: 10 },
-                  { label: "환율 (원/달러)", value: divCalcFxRate, setter: setDivCalcFxRate, unit: "원", min: 1000, max: 2000, step: 50 },
+                  { label: "원금", value: simAmount, setter: setSimAmount, unit: "억", min: 0.1, max: 50, step: 0.1 },
+                  { label: "배당수익률", value: simDivRate, setter: setSimDivRate, unit: "%", min: 0.5, max: 15, step: 0.5 },
+                  { label: "연 배당성장률", value: simDivGrowth, setter: setSimDivGrowth, unit: "%", min: 0, max: 20, step: 1 },
+                  { label: "주가 성장률", value: simPriceGrowth, setter: setSimPriceGrowth, unit: "%", min: 0, max: 20, step: 1 },
                 ].map((item) => (
-                  <div key={item.label} className="space-y-1">
+                  <div key={item.label} className="space-y-1.5">
                     <div className="flex justify-between">
                       <span className="text-[11px] text-muted">{item.label}</span>
-                      <span className="text-[11px] font-medium text-foreground tabular-nums">{item.value.toLocaleString()}{item.unit}</span>
+                      <span className="text-[11px] font-medium text-foreground tabular-nums">
+                        {item.value}{item.unit}
+                      </span>
                     </div>
                     <input
                       type="range"
@@ -2487,45 +2485,69 @@ export default function IdeasPage() {
                 ))}
               </div>
 
-              {/* 결과 */}
+              {/* 결과 계산 */}
               {(() => {
-                const krRatio = divCalcKrRatio / 100;
-                const usRatio = 1 - krRatio;
-                const taxKr = 0.154;
-                const taxUs = 0.154;
+                const principal = simAmount * 100000000;
+                const annualDivBefore = principal * (simDivRate / 100);
+                const monthlyDivBefore = annualDivBefore / 12;
+                const taxRate = 0.154;
+                const annualDivAfter = annualDivBefore * (1 - taxRate);
+                const monthlyDivAfter = annualDivAfter / 12;
 
-                let totalDividend = 0;
-                let currentRate = divCalcRate / 100;
-                for (let y = 1; y <= divCalcYears; y++) {
-                  const annualDiv = divCalcAmount * currentRate;
-                  const krDiv = annualDiv * krRatio * (1 - taxKr);
-                  const usDivRaw = annualDiv * usRatio * (1 - taxUs);
-                  const fxEffect = divCalcFxRate / 1400;
-                  const usDiv = usDivRaw * fxEffect;
-                  totalDividend += krDiv + usDiv;
-                  currentRate *= (1 + divCalcGrowth / 100);
+                const years = 10;
+                const finalValue = principal * Math.pow(1 + simPriceGrowth / 100, years);
+                const capitalGain = finalValue - principal;
+
+                let totalDivBefore = 0;
+                let currentRate = simDivRate / 100;
+                for (let y = 0; y < years; y++) {
+                  totalDivBefore += principal * currentRate;
+                  currentRate *= (1 + simDivGrowth / 100);
                 }
+                const totalDivAfter = totalDivBefore * (1 - taxRate);
+                const totalReturnBefore = ((capitalGain + totalDivBefore) / principal) * 100;
+                const totalReturnAfter = ((capitalGain + totalDivAfter) / principal) * 100;
 
-                const lastYearDiv = divCalcAmount * currentRate / (1 + divCalcGrowth / 100);
-                const effectiveRate = (lastYearDiv / divCalcAmount) * 100;
+                const fmt억 = (v: number) => `${(v / 100000000).toFixed(2)}억`;
+                const fmt만 = (v: number) => `${Math.round(v / 10000).toLocaleString()}만원`;
 
                 return (
-                  <div className="grid grid-cols-4 gap-3 pt-2 border-t border-card-border">
-                    <div className="space-y-1">
-                      <div className="text-[10px] text-muted uppercase tracking-wider">총 수령 배당 (세후)</div>
-                      <div className="text-xl font-bold text-amber-400 tabular-nums">{Math.round(totalDividend).toLocaleString()}만원</div>
+                  <div className="border-t border-card-border pt-4 space-y-4">
+                    <div>
+                      <div className="text-[10px] text-muted uppercase tracking-wider mb-2">현재 연간 배당</div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                          { label: "월 세전", value: fmt만(monthlyDivBefore), color: "text-foreground" },
+                          { label: "연 세전", value: fmt억(annualDivBefore), color: "text-foreground" },
+                          { label: "월 세후", value: fmt만(monthlyDivAfter), color: "text-amber-400" },
+                          { label: "연 세후", value: fmt억(annualDivAfter), color: "text-amber-400" },
+                        ].map(item => (
+                          <div key={item.label} className="bg-card-border/30 rounded-lg p-3 space-y-1">
+                            <div className="text-[10px] text-muted">{item.label}</div>
+                            <div className={`text-sm font-bold tabular-nums ${item.color}`}>{item.value}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="text-[10px] text-muted uppercase tracking-wider">{divCalcYears}년 후 연 배당수익률</div>
-                      <div className="text-xl font-bold text-green-400 tabular-nums">{effectiveRate.toFixed(1)}%</div>
+
+                    <div>
+                      <div className="text-[10px] text-muted uppercase tracking-wider mb-2">10년 후 총 수익</div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                          { label: "누적 배당 세전", value: fmt억(totalDivBefore), color: "text-foreground" },
+                          { label: "누적 배당 세후", value: fmt억(totalDivAfter), color: "text-amber-400" },
+                          { label: "총 수익률 세전", value: `+${totalReturnBefore.toFixed(1)}%`, color: "text-green-400" },
+                          { label: "총 수익률 세후", value: `+${totalReturnAfter.toFixed(1)}%`, color: "text-green-400" },
+                        ].map(item => (
+                          <div key={item.label} className="bg-card-border/30 rounded-lg p-3 space-y-1">
+                            <div className="text-[10px] text-muted">{item.label}</div>
+                            <div className={`text-sm font-bold tabular-nums ${item.color}`}>{item.value}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <div className="text-[10px] text-muted uppercase tracking-wider">한국 배당 (세후/년)</div>
-                      <div className="text-xl font-bold text-blue-400 tabular-nums">{Math.round(divCalcAmount * (divCalcRate/100) * krRatio * (1 - taxKr)).toLocaleString()}만원</div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-[10px] text-muted uppercase tracking-wider">미국 배당 (세후/년, 환율반영)</div>
-                      <div className="text-xl font-bold text-amber-300 tabular-nums">{Math.round(divCalcAmount * (divCalcRate/100) * usRatio * (1 - taxUs) * (divCalcFxRate/1400)).toLocaleString()}만원</div>
+                    <div className="text-[10px] text-muted/50">
+                      * 배당소득세 15.4% 적용 · 10년 복리 계산 · 실제 수익은 세금/수수료에 따라 다를 수 있음
                     </div>
                   </div>
                 );
