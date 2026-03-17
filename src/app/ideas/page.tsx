@@ -1662,9 +1662,9 @@ export default function IdeasPage() {
             {/* ETF sub-tabs */}
             <div className="flex gap-1 mb-3">
               {([
-                { key: "changes" as const, label: lang === "kr" ? "ETF 변동" : "ETF Changes" },
+                { key: "changes" as const, label: lang === "kr" ? "미국 ETF" : "US ETF" },
                 { key: "kr" as const, label: lang === "kr" ? "국내 ETF" : "KR ETF" },
-                { key: "us" as const, label: lang === "kr" ? "미국 ETF" : "US ETF" },
+                { key: "us" as const, label: lang === "kr" ? "배당주 ETF" : "Dividend ETF" },
               ]).map(s => (
                 <button
                   key={s.key}
