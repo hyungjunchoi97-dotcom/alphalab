@@ -247,7 +247,7 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
   }, [fetched]);
 
   useEffect(() => {
-    fetch("/api/realestate/news?district=서울&limit=15")
+    fetch("/api/realestate/news?district=서울&limit=30")
       .then(res => res.json())
       .then(j => { if (j.ok) setNews(j.news ?? []); })
       .catch(() => {})
