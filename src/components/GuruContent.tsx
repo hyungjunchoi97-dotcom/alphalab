@@ -133,8 +133,8 @@ export default function GuruContent() {
           </h2>
           <p style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
             {lang === "kr"
-              ? "SEC 13F 공시 기반 22인의 슈퍼 투자자 포트폴리오 추적"
-              : "Track 22 super investor portfolios via SEC 13F filings"}
+              ? "SEC 13F 공시 기반 슈퍼 투자자 포트폴리오 추적"
+              : "Track super investor portfolios via SEC 13F filings"}
           </p>
         </div>
 
