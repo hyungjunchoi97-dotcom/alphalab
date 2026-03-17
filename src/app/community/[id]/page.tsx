@@ -6,6 +6,7 @@ import { useLang } from "@/lib/LangContext";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
+import ShareButton from "@/components/ShareButton";
 import type { MessageKey } from "@/lib/i18n";
 
 const INPUT =
@@ -435,6 +436,11 @@ export default function PostDetailPage() {
           />
         </div>
       )}
+      <ShareButton
+        title={post.title}
+        description={post.content?.slice(0, 80)}
+        url={`https://thealphalabs.net/community/${post.id}`}
+      />
     </div>
   );
 }

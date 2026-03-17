@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from "react";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
+import ShareButton from "@/components/ShareButton";
 import GuruContent from "@/components/GuruContent";
 import AiTradingContent from "@/components/AiTradingContent";
 
@@ -2832,6 +2833,7 @@ export default function IdeasPage() {
         {tab === "gurus" && <GuruContent />}
 
       </main>
+      <ShareButton title="AlphaLab 알파 스크리너" description="FOMO 급등주, 배당주, ETF 스크리너" />
     </div>
   );
 }

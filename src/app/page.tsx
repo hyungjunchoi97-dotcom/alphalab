@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
+import ShareButton from "@/components/ShareButton";
 
 const HeatmapTreemap = dynamic(() => import("@/components/HeatmapTreemap"), {
   ssr: false,
@@ -263,6 +264,7 @@ export default function Home() {
           </div>
         </div>
       </main>
+      <ShareButton title="AlphaLab 대시보드" description="실시간 주식 히트맵, 매크로 지표, 텔레그램 피드" />
     </div>
   );
 }

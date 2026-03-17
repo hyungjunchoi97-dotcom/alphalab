@@ -6,6 +6,7 @@ import { useLang } from "@/lib/LangContext";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
+import ShareButton from "@/components/ShareButton";
 import type { MessageKey } from "@/lib/i18n";
 
 // ── Constants ──────────────────────────────────────────────────
@@ -726,6 +727,7 @@ export default function CommunityPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
         </button>
+        <ShareButton title="AlphaLab 커뮤니티" description="투자자 커뮤니티 - 종목토론, 매크로, 자유게시판" />
       </main>
 
       {showEditor && (

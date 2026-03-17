@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, CSSProperties, useRef } from "react";
 import AppHeader from "@/components/AppHeader";
+import ShareButton from "@/components/ShareButton";
 import SeoulMap from "./SeoulMap";
 import type { DistrictData } from "./SeoulMap";
 import PriceChart from "./PriceChart";
@@ -1534,6 +1535,7 @@ export default function RealEstateClient() {
 
           </div>
         </main>
+        <ShareButton title="AlphaLab 서울 부동산" description="서울 아파트 실거래가, 구별 티어리스트, 수요/공급 분석" />
       </div>
     </>
   );

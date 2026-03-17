@@ -15,6 +15,7 @@ import {
 import dynamic from "next/dynamic";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
+import ShareButton from "@/components/ShareButton";
 import MacroProContent from "@/components/MacroProContent";
 
 const LiquidityDashboard = dynamic(() => import("@/components/LiquidityDashboard"), {
@@ -2060,6 +2061,7 @@ export default function MacroPage() {
           barChartConfig={modalId === "CPIAUCSL" ? CPI_BAR_CONFIG : modalId === "UNRATE" ? UNRATE_BAR_CONFIG : undefined}
         />
       )}
+      <ShareButton title="AlphaLab 매크로 지표" description="Fear & Greed, 기준금리, CPI, VIX 실시간 매크로 대시보드" />
     </div>
   );
 }
