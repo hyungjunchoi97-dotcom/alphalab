@@ -135,7 +135,7 @@ function TooltipIcon({ text }: { text: string }) {
 
 function FomoTable({ items, selected, onSelect, lang }: { items: FomoItem[]; selected: string | null; onSelect: (item: FomoItem) => void; lang: "en" | "kr" }) {
   return (
-    <table className="w-full text-xs">
+    <table className="w-full text-xs min-w-[400px]">
       <thead>
         <tr className="border-b border-card-border">
           <th className={TH}>Ticker</th>
@@ -717,10 +717,11 @@ export default function IdeasPage() {
     <div className="min-h-screen bg-background">
       <AppHeader active="ideas" />
 
-      <main className="mx-auto max-w-[1400px] px-4 py-4 space-y-3">
+      <main className="mx-auto max-w-[1400px] px-2 sm:px-4 py-3 sm:py-4 space-y-3">
         {/* Tab pills + sub-tabs */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex gap-px rounded bg-card-border p-px w-fit">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex gap-px rounded bg-card-border p-px w-max sm:w-fit">
             {(["fomo", "etf", "kr-etf", "dividend-etf", "dividend-screener", "dividend-guide", "consensus", "gurus", "ai-trading"] as const).map((tv) => (
               <button
                 key={tv}
@@ -747,10 +748,11 @@ export default function IdeasPage() {
                   : (lang === "kr" ? "AI 트레이딩" : "AI Trading")}
               </button>
             ))}
+            </div>
           </div>
 
           {/* Last updated + market status */}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex sm:ml-auto items-center gap-2 text-[10px]">
             {fomoMarket === "KR" && (
               <span className={`flex items-center gap-1 text-[9px] font-medium ${marketOpen ? "text-gain" : "text-muted/50"}`}>
                 <span className={`inline-block h-1.5 w-1.5 rounded-full ${marketOpen ? "bg-gain animate-pulse" : "bg-muted/30"}`} />
@@ -816,7 +818,7 @@ export default function IdeasPage() {
             {/* KR FOMO */}
             {fomoMarket === "KR" && (
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
-                <section className={`${CARD} lg:col-span-3`}>
+                <section className={`${CARD} lg:col-span-3 overflow-x-auto`}>
                   {/* Signal filter tabs */}
                   <div className="mb-3 flex flex-wrap items-center gap-1.5">
                     {SIGNAL_FILTERS.map((sf) => (
@@ -1256,7 +1258,7 @@ export default function IdeasPage() {
             {/* US FOMO */}
             {fomoMarket === "US" && (
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-5">
-                <section className={`${CARD} lg:col-span-3`}>
+                <section className={`${CARD} lg:col-span-3 overflow-x-auto`}>
                   {/* Header */}
                   <div className="mb-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -1304,7 +1306,7 @@ export default function IdeasPage() {
                   {/* Table */}
                   {!usLoading && !usError && fomoUs.length > 0 && (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
+                      <table className="w-full text-xs min-w-[400px]">
                         <thead>
                           <tr className="border-b border-card-border">
                             <th className={TH}>Symbol</th>
@@ -1743,7 +1745,7 @@ export default function IdeasPage() {
 
               {!etfHoldingsLoading && !etfHoldingsError && etfHoldings.length > 0 && (
                 <div className="overflow-x-auto max-h-[480px] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:#374151_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs min-w-[500px]">
                     <thead className="sticky top-0 bg-card-bg z-10">
                       <tr className="border-b border-card-border">
                         <th className={`${TH} w-8 text-right`}>#</th>
@@ -1833,7 +1835,7 @@ export default function IdeasPage() {
                   </button>
                   {krEtfCommonOpen && (
                     <div className="mt-3 overflow-x-auto">
-                      <table className="w-full text-xs">
+                      <table className="w-full text-xs min-w-[500px]">
                         <thead>
                           <tr className="border-b border-card-border">
                             <th className={`${TH} w-8 text-center`}>#</th>
@@ -1952,7 +1954,7 @@ export default function IdeasPage() {
                       <span className="text-[10px] text-muted">{sel.code}</span>
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
+                      <table className="w-full text-xs min-w-[500px]">
                         <thead>
                           <tr className="border-b border-card-border">
                             <th className={`${TH} w-8 text-center`}>#</th>
@@ -2020,7 +2022,7 @@ export default function IdeasPage() {
                   </button>
                   {divEtfCommonOpen && (
                     <div className="mt-3 overflow-x-auto">
-                      <table className="w-full text-xs">
+                      <table className="w-full text-xs min-w-[500px]">
                         <thead>
                           <tr className="border-b border-card-border">
                             <th className={`${TH} w-8 text-center`}>#</th>
@@ -2139,7 +2141,7 @@ export default function IdeasPage() {
                       <span className="text-[10px] text-muted">{sel.code}</span>
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
+                      <table className="w-full text-xs min-w-[500px]">
                         <thead>
                           <tr className="border-b border-card-border">
                             <th className={`${TH} w-8 text-center`}>#</th>
@@ -2238,7 +2240,7 @@ export default function IdeasPage() {
             ) : (
               <div className={CARD}>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs min-w-[600px]">
                     <thead>
                       <tr className="border-b border-card-border">
                         <th className={TH}>종목코드</th>
@@ -2385,7 +2387,7 @@ export default function IdeasPage() {
           <div className="space-y-4">
 
             {/* 핵심 원칙 3개 카드 */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 {
                   title: "배당 성장주",
@@ -2458,7 +2460,7 @@ export default function IdeasPage() {
               <div className="text-sm font-semibold text-foreground">배당 수익 시뮬레이터</div>
 
               {/* 입력 */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
                   { label: "투자금", value: divCalcAmount, setter: setDivCalcAmount, unit: "만원", min: 100, max: 100000, step: 100 },
                   { label: "배당수익률", value: divCalcRate, setter: setDivCalcRate, unit: "%", min: 1, max: 15, step: 0.5 },
@@ -2533,7 +2535,7 @@ export default function IdeasPage() {
             {/* 함정 배당 경고 */}
             <div className={`${CARD} border border-red-400/20 space-y-2`}>
               <div className="text-sm font-semibold text-red-400">함정 배당 체크리스트</div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { flag: "배당수익률 10% 초과", desc: "주가 급락으로 인한 착시일 수 있음. 실적 확인 필수." },
                   { flag: "배당성향 80% 초과", desc: "이익 대부분을 배당으로 지급 → 투자 여력 없음, 삭감 위험." },
