@@ -986,9 +986,9 @@ function fgLabelEn(score: number): string {
 // ── Fear & Greed Gauge (speedometer) ─────────────────────────
 
 function FearGreedGauge({ score, lang }: { score: number; lang: string }) {
-  const W = 280, H = 170;
-  const cx = W / 2, cy = 140;
-  const r = 110;
+  const W = 400, H = 220;
+  const cx = W / 2, cy = 185;
+  const r = 150;
   // Arc from 180° to 0° (left to right)
   const startAngle = Math.PI;
   const endAngle = 0;
@@ -1014,26 +1014,26 @@ function FearGreedGauge({ score, lang }: { score: number; lang: string }) {
     return `M${x1},${y1} A${r},${r} 0 ${largeArc} 0 ${x2},${y2}`;
   };
 
-  const nx = cx + (r - 20) * Math.cos(needleAngle);
-  const ny = cy - (r - 20) * Math.sin(needleAngle);
+  const nx = cx + (r - 15) * Math.cos(needleAngle);
+  const ny = cy - (r - 15) * Math.sin(needleAngle);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxWidth: 280 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxWidth: 400 }}>
       {/* Zone arcs */}
       {zones.map((z, i) => (
-        <path key={i} d={arcPath(z.from, z.to)} fill="none" stroke={z.color} strokeWidth="18" strokeLinecap="butt" opacity="0.7" />
+        <path key={i} d={arcPath(z.from, z.to)} fill="none" stroke={z.color} strokeWidth="22" strokeLinecap="butt" opacity="0.7" />
       ))}
       {/* Needle */}
-      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#e8e8e8" strokeWidth="2.5" strokeLinecap="round" />
-      <circle cx={cx} cy={cy} r="5" fill="#e8e8e8" />
+      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#e8e8e8" strokeWidth="3" strokeLinecap="round" />
+      <circle cx={cx} cy={cy} r="7" fill="#e8e8e8" />
       {/* Score text */}
-      <text x={cx} y={cy - 30} textAnchor="middle" fill={fgColor(score)} fontSize="36" fontWeight="800">{score}</text>
-      <text x={cx} y={cy - 10} textAnchor="middle" fill={fgColor(score)} fontSize="13" fontWeight="600">
+      <text x={cx} y={cy - 40} textAnchor="middle" fill={fgColor(score)} fontSize="52" fontWeight="800">{score}</text>
+      <text x={cx} y={cy - 14} textAnchor="middle" fill={fgColor(score)} fontSize="16" fontWeight="600">
         {lang === "kr" ? fgLabelKr(score) : fgLabelEn(score)}
       </text>
       {/* Min/Max labels */}
-      <text x={cx - r + 5} y={cy + 14} textAnchor="middle" fill="#555" fontSize="9">0</text>
-      <text x={cx + r - 5} y={cy + 14} textAnchor="middle" fill="#555" fontSize="9">100</text>
+      <text x={cx - r + 5} y={cy + 18} textAnchor="middle" fill="#555" fontSize="10">0</text>
+      <text x={cx + r - 5} y={cy + 18} textAnchor="middle" fill="#555" fontSize="10">100</text>
     </svg>
   );
 }
@@ -1041,7 +1041,7 @@ function FearGreedGauge({ score, lang }: { score: number; lang: string }) {
 // ── Fear & Greed History Chart ───────────────────────────────
 
 function FearGreedHistoryChart({ history }: { history: { date: string; score: number }[] }) {
-  const W = 420, H = 200;
+  const W = 420, H = 280;
   const PAD = { top: 12, right: 16, bottom: 24, left: 32 };
   const cw = W - PAD.left - PAD.right;
   const ch = H - PAD.top - PAD.bottom;
@@ -1861,11 +1861,11 @@ export default function MacroPage() {
             <>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {/* Left: Gauge */}
-                <div className="rounded-xl p-3 sm:p-4" style={{ background: "#111", border: "1px solid #222" }}>
+                <div className="rounded-xl p-4 sm:p-6" style={{ background: "#111", border: "1px solid #222" }}>
                   <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
                     CNN Fear & Greed Index
                   </h3>
-                  <div className="flex justify-center">
+                  <div className="flex justify-center items-center py-2">
                     <FearGreedGauge score={fearGreed.score} lang={lang} />
                   </div>
                   {/* Previous values */}
@@ -1876,22 +1876,22 @@ export default function MacroPage() {
                       { label: lang === "kr" ? "1개월전" : "1M Ago", value: fearGreed.oneMonthAgo },
                     ].map((item, i) => (
                       <div key={i} className="text-center">
-                        <div className="text-[10px]" style={{ color: "#666" }}>{item.label}</div>
-                        <div className="text-sm font-bold" style={{ color: fgColor(item.value) }}>{item.value}</div>
+                        <div className="text-xs" style={{ color: "#888" }}>{item.label}</div>
+                        <div className="text-lg font-bold" style={{ color: fgColor(item.value) }}>{item.value}</div>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* Right: 30-day history */}
-                <div className="rounded-xl p-3 sm:p-4" style={{ background: "#111", border: "1px solid #222" }}>
+                <div className="rounded-xl p-4 sm:p-6" style={{ background: "#111", border: "1px solid #222" }}>
                   <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
                     {lang === "kr" ? "30일 추이" : "30-Day History"}
                   </h3>
                   {(fearGreed.history ?? []).length > 1 ? (
                     <FearGreedHistoryChart history={fearGreed.history ?? []} />
                   ) : (
-                    <div className="flex h-[200px] items-center justify-center" style={{ color: "#555" }}>
+                    <div className="flex h-[280px] items-center justify-center" style={{ color: "#555" }}>
                       <span className="text-xs">{lang === "kr" ? "히스토리 데이터 없음" : "No history data"}</span>
                     </div>
                   )}
