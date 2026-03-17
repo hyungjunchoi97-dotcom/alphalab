@@ -193,7 +193,7 @@ function isKrMarketOpen(): boolean {
 
 export default function IdeasPage() {
   const { t, lang } = useLang();
-  const [tab, setTab] = useState<"momentum" | "etf" | "dividend" | "consensus" | "gurus" | "ai-trading">("momentum");
+  const [tab, setTab] = useState<"momentum" | "etf" | "dividend" | "consensus" | "gurus">("momentum");
   const [etfSubTab, setEtfSubTab] = useState<"changes" | "kr" | "us">("changes");
   const [divSubTab, setDivSubTab] = useState<"screener" | "guide">("screener");
   const [selected, setSelected] = useState<FomoItem | null>(null);
@@ -722,7 +722,7 @@ export default function IdeasPage() {
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
             <div className="flex gap-px rounded bg-card-border p-px w-max sm:w-fit">
-            {(["momentum", "etf", "dividend", "consensus", "gurus", "ai-trading"] as const).map((tv) => (
+            {(["momentum", "etf", "dividend", "consensus", "gurus"] as const).map((tv) => (
               <button
                 key={tv}
                 onClick={() => {
@@ -741,8 +741,7 @@ export default function IdeasPage() {
                   : tv === "etf" ? "ETF"
                   : tv === "dividend" ? (lang === "kr" ? "배당" : "Dividend")
                   : tv === "consensus" ? (lang === "kr" ? "미국주식 컨센서스" : "US Stock Consensus")
-                  : tv === "gurus" ? (lang === "kr" ? "구루" : "Gurus")
-                  : (lang === "kr" ? "AI 트레이딩" : "AI Trading")}
+                  : (lang === "kr" ? "구루" : "Gurus")}
               </button>
             ))}
             </div>
@@ -2832,7 +2831,6 @@ export default function IdeasPage() {
 
         {tab === "gurus" && <GuruContent />}
 
-        {tab === "ai-trading" && <AiTradingContent />}
       </main>
     </div>
   );
