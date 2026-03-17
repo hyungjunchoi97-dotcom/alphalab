@@ -1,487 +1,172 @@
 "use client";
-
 import { useState, useEffect } from "react";
-import { useLang, LangToggle } from "@/lib/LangContext";
-import HeaderAuth from "@/components/HeaderAuth";
-import {
-  getPredictions,
-  savePredictions,
-  upsertPrediction,
-  deletePrediction,
-  type Prediction,
-  type PredictionCategory,
-} from "@/lib/predictionStore";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import AppHeader from "@/components/AppHeader";
 
-const CARD =
-  "rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_1px_2px_rgba(0,0,0,0.3)]";
-const INPUT =
-  "w-full rounded border border-card-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-accent focus:outline-none";
+const ADMIN_EMAILS = ["hyungjunchoi97@gmail.com"];
 
-const SESSION_KEY = "pb_admin_session";
-
-interface AdminSession {
-  token: string;
-  expiresAt: string;
-}
-
-function getSession(): AdminSession | null {
-  if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
-  const session = JSON.parse(raw) as AdminSession;
-  if (new Date(session.expiresAt) <= new Date()) {
-    localStorage.removeItem(SESSION_KEY);
-    return null;
-  }
-  return session;
+interface Post {
+  id: string;
+  title: string;
+  category: string;
+  author_email: string;
+  created_at: string;
+  is_hidden?: boolean;
+  is_pinned?: boolean;
 }
 
 export default function AdminPage() {
-  const { t } = useLang();
-  const [session, setSession] = useState<AdminSession | null>(null);
-  const [pin, setPin] = useState("");
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
+  const { user, session } = useAuth();
+  const router = useRouter();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<{ totalPosts: number; totalUsers: number } | null>(null);
+  const [activeTab, setActiveTab] = useState<"posts" | "users" | "cache">("posts");
 
-  // CRUD state
-  const [predictions, setPredictions] = useState<Prediction[]>([]);
-  const [editing, setEditing] = useState<Prediction | null>(null);
-  const [formTitleEn, setFormTitleEn] = useState("");
-  const [formTitleKr, setFormTitleKr] = useState("");
-  const [formDescEn, setFormDescEn] = useState("");
-  const [formDescKr, setFormDescKr] = useState("");
-  const [formCategory, setFormCategory] = useState<PredictionCategory>("stocks");
-  const [formStatus, setFormStatus] = useState<Prediction["status"]>("open");
-  const [formClosesAt, setFormClosesAt] = useState("");
-  const [formResolved, setFormResolved] = useState<"yes" | "no" | "">("");
+  const isAdmin = user?.email && ADMIN_EMAILS.includes(user.email);
 
   useEffect(() => {
-    setSession(getSession());
-  }, []);
+    if (!loading && !isAdmin) router.push("/");
+  }, [user, loading, isAdmin, router]);
 
   useEffect(() => {
-    if (session) {
-      setPredictions(getPredictions());
-    }
-  }, [session]);
-
-  const handleLogin = async () => {
-    setAuthLoading(true);
-    setAuthError(null);
-    try {
-      const res = await fetch("/api/admin/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin }),
+    if (!isAdmin || !session?.access_token) return;
+    fetch("/api/admin/stats", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok) {
+          setPosts(d.recentPosts || []);
+          setStats({ totalPosts: d.totalPosts, totalUsers: d.totalUsers });
+        }
+        setLoading(false);
       });
-      const json = await res.json();
-      if (json.ok) {
-        const s: AdminSession = { token: json.token, expiresAt: json.expiresAt };
-        localStorage.setItem(SESSION_KEY, JSON.stringify(s));
-        setSession(s);
-        setPin("");
-      } else {
-        setAuthError(json.error || "Authentication failed");
-      }
-    } catch {
-      setAuthError("Network error");
-    } finally {
-      setAuthLoading(false);
-    }
-  };
+  }, [isAdmin, session]);
 
-  const handleLogout = () => {
-    localStorage.removeItem(SESSION_KEY);
-    setSession(null);
-  };
-
-  const reload = () => setPredictions(getPredictions());
-
-  const startNew = () => {
-    setEditing(null);
-    setFormTitleEn("");
-    setFormTitleKr("");
-    setFormDescEn("");
-    setFormDescKr("");
-    setFormCategory("stocks");
-    setFormStatus("open");
-    setFormClosesAt(toLocalDatetime(new Date(Date.now() + 7 * 86400000).toISOString()));
-    setFormResolved("");
-  };
-
-  const startEdit = (p: Prediction) => {
-    setEditing(p);
-    setFormTitleEn(p.title.en);
-    setFormTitleKr(p.title.kr);
-    setFormDescEn(p.description.en);
-    setFormDescKr(p.description.kr);
-    setFormCategory(p.category);
-    setFormStatus(p.status);
-    setFormClosesAt(toLocalDatetime(p.closesAt));
-    setFormResolved(p.resolvedOptionId || "");
-  };
-
-  const handleSave = () => {
-    upsertPrediction({
-      id: editing?.id,
-      title: { en: formTitleEn, kr: formTitleKr },
-      description: { en: formDescEn, kr: formDescKr },
-      category: formCategory,
-      status: formStatus,
-      closesAt: new Date(formClosesAt).toISOString(),
-      resolvedOptionId: formResolved === "yes" || formResolved === "no" ? formResolved : null,
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm("정말 삭제하시겠습니까?")) return;
+    const res = await fetch("/api/admin/posts", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ postId }),
     });
-    reload();
-    setEditing(null);
-    setFormTitleEn("");
-    setFormTitleKr("");
-    setFormDescEn("");
-    setFormDescKr("");
+    if ((await res.json()).ok) setPosts((p) => p.filter((x) => x.id !== postId));
   };
 
-  const handleDelete = (id: string) => {
-    deletePrediction(id);
-    reload();
-    if (editing?.id === id) setEditing(null);
+  const handleToggleHide = async (postId: string, isHidden: boolean) => {
+    const res = await fetch("/api/admin/posts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ postId, action: isHidden ? "unhide" : "hide" }),
+    });
+    if ((await res.json()).ok) setPosts((p) => p.map((x) => (x.id === postId ? { ...x, is_hidden: !isHidden } : x)));
   };
+
+  const handleClearCache = async (cacheType: string) => {
+    let url = "/api/realestate/seoul?refresh=true";
+    if (cacheType === "telegram") url = "/api/telegram/feed";
+    const res = await fetch(url);
+    alert(res.ok ? "캐시 갱신 완료!" : "실패");
+  };
+
+  if (!isAdmin) return null;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-card-border bg-card-bg">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-4 py-2.5">
-          <div className="flex items-center gap-6">
-            <div>
-              <h1 className="text-sm font-bold tracking-tight">Alphalab</h1>
-              <p className="text-[10px] text-muted">{t("subtitle")}</p>
-            </div>
-            <nav className="flex items-center gap-1">
-              <a href="/" className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground">
-                {t("dashboard")}
-              </a>
-              <a href="/portfolio" className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground">
-                {t("portfolio")}
-              </a>
-              <a href="/flow" className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground">
-                {t("flow")}
-              </a>
-              <a href="/ideas" className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground">
-                {t("ideas")}
-              </a>
-              <a href="/ai-trading" className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground">
-                {t("aiTrading")}
-              </a>
-              <a href="/prompts" className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground">
-                {t("prompts")}
-              </a>
-              <a href="/predictions" className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground">
-                {t("predictions")}
-              </a>
-              <a href="/community" className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground">
-                {t("community")}
-              </a>
-              <span className="rounded bg-accent/15 px-2 py-0.5 text-[11px] font-medium text-accent">
-                Admin
-              </span>
-            </nav>
-          </div>
-          <div className="flex items-center gap-2">
-            <LangToggle />
-            <HeaderAuth />
-          </div>
+      <AppHeader active="community" />
+      <main className="w-full px-4 py-6">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-foreground">관리자 대시보드</h1>
+          <span className="text-xs text-muted">{user?.email}</span>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-[900px] px-4 py-4 space-y-3">
-        {!session ? (
-          /* ── PIN Login Gate ── */
-          <div className={`${CARD} mx-auto max-w-sm`}>
-            <div className="mb-3 flex items-center gap-2">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                Admin Login
-              </h2>
+        {/* 통계 카드 */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          {[
+            { label: "총 게시글", value: stats?.totalPosts ?? "-" },
+            { label: "총 유저", value: stats?.totalUsers ?? "-" },
+            { label: "오늘 신규", value: posts.filter((p) => new Date(p.created_at).toDateString() === new Date().toDateString()).length },
+            { label: "관리자", value: ADMIN_EMAILS.length },
+          ].map((s) => (
+            <div key={s.label} className="bg-card-bg border border-card-border rounded-lg p-4">
+              <div className="text-[11px] text-muted mb-1">{s.label}</div>
+              <div className="text-2xl font-bold text-foreground">{s.value}</div>
             </div>
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-muted">
-                  PIN
-                </label>
-                <input
-                  type="password"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                  placeholder="Enter admin PIN"
-                  className={INPUT}
-                />
-              </div>
-              {authError && (
-                <div className="rounded border border-loss/30 bg-loss/10 px-3 py-2 text-[10px] text-loss">
-                  {authError}
+          ))}
+        </div>
+
+        {/* 탭 */}
+        <div className="flex gap-1 mb-4 border-b border-card-border">
+          {(["posts", "users", "cache"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setActiveTab(t)}
+              className={`px-4 py-2 text-xs font-semibold transition-colors ${activeTab === t ? "text-accent border-b-2 border-accent" : "text-muted"}`}
+            >
+              {t === "posts" ? "게시글 관리" : t === "users" ? "유저 관리" : "캐시 관리"}
+            </button>
+          ))}
+        </div>
+
+        {/* 게시글 관리 */}
+        {activeTab === "posts" && (
+          <div className="space-y-2">
+            <div className="text-xs text-muted mb-3">최근 게시글 20개</div>
+            {posts.map((post) => (
+              <div key={post.id} className="flex items-center justify-between bg-card-bg border border-card-border rounded-lg px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {post.is_hidden && <span className="text-[10px] bg-red-900/30 text-red-400 px-1.5 py-0.5 rounded">숨김</span>}
+                    {post.is_pinned && <span className="text-[10px] bg-amber-900/30 text-amber-400 px-1.5 py-0.5 rounded">고정</span>}
+                    <span className="text-sm text-foreground truncate">{post.title}</span>
+                  </div>
+                  <div className="text-[11px] text-muted mt-0.5">
+                    {post.author_email} · {post.category} · {new Date(post.created_at).toLocaleDateString("ko-KR")}
+                  </div>
                 </div>
-              )}
-              <button
-                onClick={handleLogin}
-                disabled={!pin || authLoading}
-                className="w-full rounded bg-accent px-4 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-              >
-                {authLoading ? "Verifying..." : "Login"}
-              </button>
-            </div>
+                <div className="flex items-center gap-2 ml-4 shrink-0">
+                  <button
+                    onClick={() => handleToggleHide(post.id, !!post.is_hidden)}
+                    className="px-2 py-1 text-[11px] border border-card-border text-muted rounded hover:text-foreground transition-colors"
+                  >
+                    {post.is_hidden ? "숨김해제" : "숨김"}
+                  </button>
+                  <button
+                    onClick={() => handleDeletePost(post.id)}
+                    className="px-2 py-1 text-[11px] border border-red-800/50 text-red-400 rounded hover:bg-red-900/20 transition-colors"
+                  >
+                    삭제
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-        ) : (
-          /* ── Admin Dashboard ── */
-          <>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-gain" />
-                <span className="text-[10px] text-gain font-medium">Authenticated</span>
-              </div>
-              <div className="flex items-center gap-2">
+        )}
+
+        {/* 캐시 관리 */}
+        {activeTab === "cache" && (
+          <div className="space-y-3">
+            <div className="text-xs text-muted mb-3">API 캐시를 강제 갱신합니다</div>
+            {[
+              { label: "서울 부동산 실거래가", key: "seoul" },
+              { label: "원자재 데이터", key: "commodities" },
+              { label: "텔레그램 피드", key: "telegram" },
+            ].map((c) => (
+              <div key={c.key} className="flex items-center justify-between bg-card-bg border border-card-border rounded-lg px-4 py-3">
+                <span className="text-sm text-foreground">{c.label}</span>
                 <button
-                  onClick={startNew}
-                  className="rounded bg-accent px-3 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90"
+                  onClick={() => handleClearCache(c.key)}
+                  className="px-3 py-1.5 text-xs bg-accent text-white rounded hover:opacity-90 transition-opacity"
                 >
-                  + New Prediction
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="rounded border border-card-border px-3 py-1 text-xs text-muted transition-colors hover:text-foreground"
-                >
-                  Logout
+                  캐시 갱신
                 </button>
               </div>
-            </div>
-
-            {/* Edit form (shown when creating or editing) */}
-            {(formTitleEn !== "" || editing !== null || formDescEn !== "") && (
-              <div className={CARD}>
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                  <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                    {editing ? "Edit Prediction" : "New Prediction"}
-                  </h2>
-                </div>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-muted">
-                        Title (EN)
-                      </label>
-                      <input
-                        value={formTitleEn}
-                        onChange={(e) => setFormTitleEn(e.target.value)}
-                        className={INPUT}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-muted">
-                        Title (KR)
-                      </label>
-                      <input
-                        value={formTitleKr}
-                        onChange={(e) => setFormTitleKr(e.target.value)}
-                        className={INPUT}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-muted">
-                        Description (EN)
-                      </label>
-                      <textarea
-                        value={formDescEn}
-                        onChange={(e) => setFormDescEn(e.target.value)}
-                        rows={2}
-                        className={`${INPUT} resize-y`}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-muted">
-                        Description (KR)
-                      </label>
-                      <textarea
-                        value={formDescKr}
-                        onChange={(e) => setFormDescKr(e.target.value)}
-                        rows={2}
-                        className={`${INPUT} resize-y`}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-muted">
-                        Category
-                      </label>
-                      <select
-                        value={formCategory}
-                        onChange={(e) => setFormCategory(e.target.value as PredictionCategory)}
-                        className={INPUT}
-                      >
-                        <option value="stocks">Stocks</option>
-                        <option value="realestate">Real Estate</option>
-                        <option value="politics">Politics</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-muted">
-                        Status
-                      </label>
-                      <select
-                        value={formStatus}
-                        onChange={(e) => setFormStatus(e.target.value as Prediction["status"])}
-                        className={INPUT}
-                      >
-                        <option value="open">Open</option>
-                        <option value="closed">Closed</option>
-                        <option value="resolved">Resolved</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-muted">
-                        Closes At
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={formClosesAt}
-                        onChange={(e) => setFormClosesAt(e.target.value)}
-                        className={INPUT}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-muted">
-                        Result
-                      </label>
-                      <select
-                        value={formResolved}
-                        onChange={(e) => setFormResolved(e.target.value as "yes" | "no" | "")}
-                        className={INPUT}
-                        disabled={formStatus !== "resolved"}
-                      >
-                        <option value="">None</option>
-                        <option value="yes">YES</option>
-                        <option value="no">NO</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleSave}
-                      disabled={!formTitleEn}
-                      className="rounded bg-accent px-4 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditing(null);
-                        setFormTitleEn("");
-                        setFormTitleKr("");
-                        setFormDescEn("");
-                        setFormDescKr("");
-                      }}
-                      className="rounded border border-card-border px-4 py-1.5 text-xs text-muted transition-colors hover:text-foreground"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Predictions list */}
-            <div className={CARD}>
-              <div className="mb-3 flex items-center gap-2">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                  All Predictions ({predictions.length})
-                </h2>
-              </div>
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-card-border">
-                    <th className="pb-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted">
-                      Title
-                    </th>
-                    <th className="pb-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted">
-                      Cat
-                    </th>
-                    <th className="pb-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted">
-                      Status
-                    </th>
-                    <th className="pb-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted">
-                      Closes
-                    </th>
-                    <th className="pb-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {predictions.map((p) => (
-                    <tr
-                      key={p.id}
-                      className="border-b border-card-border/40 hover:bg-card-border/20"
-                    >
-                      <td className="py-1.5 max-w-[250px] truncate">{p.title.en}</td>
-                      <td className="py-1.5 text-[10px] text-muted">{p.category}</td>
-                      <td className="py-1.5">
-                        <span
-                          className={`rounded px-1.5 py-px text-[9px] font-medium ${
-                            p.status === "open"
-                              ? "bg-gain/20 text-gain"
-                              : p.status === "resolved"
-                                ? "bg-accent/20 text-accent"
-                                : "bg-muted/20 text-muted"
-                          }`}
-                        >
-                          {p.status}
-                          {p.resolvedOptionId ? `: ${p.resolvedOptionId.toUpperCase()}` : ""}
-                        </span>
-                      </td>
-                      <td className="py-1.5 text-muted tabular-nums">
-                        {new Date(p.closesAt).toLocaleDateString()}
-                      </td>
-                      <td className="py-1.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => startEdit(p)}
-                            className="rounded border border-card-border px-2 py-0.5 text-[10px] text-muted transition-colors hover:text-foreground"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(p.id)}
-                            className="rounded border border-loss/30 px-2 py-0.5 text-[10px] text-loss transition-colors hover:bg-loss/10"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {predictions.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="py-8 text-center text-[10px] text-muted">
-                        No predictions yet
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
+            ))}
+          </div>
         )}
       </main>
     </div>
   );
-}
-
-function toLocalDatetime(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
