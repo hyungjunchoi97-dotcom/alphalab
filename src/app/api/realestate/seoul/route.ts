@@ -6,7 +6,7 @@ interface MemCache {
   data: object;
   cachedAt: number;
 }
-let memCache: MemCache | null = null;
+const memCacheMap = new Map<string, MemCache>();
 const MEM_TTL_MS = 30 * 60 * 1000; // 30분
 
 export const runtime = "nodejs";
@@ -268,14 +268,15 @@ export async function GET(request: NextRequest) {
     dealYmd = await detectBestMonth();
   }
 
+  const cacheKey = `realestate_seoul_${dealYmd}`;
+
   // ── In-memory cache (fastest) ──────────────────────────
-  if (!refresh && memCache && Date.now() - memCache.cachedAt < MEM_TTL_MS) {
-    return NextResponse.json({ ok: true, ...memCache.data, cached: true }, {
+  const memEntry = memCacheMap.get(cacheKey);
+  if (!refresh && memEntry && Date.now() - memEntry.cachedAt < MEM_TTL_MS) {
+    return NextResponse.json({ ok: true, ...memEntry.data, cached: true }, {
       headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=300" },
     });
   }
-
-  const cacheKey = `realestate_seoul_${dealYmd}`;
   const TTL_MS = 24 * 60 * 60 * 1000;
 
   // 캐시 확인
@@ -290,7 +291,7 @@ export async function GET(request: NextRequest) {
         const age = Date.now() - new Date(cached.created_at).getTime();
         if (age < TTL_MS) {
           const result = cached.results as object;
-          memCache = { data: result, cachedAt: Date.now() - age };
+          memCacheMap.set(cacheKey, { data: result, cachedAt: Date.now() - age });
           return NextResponse.json({ ok: true, ...result, cached: true }, {
             headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=300" },
           });
@@ -391,7 +392,7 @@ export async function GET(request: NextRequest) {
   const payload = { districts: districtStats, recentTrades, updatedAt: new Date().toISOString(), dealYmd };
 
   // 메모리 캐시 저장
-  memCache = { data: payload, cachedAt: Date.now() };
+  memCacheMap.set(cacheKey, { data: payload, cachedAt: Date.now() });
 
   // Only cache if sufficient data (at least 10 districts with avgPrice > 0)
   if (validCount >= 10) {
