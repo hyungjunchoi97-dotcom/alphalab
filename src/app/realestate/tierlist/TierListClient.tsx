@@ -308,10 +308,11 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
                   {/* Pyramid row */}
                   <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
                     <div style={{
-                      width: `${widthPct}%`, minHeight: 64,
+                      width: `${widthPct}%`, minHeight: 48,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      gap: 6, flexWrap: "wrap",
-                      padding: "16px 16px",
+                      gap: 6, flexWrap: "nowrap",
+                      padding: "10px 16px",
+                      overflowX: "auto",
                       background: `linear-gradient(90deg, ${color}30 0%, ${color}18 40%, transparent 100%)`,
                       borderLeft: `3px solid ${color}`,
                       borderBottom: `1px solid ${color}15`,
@@ -326,7 +327,7 @@ export default function TierListClient({ embedded = false }: { embedded?: boolea
                             onClick={() => handleSelect(d)}
                             disabled={!available}
                             style={{
-                              ...S, fontSize: 13, padding: "6px 14px",
+                              ...S, fontSize: 12, padding: "5px 10px",
                               borderRadius: 2,
                               border: `1px solid ${available ? color : "#333"}`,
                               background: isActive ? color : available ? `${color}20` : "#1a1a1a",
