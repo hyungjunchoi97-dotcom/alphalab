@@ -14,7 +14,7 @@ export interface DistrictData {
 
 interface Props {
   districts: DistrictData[];
-  selectedCode: string | null;
+  selected: string | null;
   onSelect: (code: string) => void;
 }
 
@@ -62,7 +62,7 @@ const LEGEND = [
   { color: "#374151", label: "데이터없음" },
 ];
 
-export default function SeoulMap({ districts, selectedCode, onSelect }: Props) {
+export default function SeoulMap({ districts, selected, onSelect }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<HoverInfo | null>(null);
@@ -97,12 +97,12 @@ export default function SeoulMap({ districts, selectedCode, onSelect }: Props) {
           const name: string = f.properties?.name ?? "";
           const code = NAME_TO_CODE[name];
           const dist = byName.get(name);
-          return code === selectedCode ? "#2a1f05" : priceTierColor(dist?.avgPrice ?? 0);
+          return code === selected ? "#2a1f05" : priceTierColor(dist?.avgPrice ?? 0);
         };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const getStroke = (f: any) => NAME_TO_CODE[f.properties?.name ?? ""] === selectedCode ? "#f59e0b" : "#2e2e2e";
+        const getStroke = (f: any) => NAME_TO_CODE[f.properties?.name ?? ""] === selected ? "#f59e0b" : "#2e2e2e";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const getStrokeW = (f: any) => NAME_TO_CODE[f.properties?.name ?? ""] === selectedCode ? 2 : 0.5;
+        const getStrokeW = (f: any) => NAME_TO_CODE[f.properties?.name ?? ""] === selected ? 2 : 0.5;
 
         g.selectAll<SVGPathElement, unknown>("path.d")
           .data(features)
@@ -118,7 +118,7 @@ export default function SeoulMap({ districts, selectedCode, onSelect }: Props) {
           .on("mouseover", function(event: MouseEvent, f: any) {
             const name: string = f.properties?.name ?? "";
             const code = NAME_TO_CODE[name];
-            if (code !== selectedCode) {
+            if (code !== selected) {
               d3.select(this).attr("stroke", "#666").attr("stroke-width", 1.2);
             }
             const rect = container.getBoundingClientRect();
@@ -142,9 +142,9 @@ export default function SeoulMap({ districts, selectedCode, onSelect }: Props) {
             const code = NAME_TO_CODE[name];
             const dist = byName.get(name);
             d3.select(this)
-              .attr("fill", code === selectedCode ? "#2a1f05" : priceTierColor(dist?.avgPrice ?? 0))
-              .attr("stroke", code === selectedCode ? "#f59e0b" : "#2e2e2e")
-              .attr("stroke-width", code === selectedCode ? 2 : 0.5);
+              .attr("fill", code === selected ? "#2a1f05" : priceTierColor(dist?.avgPrice ?? 0))
+              .attr("stroke", code === selected ? "#f59e0b" : "#2e2e2e")
+              .attr("stroke-width", code === selected ? 2 : 0.5);
             setHover(null);
           })
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -179,7 +179,7 @@ export default function SeoulMap({ districts, selectedCode, onSelect }: Props) {
             return dist?.avgPrice ? `${short} ${(dist.avgPrice / 10000).toFixed(1)}억` : short;
           });
       });
-  }, [districts, selectedCode, onSelect]);
+  }, [districts, selected, onSelect]);
 
   return (
     <div ref={containerRef} style={{ position: "relative", width: "100%", height: "100%" }}>

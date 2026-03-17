@@ -951,9 +951,9 @@ export default function IdeasPage() {
                             {(a.targetHigh > 0 || a.targetLow > 0) && (
                               <div className="grid grid-cols-3 gap-2 mb-3">
                                 {[
-                                  { label: "High", val: a.targetHigh, upside: highUpside, color: "text-green-400" },
+                                  { label: lang === "kr" ? "최고" : "High", val: a.targetHigh, upside: highUpside, color: "text-green-400" },
                                   { label: lang === "kr" ? "평균" : "Median", val: a.targetConsensus, upside: consensusUpside, color: "text-yellow-400" },
-                                  { label: "Low", val: a.targetLow, upside: lowUpside, color: "text-red-400" },
+                                  { label: lang === "kr" ? "최저" : "Low", val: a.targetLow, upside: lowUpside, color: "text-red-400" },
                                 ].map(({ label, val, upside, color }) => (
                                   <div key={label} className="rounded bg-[#0f0f0f] px-2.5 py-2 text-center">
                                     <p className="text-[9px] text-[#555] uppercase tracking-wider mb-1">{label}</p>
@@ -1042,7 +1042,7 @@ export default function IdeasPage() {
                               </p>
                             </div>
                             <div className="border-b border-[#1e1e1e] py-3">
-                              <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">PRICE MOMENTUM</p>
+                              <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">{lang === "kr" ? "가격 모멘텀" : "PRICE MOMENTUM"}</p>
                               <div className="space-y-1.5">
                                 {([["1D", selected.metrics.chg1d], ["5D", selected.metrics.chg5d], ["20D", selected.metrics.chg20d]] as const).map(([label, val]) => (
                                   <div key={label} className="flex items-center justify-between">
@@ -1058,7 +1058,7 @@ export default function IdeasPage() {
                               </div>
                             </div>
                             <div className="py-3">
-                              <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">SIGNAL TYPE</p>
+                              <p className="text-xs font-semibold uppercase tracking-widest text-[#555] mb-2.5">{lang === "kr" ? "시그널 유형" : "SIGNAL TYPE"}</p>
                               <div className="flex items-start gap-2.5">
                                 <span className={`shrink-0 rounded px-2 py-0.5 text-[9px] font-bold ${TAG_COLORS[signalTag] || "bg-muted/20 text-muted"}`}>{signalTag}</span>
                                 <p className="text-[10px] leading-relaxed text-[#888]">{lang === "kr" ? explanation.kr : explanation.en}</p>
@@ -1188,7 +1188,7 @@ export default function IdeasPage() {
                           <div className="grid grid-cols-2 gap-3 mt-3">
                             {(krProfile.sector || krProfile.industry) && (
                               <div>
-                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Sector</p>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">{lang === "kr" ? "섹터" : "Sector"}</p>
                                 <p className="text-sm text-gray-200 mt-0.5 truncate">{[krProfile.sector, krProfile.industry].filter(Boolean).join(" / ")}</p>
                               </div>
                             )}
@@ -1454,9 +1454,9 @@ export default function IdeasPage() {
                               {(a.targetHigh > 0 || a.targetLow > 0) && (
                                 <div className="grid grid-cols-3 gap-2 mb-3">
                                   {[
-                                    { label: "High", val: a.targetHigh, upside: highUpside, color: "text-green-400" },
+                                    { label: lang === "kr" ? "최고" : "High", val: a.targetHigh, upside: highUpside, color: "text-green-400" },
                                     { label: lang === "kr" ? "평균" : "Median", val: a.targetConsensus, upside: consensusUpside, color: "text-yellow-400" },
-                                    { label: "Low", val: a.targetLow, upside: lowUpside, color: "text-red-400" },
+                                    { label: lang === "kr" ? "최저" : "Low", val: a.targetLow, upside: lowUpside, color: "text-red-400" },
                                   ].map(({ label, val, upside, color }) => (
                                     <div key={label} className="rounded bg-[#0f0f0f] px-2.5 py-2 text-center">
                                       <p className="text-[9px] text-[#555] uppercase tracking-wider mb-1">{label}</p>
@@ -1525,7 +1525,7 @@ export default function IdeasPage() {
                               [lang === "kr" ? "거래대금" : "Trading Value", s.tradingValue >= 1e9 ? `$${(s.tradingValue / 1e9).toFixed(2)}B` : `$${(s.tradingValue / 1e6).toFixed(0)}M`],
                               [lang === "kr" ? "거래량" : "Volume", formatVol(s.volume)],
                               [lang === "kr" ? "20일 평균 거래량" : "Avg Volume (20D)", formatVol(s.avgVolume)],
-                              ["Vol Ratio", `${s.volumeRatio.toFixed(2)}x`],
+                              [lang === "kr" ? "거래량비" : "Vol Ratio", `${s.volumeRatio.toFixed(2)}x`],
                               [lang === "kr" ? "등락률" : "Change", `${s.changePct >= 0 ? "+" : ""}${s.changePct.toFixed(2)}%`],
                             ] as const).map(([label, val]) => (
                               <div key={label} className="flex items-center justify-between">
@@ -1580,7 +1580,7 @@ export default function IdeasPage() {
                             <div className="grid grid-cols-2 gap-3 mt-3">
                               {(usProfile.sector || usProfile.industry) && (
                                 <div>
-                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Sector</p>
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">{lang === "kr" ? "섹터" : "Sector"}</p>
                                   <p className="text-sm text-gray-200 mt-0.5 truncate">{[usProfile.sector, usProfile.industry].filter(Boolean).join(" / ")}</p>
                                 </div>
                               )}
@@ -2636,7 +2636,9 @@ export default function IdeasPage() {
                       className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors ${
                         consensusRatingFilter === r ? "bg-accent text-white" : "bg-card-border/50 text-muted hover:text-foreground"
                       }`}
-                    >{r === "Strong Buy" ? "강력매수" : r === "Buy" ? "매수" : r === "Hold" ? "중립" : r}</button>
+                    >{lang === "kr"
+                      ? (r === "ALL" ? "전체" : r === "Strong Buy" ? "강력매수" : r === "Buy" ? "매수" : r === "Hold" ? "중립" : r)
+                      : r}</button>
                   ))}
                 </div>
                 {/* Upside */}
