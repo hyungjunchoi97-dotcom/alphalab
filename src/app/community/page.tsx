@@ -275,7 +275,7 @@ function EditorOverlay({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div
         className="flex flex-col rounded border border-[#1a1a1a] bg-[#050505] shadow-2xl overflow-hidden"
-        style={{ width: "90vw", height: "85vh", maxWidth: "1000px" }}
+        style={{ width: "min(860px, 98vw)", height: "min(640px, 95vh)" }}
       >
         {error && (
           <div className="absolute top-4 right-4 z-10 rounded border border-[#f87171]/30 bg-[#1a0808] px-4 py-2 shadow-lg">
@@ -284,7 +284,7 @@ function EditorOverlay({
         )}
 
         {/* Top action bar */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[#1a1a1a] shrink-0">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-2 sm:py-3 border-b border-[#1a1a1a] shrink-0">
           <div className="flex items-center gap-3">
             {saveTime && (
               <span className="text-[10px] font-mono text-[#444]">
@@ -327,7 +327,7 @@ function EditorOverlay({
         </div>
 
         {/* Category + subcategory selects */}
-        <div className="px-5 pb-3 shrink-0 flex items-center gap-2">
+        <div className="px-3 sm:px-5 pb-2 sm:pb-3 shrink-0 flex flex-wrap items-center gap-2">
           <select
             value={category}
             onChange={(e) => {
@@ -369,7 +369,7 @@ function EditorOverlay({
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center gap-px px-5 py-1.5 border-y border-[#1a1a1a] shrink-0">
+        <div className="flex items-center gap-px px-2 sm:px-5 py-1.5 border-y border-[#1a1a1a] shrink-0 overflow-x-auto">
           <select
             onChange={(e) => {
               execCmd("fontSize", e.target.value);
@@ -526,7 +526,7 @@ export default function CommunityPage() {
     <div className="min-h-screen bg-background">
       <AppHeader active="community" />
 
-      <main className="mx-auto max-w-[1200px] px-4 py-5">
+      <main className="mx-auto max-w-[1200px] px-2 sm:px-4 py-3 sm:py-5">
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[auto_1fr]">
           {/* Left sidebar: categories */}
           <aside className={`hidden lg:flex flex-col transition-all duration-200 ${sidebarOpen ? "w-[200px]" : "w-[32px]"} shrink-0`}>
@@ -716,6 +716,16 @@ export default function CommunityPage() {
           </div>
 
         </div>
+
+        <button
+          onClick={openEditor}
+          className="fixed bottom-5 right-5 z-30 flex items-center justify-center w-12 h-12 rounded-full bg-accent shadow-lg lg:hidden"
+          aria-label="새 글 작성"
+        >
+          <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
       </main>
 
       {showEditor && (
@@ -767,7 +777,7 @@ function PostCard({
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-3 min-w-0">
+      <div className="flex-1 px-2 sm:px-3 py-2 sm:py-3 min-w-0">
         {/* Meta */}
         <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted">
           <span className={`rounded px-1.5 py-px text-[9px] font-semibold ${CAT_BADGE_COLOR[post.category] || CAT_BADGE_COLOR[mapCategory(post.category)] || "bg-muted/20 text-muted"}`}>
@@ -789,7 +799,7 @@ function PostCard({
         </div>
 
         {/* Title */}
-        <h3 className="mt-1.5 text-[13px] font-semibold leading-snug">{post.title}</h3>
+        <h3 className="mt-1.5 text-xs sm:text-[13px] font-semibold leading-snug">{post.title}</h3>
 
         {/* Preview text */}
         {post.content && (
