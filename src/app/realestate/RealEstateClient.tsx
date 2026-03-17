@@ -671,7 +671,7 @@ export default function RealEstateClient() {
       <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#e0e0e0" }}>
         <AppHeader active="realestate" />
 
-        <main className="md:pl-56" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 56px)", overflow: "hidden" }}>
+        <main className="md:pl-56" style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 56px)" }}>
 
           {/* ── Top bar ── */}
           <div style={{
@@ -717,7 +717,7 @@ export default function RealEstateClient() {
           {/* ── Tab navigation ── */}
           <div style={{
             display: "flex", gap: 0, borderBottom: "1px solid #1e1e1e",
-            background: "#111111", flexShrink: 0,
+            background: "#111111", flexShrink: 0, overflowX: "auto", WebkitOverflowScrolling: "touch",
           }}>
             {([
               { key: "trades" as TabKey, label: "실거래 현황" },
@@ -732,11 +732,11 @@ export default function RealEstateClient() {
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 style={{
-                  ...S, fontSize: 12, fontWeight: 600, padding: "8px 20px",
+                  ...S, fontSize: 12, fontWeight: 600, padding: "8px 14px",
                   cursor: "pointer", background: "transparent", border: "none",
                   borderBottom: activeTab === tab.key ? "2px solid #f59e0b" : "2px solid transparent",
                   color: activeTab === tab.key ? "#f59e0b" : "#555",
-                  letterSpacing: "0.05em",
+                  letterSpacing: "0.05em", whiteSpace: "nowrap",
                 }}
               >
                 {tab.label}
@@ -745,7 +745,7 @@ export default function RealEstateClient() {
           </div>
 
           {/* ── Scrollable body ── */}
-          <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
+          <div style={{ flex: 1, overflowY: "auto", overflowX: "auto" }}>
 
             {activeTab === "supply-demand" ? (() => {
               const rangeMonths = supplyDemandRange === "3Y" ? 36 : 60;
@@ -784,7 +784,7 @@ export default function RealEstateClient() {
 
                 {/* 차트 해석 가이드 */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
                     {[
                       {
                         title: "거래량 — 시장 온도",
@@ -901,7 +901,7 @@ export default function RealEstateClient() {
                 </div>
 
                 {/* 상단 요약 카드 */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
                   {[
                     { label: "현재 기준금리", value: "2.75%", sub: "2025.02 인하", color: "#22c55e" },
                     { label: "스트레스 DSR", value: "2단계", sub: "가산금리 0.75%", color: "#f59e0b" },
@@ -987,7 +987,7 @@ export default function RealEstateClient() {
                 </div>
 
                 {/* 연도별 요약 카드 */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
                   {MOVEIN_BY_YEAR.map(d => {
                     const isCurrent = d.year === "2025";
                     return (
@@ -1095,7 +1095,7 @@ export default function RealEstateClient() {
                 </div>
 
                 {/* 단계 범례 + 요약 */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
                   {/* 단계 설명 */}
                   <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "14px 16px" }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 10 }}>사업 진행 단계</div>
@@ -1200,7 +1200,7 @@ export default function RealEstateClient() {
                 </div>
 
                 {/* 요약 카드 3개 */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
                   {[
                     { label: "서울 평균 전세가율", value: "57.1%", sub: "2025.02 기준", color: "#f59e0b" },
                     { label: "전세가율 70% 이상", value: `${JEONSE_RATE_BY_GU.filter(d => d.rate >= 70).length}개구`, sub: "갭투자 주의 구역", color: "#ef4444" },
@@ -1329,10 +1329,10 @@ export default function RealEstateClient() {
             ) : (
             <>
             {/* [1] Map + Stats */}
-            <div style={{ display: "flex", height: 600, borderBottom: "1px solid #1e1e1e" }}>
+            <div className="flex flex-col md:flex-row" style={{ minHeight: 400, borderBottom: "1px solid #1e1e1e" }}>
 
               {/* Map */}
-              <div style={{ flex: 1, minWidth: 0, borderRight: "1px solid #1e1e1e" }}>
+              <div className="h-[400px] md:h-[600px]" style={{ flex: 1, minWidth: 0, borderRight: "1px solid #1e1e1e" }}>
                 {loading ? (
                   <div style={{ width: "100%", height: "100%", background: "#0d0d0d", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <span style={{ ...S, fontSize: 10, color: "#222" }}>LOADING…</span>
@@ -1347,7 +1347,7 @@ export default function RealEstateClient() {
               </div>
 
               {/* Stats panel */}
-              <aside style={{ width: 270, flexShrink: 0, background: "#111111", display: "flex", flexDirection: "column" }}>
+              <aside className="w-full md:w-[270px]" style={{ flexShrink: 0, background: "#111111", display: "flex", flexDirection: "column" }}>
                 <div style={{ padding: "10px 14px", borderBottom: "1px solid #1e1e1e", flexShrink: 0 }}>
                   <div style={{ fontSize: 9, ...S, color: "#3a3a3a", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 3 }}>
                     {selectedData ? "선택된 구" : "전체 요약"}
