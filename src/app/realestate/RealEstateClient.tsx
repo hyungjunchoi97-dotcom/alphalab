@@ -1240,8 +1240,8 @@ export default function RealEstateClient() {
                 <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "16px" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>자치구별 전세가율</div>
                   <div style={{ fontSize: 11, color: "#666", marginBottom: 16 }}>높을수록 갭 리스크 높음 / 낮을수록 매매가 대비 전세 저평가</div>
-                  <ResponsiveContainer width="100%" height={320}>
-                    <BarChart data={JEONSE_RATE_BY_GU} layout="vertical" margin={{ top: 0, right: 40, left: 60, bottom: 0 }}>
+                  <ResponsiveContainer width="100%" height={520}>
+                    <BarChart data={JEONSE_RATE_BY_GU} layout="vertical" margin={{ top: 10, right: 40, left: 60, bottom: 10 }}>
                       <XAxis type="number" domain={[40, 75]} tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} />
                       <YAxis type="category" dataKey="gu" tick={{ fill: "#aaa", fontSize: 10 }} axisLine={false} tickLine={false} width={55} />
                       <Tooltip
