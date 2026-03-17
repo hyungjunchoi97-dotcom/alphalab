@@ -29,20 +29,20 @@ const NAME_TO_CODE: Record<string, string> = {
 
 const LEGEND_ITEMS = [
   { color: "#1a1a1a", label: "데이터 없음" },
-  { color: "#153025", label: "~10억" },
-  { color: "#1e4a28", label: "10~15억" },
-  { color: "#4a4012", label: "15~20억" },
-  { color: "#5a2e0c", label: "20~25억" },
-  { color: "#6a1010", label: "25억+" },
+  { color: "#153025", label: "~7억" },
+  { color: "#1e4a28", label: "7~12억" },
+  { color: "#4a4012", label: "12~17억" },
+  { color: "#5a2e0c", label: "17~22억" },
+  { color: "#6a1010", label: "22억+" },
 ];
 
 function priceColor(avgPrice: number): string {
   const ok = avgPrice / 10000;
   if (ok <= 0) return "#1a1a1a";
-  if (ok < 10) return "#153025";
-  if (ok < 15) return "#1e4a28";
-  if (ok < 20) return "#4a4012";
-  if (ok < 25) return "#5a2e0c";
+  if (ok < 7) return "#153025";
+  if (ok < 12) return "#1e4a28";
+  if (ok < 17) return "#4a4012";
+  if (ok < 22) return "#5a2e0c";
   return "#6a1010";
 }
 
