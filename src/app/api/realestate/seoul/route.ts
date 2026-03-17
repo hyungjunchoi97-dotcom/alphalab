@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 import { XMLParser } from "fast-xml-parser";
 
+interface MemCache {
+  data: object;
+  cachedAt: number;
+}
+let memCache: MemCache | null = null;
+const MEM_TTL_MS = 30 * 60 * 1000; // 30분
+
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
@@ -261,6 +268,13 @@ export async function GET(request: NextRequest) {
     dealYmd = await detectBestMonth();
   }
 
+  // ── In-memory cache (fastest) ──────────────────────────
+  if (!refresh && memCache && Date.now() - memCache.cachedAt < MEM_TTL_MS) {
+    return NextResponse.json({ ok: true, ...memCache.data, cached: true }, {
+      headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=300" },
+    });
+  }
+
   const cacheKey = `realestate_seoul_${dealYmd}`;
   const TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -275,7 +289,11 @@ export async function GET(request: NextRequest) {
       if (cached) {
         const age = Date.now() - new Date(cached.created_at).getTime();
         if (age < TTL_MS) {
-          return NextResponse.json({ ok: true, ...(cached.results as object), cached: true });
+          const result = cached.results as object;
+          memCache = { data: result, cachedAt: Date.now() - age };
+          return NextResponse.json({ ok: true, ...result, cached: true }, {
+            headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=300" },
+          });
         }
       }
     } catch {
@@ -371,6 +389,9 @@ export async function GET(request: NextRequest) {
   console.log(`[부동산API] 결과: ${dealYmd} | ${validCount}/25 구 | 거래 ${allTrades.length}건`);
 
   const payload = { districts: districtStats, recentTrades, updatedAt: new Date().toISOString(), dealYmd };
+
+  // 메모리 캐시 저장
+  memCache = { data: payload, cachedAt: Date.now() };
 
   // Only cache if sufficient data (at least 10 districts with avgPrice > 0)
   if (validCount >= 10) {
