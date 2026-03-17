@@ -144,30 +144,30 @@ export default function Home() {
   }, [fetchTicker, fetchTelegram]);
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-background flex flex-col">
       <AppHeader active="dashboard" />
 
-      <main className="flex-1 min-h-0 mx-auto w-full max-w-[1400px] px-3 py-2">
-        <div className="grid grid-cols-2 gap-2 h-full">
+      <main className="flex-1 mx-auto w-full max-w-[1400px] px-3 py-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:h-[calc(100vh-60px)]">
           {/* ── Left: KR Heatmap ── */}
-          <section className="min-h-0 rounded-lg border border-card-border bg-card-bg p-3 shadow-[0_1px_2px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
+          <section className="h-[420px] md:h-auto md:min-h-0 rounded-lg border border-card-border bg-card-bg p-3 shadow-[0_1px_2px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
             <div className="flex-1 min-h-0">
               <HeatmapTreemap />
             </div>
           </section>
 
           {/* ── Right: Indices + Telegram ── */}
-          <div className="flex flex-col gap-2 min-h-0">
+          <div className="flex flex-col gap-2 md:min-h-0 md:h-full">
             {/* 7 Key Indices — single row */}
             <section className="shrink-0 rounded-lg border border-card-border bg-card-bg px-2 py-1.5 shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
               {indicesLoading ? (
-                <div className="grid grid-cols-7 gap-1">
+                <div className="grid grid-cols-4 gap-1 sm:grid-cols-7">
                   {Array.from({ length: 7 }).map((_, i) => (
                     <div key={i} className="animate-pulse rounded bg-[#1a1a1a] h-[48px]" />
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-7 gap-1">
+                <div className="grid grid-cols-4 gap-1 sm:grid-cols-7">
                   {KEY_INDICES.map((idx) => {
                     const q = indices[idx.key];
                     if (!q) {
@@ -181,7 +181,7 @@ export default function Home() {
                     return (
                       <div
                         key={idx.key}
-                        className="h-[48px] rounded flex flex-col items-center justify-center px-1 bg-[#111]"
+                        className="h-[52px] rounded flex flex-col items-center justify-center px-1 bg-[#111]"
                       >
                         <span className="text-[10px] text-gray-400 leading-none">{idx.label}</span>
                         <span className="text-sm font-bold tabular-nums font-mono text-white mt-0.5 leading-none">
@@ -195,7 +195,7 @@ export default function Home() {
             </section>
 
             {/* Telegram Feed */}
-            <section className="flex-1 min-h-0 rounded-lg border border-card-border bg-card-bg p-3 shadow-[0_1px_2px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
+            <section className="h-[500px] md:flex-1 md:min-h-0 rounded-lg border border-card-border bg-card-bg p-3 shadow-[0_1px_2px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
               <div className="mb-2 flex items-center gap-2 shrink-0">
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="#60a5fa">
                   <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
