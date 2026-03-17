@@ -147,7 +147,7 @@ export default function Home() {
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader active="dashboard" />
 
-      <main className="flex-1 mx-auto w-full max-w-[1400px] px-3 py-2">
+      <main className="flex-1 w-full px-3 py-2">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:h-[calc(100vh-60px)]">
           {/* ── Left: KR Heatmap ── */}
           <section className="h-[420px] md:h-auto md:min-h-0 rounded-lg border border-card-border bg-card-bg p-3 shadow-[0_1px_2px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">

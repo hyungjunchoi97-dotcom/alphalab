@@ -140,6 +140,7 @@ export default function TelegramPage() {
   const [allMessages, setAllMessages] = useState<TelegramMessage[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [activeChannel, setActiveChannel] = useState<string | null>(null);
+  const [channelSidebarOpen, setChannelSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -358,7 +359,7 @@ export default function TelegramPage() {
     <div className="min-h-screen font-[family-name:var(--font-noto-sans-kr)]" style={{ background: "#0a0a0a" }}>
       <AppHeader active="telegram" />
 
-      <main className="mx-auto max-w-[1400px] px-4 py-4">
+      <main className="w-full px-0 py-0">
         {/* Last updated bar */}
         {lastUpdate && (
           <div className="mb-3 flex items-center justify-between px-1">
@@ -385,9 +386,9 @@ export default function TelegramPage() {
           </div>
         )}
 
-        <div className="flex gap-4">
+        <div className="flex gap-0">
           {/* Left sidebar */}
-          <aside className="hidden w-56 shrink-0 md:block">
+          <aside className={`hidden md:block shrink-0 transition-all duration-200 ${channelSidebarOpen ? "w-56" : "w-0 overflow-hidden"} border-r border-[#1e1e1e]`}>
             <div className="sticky top-4 rounded-xl p-3 overflow-y-auto max-h-[calc(100vh-120px)] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-track]:bg-transparent" style={{ background: "#0d0d0d", border: "1px solid #1a1a1a" }}>
               <button
                 onClick={() => setActiveChannel(null)}
@@ -431,7 +432,17 @@ export default function TelegramPage() {
           </aside>
 
           {/* Main feed */}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 px-4 py-4">
+            {/* Channel sidebar toggle */}
+            <button
+              onClick={() => setChannelSidebarOpen(v => !v)}
+              className="hidden md:flex items-center gap-1 px-3 py-1.5 text-xs text-[#666] hover:text-white transition-colors mb-3"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d={channelSidebarOpen ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} />
+              </svg>
+              {channelSidebarOpen ? (lang === "kr" ? "채널 숨기기" : "Hide channels") : (lang === "kr" ? "채널 보기" : "Show channels")}
+            </button>
             {/* Mobile channel tabs */}
             <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 md:hidden">
               <button

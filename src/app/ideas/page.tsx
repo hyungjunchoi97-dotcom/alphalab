@@ -717,7 +717,7 @@ export default function IdeasPage() {
     <div className="min-h-screen bg-background">
       <AppHeader active="ideas" />
 
-      <main className="mx-auto max-w-[1400px] px-2 sm:px-4 py-3 sm:py-4 space-y-3">
+      <main className="w-full px-2 sm:px-4 py-3 sm:py-4 space-y-3">
         {/* Tab pills + sub-tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">

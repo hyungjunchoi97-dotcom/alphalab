@@ -1812,7 +1812,7 @@ export default function MacroPage() {
     <div className="min-h-screen font-[family-name:var(--font-noto-sans-kr)]" style={{ background: "#0a0a0a" }}>
       <AppHeader active="macro" />
 
-      <main className="mx-auto max-w-[1400px] px-2 sm:px-4 py-3 sm:py-6">
+      <main className="w-full px-2 sm:px-4 py-3 sm:py-6">
         {/* ── Tab Navigation ─────────────────────────────────── */}
         <div className="mb-4 sm:mb-6 flex gap-1 border-b overflow-x-auto scrollbar-none" style={{ borderColor: "#222" }}>
           {([

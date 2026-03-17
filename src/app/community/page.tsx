@@ -526,7 +526,7 @@ export default function CommunityPage() {
     <div className="min-h-screen bg-background">
       <AppHeader active="community" />
 
-      <main className="mx-auto max-w-[1200px] px-2 sm:px-4 py-3 sm:py-5">
+      <main className="w-full px-2 sm:px-4 py-3 sm:py-5">
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[auto_1fr]">
           {/* Left sidebar: categories */}
           <aside className={`hidden lg:flex flex-col transition-all duration-200 ${sidebarOpen ? "w-[200px]" : "w-[32px]"} shrink-0`}>

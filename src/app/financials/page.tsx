@@ -1154,7 +1154,7 @@ function FinancialsPageInner() {
       `}</style>
       <AppHeader active="financials" />
 
-      <main className="mx-auto max-w-[1400px] px-4 py-4 space-y-4">
+      <main className="w-full px-2 sm:px-4 py-3 sm:py-4 space-y-4">
         <div>
           <h1 className="text-sm font-bold" style={{ color: "#e8e8e8" }}>{t.finFinancials}</h1>
           <p className="text-xs mt-0.5" style={{ color: "#6b7280" }}>
