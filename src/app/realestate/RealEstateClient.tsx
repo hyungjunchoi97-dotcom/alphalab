@@ -671,7 +671,7 @@ export default function RealEstateClient() {
       <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#e0e0e0" }}>
         <AppHeader active="realestate" />
 
-        <main className="md:pl-56" style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 56px)" }}>
+        <main style={{ display: "flex", flexDirection: "column", minHeight: "calc(100vh - 56px)" }}>
 
           {/* ── Top bar ── */}
           <div style={{
