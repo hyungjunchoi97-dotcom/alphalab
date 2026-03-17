@@ -193,7 +193,9 @@ function isKrMarketOpen(): boolean {
 
 export default function IdeasPage() {
   const { t, lang } = useLang();
-  const [tab, setTab] = useState<"fomo" | "etf" | "kr-etf" | "dividend-etf" | "dividend-screener" | "dividend-guide" | "consensus" | "gurus" | "ai-trading">("fomo");
+  const [tab, setTab] = useState<"momentum" | "etf" | "dividend" | "consensus" | "gurus" | "ai-trading">("momentum");
+  const [etfSubTab, setEtfSubTab] = useState<"changes" | "kr" | "us">("changes");
+  const [divSubTab, setDivSubTab] = useState<"screener" | "guide">("screener");
   const [selected, setSelected] = useState<FomoItem | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -544,7 +546,7 @@ export default function IdeasPage() {
     function tick() {
       const open = isKrMarketOpen();
       setMarketOpen(open);
-      if (open && tab === "fomo" && fomoMarket === "KR") {
+      if (open && tab === "momentum" && fomoMarket === "KR") {
         fetchScreener();
       }
     }
@@ -555,11 +557,11 @@ export default function IdeasPage() {
 
   // Auto-fetch ETF data when tab/filter changes
   useEffect(() => {
-    if (tab === "etf") {
+    if (tab === "etf" && etfSubTab === "changes") {
       fetchEtfHoldings(etfFilter);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, etfFilter]);
+  }, [tab, etfSubTab, etfFilter]);
 
   // Auto-fetch consensus when tab selected (once)
   useEffect(() => {
@@ -571,7 +573,7 @@ export default function IdeasPage() {
 
   // Auto-fetch KR ETF when tab selected (once)
   useEffect(() => {
-    if (tab === "kr-etf" && !krEtfFetched) {
+    if (tab === "etf" && etfSubTab === "kr" && !krEtfFetched) {
       setKrEtfLoading(true);
       fetch("/api/etf/kr-holdings")
         .then(r => r.json())
@@ -582,11 +584,11 @@ export default function IdeasPage() {
         .finally(() => setKrEtfLoading(false));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, etfSubTab]);
 
   // Auto-fetch Dividend ETF when tab selected (once)
   useEffect(() => {
-    if (tab === "dividend-etf" && !divEtfFetched) {
+    if (tab === "etf" && etfSubTab === "us" && !divEtfFetched) {
       setDivEtfLoading(true);
       fetch("/api/etf/dividend-etf")
         .then(r => r.json())
@@ -595,11 +597,11 @@ export default function IdeasPage() {
         .finally(() => setDivEtfLoading(false));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, etfSubTab]);
 
   // Auto-fetch Dividend Screener when tab selected (once)
   useEffect(() => {
-    if (tab === "dividend-screener" && !divStocksFetched) {
+    if (tab === "dividend" && divSubTab === "screener" && !divStocksFetched) {
       setDivStocksLoading(true);
       fetch(`/api/dividend-screener?min=3&max=10`)
         .then(r => r.json())
@@ -608,11 +610,11 @@ export default function IdeasPage() {
         .finally(() => setDivStocksLoading(false));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, divSubTab]);
 
   // Auto-fetch US FOMO when sector changes
   useEffect(() => {
-    if (tab === "fomo" && fomoMarket === "US") {
+    if (tab === "momentum" && fomoMarket === "US") {
       fetchFomoUs(usSector);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -720,7 +722,7 @@ export default function IdeasPage() {
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
             <div className="flex gap-px rounded bg-card-border p-px w-max sm:w-fit">
-            {(["fomo", "etf", "kr-etf", "dividend-etf", "dividend-screener", "dividend-guide", "consensus", "gurus", "ai-trading"] as const).map((tv) => (
+            {(["momentum", "etf", "dividend", "consensus", "gurus", "ai-trading"] as const).map((tv) => (
               <button
                 key={tv}
                 onClick={() => {
@@ -735,13 +737,10 @@ export default function IdeasPage() {
                     : "bg-card-bg text-muted hover:text-foreground"
                 }`}
               >
-                {tv === "fomo" ? "FOMO"
-                  : tv === "etf" ? (lang === "kr" ? "ETF 변동" : "ETF Changes")
-                  : tv === "kr-etf" ? (lang === "kr" ? "국내 ETF" : "KR ETF")
-                  : tv === "dividend-etf" ? (lang === "kr" ? "배당 ETF" : "Dividend ETF")
-                  : tv === "dividend-screener" ? (lang === "kr" ? "배당주" : "Dividend")
-                  : tv === "dividend-guide" ? (lang === "kr" ? "배당 가이드" : "Div Guide")
-                  : tv === "consensus" ? (lang === "kr" ? "월가 컨센서스" : "Wall St Consensus")
+                {tv === "momentum" ? (lang === "kr" ? "모멘텀" : "Momentum")
+                  : tv === "etf" ? "ETF"
+                  : tv === "dividend" ? (lang === "kr" ? "배당" : "Dividend")
+                  : tv === "consensus" ? (lang === "kr" ? "미국 컨센서스" : "US Consensus")
                   : tv === "gurus" ? (lang === "kr" ? "구루" : "Gurus")
                   : (lang === "kr" ? "AI 트레이딩" : "AI Trading")}
               </button>
@@ -769,7 +768,7 @@ export default function IdeasPage() {
 
 
         {/* Two-column layout (FOMO only) */}
-        {tab === "fomo" && (
+        {tab === "momentum" && (
           <div className="space-y-3">
             {/* KR / US toggle */}
             <div className="flex items-center gap-3">
@@ -1660,6 +1659,28 @@ export default function IdeasPage() {
         {/* ETF tab */}
         {tab === "etf" && (
           <div className="space-y-4">
+            {/* ETF sub-tabs */}
+            <div className="flex gap-1 mb-3">
+              {([
+                { key: "changes" as const, label: lang === "kr" ? "ETF 변동" : "ETF Changes" },
+                { key: "kr" as const, label: lang === "kr" ? "국내 ETF" : "KR ETF" },
+                { key: "us" as const, label: lang === "kr" ? "미국 ETF" : "US ETF" },
+              ]).map(s => (
+                <button
+                  key={s.key}
+                  onClick={() => setEtfSubTab(s.key)}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                    etfSubTab === s.key
+                      ? "bg-accent text-white"
+                      : "bg-card-bg border border-card-border text-muted hover:text-foreground"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
+            {etfSubTab === "changes" && (<div className="space-y-4">
             {/* ETF filter tabs */}
             {(() => {
               const ETF_DESC: Record<string, string> = {
@@ -1799,11 +1820,9 @@ export default function IdeasPage() {
               )}
             </section>
 
-          </div>
-        )}
+            </div>)}
 
-        {/* KR ETF tab */}
-        {tab === "kr-etf" && (
+            {etfSubTab === "kr" && (
           <div className="space-y-4">
             {/* Common holdings section */}
             {!krEtfLoading && krEtfs.length > 0 && (() => {
@@ -1989,8 +2008,7 @@ export default function IdeasPage() {
           </div>
         )}
 
-        {/* Dividend ETF tab */}
-        {tab === "dividend-etf" && (
+            {etfSubTab === "us" && (
           <div className="space-y-4">
             {/* Common holdings section */}
             {!divEtfLoading && divEtfs.length > 0 && (() => {
@@ -2176,8 +2194,33 @@ export default function IdeasPage() {
           </div>
         )}
 
-        {/* Dividend Screener tab */}
-        {tab === "dividend-screener" && (
+          </div>
+        )}
+
+        {/* Dividend tab */}
+        {tab === "dividend" && (
+          <div className="space-y-4">
+            {/* Dividend sub-tabs */}
+            <div className="flex gap-1 mb-3">
+              {([
+                { key: "screener" as const, label: lang === "kr" ? "배당주" : "Dividend Stocks" },
+                { key: "guide" as const, label: lang === "kr" ? "배당 가이드" : "Div Guide" },
+              ]).map(s => (
+                <button
+                  key={s.key}
+                  onClick={() => setDivSubTab(s.key)}
+                  className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                    divSubTab === s.key
+                      ? "bg-accent text-white"
+                      : "bg-card-bg border border-card-border text-muted hover:text-foreground"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+
+            {divSubTab === "screener" && (
           <div className="space-y-4">
             {/* 필터 */}
             <div className={`${CARD} flex items-center gap-6`}>
@@ -2381,7 +2424,7 @@ export default function IdeasPage() {
           </div>
         )}
 
-        {tab === "dividend-guide" && (
+            {divSubTab === "guide" && (
           <div className="space-y-4">
 
             {/* 핵심 원칙 3개 카드 */}
@@ -2570,6 +2613,9 @@ export default function IdeasPage() {
                 ))}
               </div>
             </div>
+
+          </div>
+        )}
 
           </div>
         )}
