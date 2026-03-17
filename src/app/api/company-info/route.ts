@@ -63,7 +63,7 @@ async function fetchKR(symbol: string) {
       { signal: AbortSignal.timeout(8000) },
     ).then((r) => r.json()),
     fetch(
-      `https://m.stock.naver.com/api/news/stock/${encodeURIComponent(symbol)}?pageSize=5`,
+      `https://m.stock.naver.com/api/news/stock/${encodeURIComponent(symbol)}?pageSize=10`,
       {
         headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
         signal: AbortSignal.timeout(8000),
@@ -120,7 +120,7 @@ async function fetchKR(symbol: string) {
     if (allItems.length === 0 && naverData?.items) {
       allItems = naverData.items;
     }
-    news = allItems.slice(0, 5).map((n) => {
+    news = allItems.slice(0, 10).map((n) => {
       const dt = n.datetime || n.wpdatetime || "";
       // wpdatetime format: yyyyMMddHHmmss → ISO
       let publishedDate = "";
@@ -153,7 +153,7 @@ async function fetchUS(symbol: string) {
       { signal: AbortSignal.timeout(8000) },
     ),
     fetch(
-      `https://financialmodelingprep.com/stable/news/stock?symbols=${encodeURIComponent(symbol)}&limit=5&apikey=${FMP_KEY}`,
+      `https://financialmodelingprep.com/stable/news/stock?symbols=${encodeURIComponent(symbol)}&limit=10&apikey=${FMP_KEY}`,
       { signal: AbortSignal.timeout(8000) },
     ),
   ]);
@@ -173,7 +173,7 @@ async function fetchUS(symbol: string) {
       }
     : null;
 
-  const news = (Array.isArray(newsJson) ? newsJson : []).slice(0, 5).map(
+  const news = (Array.isArray(newsJson) ? newsJson : []).slice(0, 10).map(
     (n: { title?: string; url?: string; publishedDate?: string }) => ({
       title: n.title || "",
       url: n.url || "",
