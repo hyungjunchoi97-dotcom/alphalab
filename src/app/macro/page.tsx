@@ -659,7 +659,7 @@ function DetailModal({
         </div>
 
         {/* Explanation */}
-        <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #1a1a1a" }}>
+        <div className="rounded-xl p-3 sm:p-4" style={{ background: "#111", border: "1px solid #1a1a1a" }}>
           <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#666" }}>
             {lang === "kr" ? "해설" : "Analysis"}
           </div>
@@ -1266,7 +1266,7 @@ function PERChart({
     .map((d) => d.date.slice(0, 7));
 
   return (
-    <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+    <div className="rounded-xl p-3 sm:p-4" style={{ background: "#111", border: "1px solid #222" }}>
       {/* Header */}
       <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
@@ -1445,7 +1445,7 @@ function CAPEChart({
   const xTicks = chartData.filter((_, i) => i % xStep === 0).map((d) => d.date);
 
   return (
-    <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+    <div className="rounded-xl p-3 sm:p-4" style={{ background: "#111", border: "1px solid #222" }}>
       {/* Header */}
       <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3 flex-wrap">
@@ -1811,9 +1811,9 @@ export default function MacroPage() {
     <div className="min-h-screen font-[family-name:var(--font-noto-sans-kr)]" style={{ background: "#0a0a0a" }}>
       <AppHeader active="macro" />
 
-      <main className="mx-auto max-w-[1400px] px-4 py-6">
+      <main className="mx-auto max-w-[1400px] px-2 sm:px-4 py-3 sm:py-6">
         {/* ── Tab Navigation ─────────────────────────────────── */}
-        <div className="mb-6 flex gap-1 border-b" style={{ borderColor: "#222" }}>
+        <div className="mb-4 sm:mb-6 flex gap-1 border-b overflow-x-auto scrollbar-none" style={{ borderColor: "#222" }}>
           {([
             { key: "indicators" as MacroTab, labelKr: "매크로 지표", labelEn: "Macro Indicators" },
             { key: "liquidity" as MacroTab, labelKr: "유동성", labelEn: "Liquidity" },
@@ -1823,7 +1823,7 @@ export default function MacroPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className="px-4 py-2.5 text-sm font-semibold transition-colors relative"
+              className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-colors relative whitespace-nowrap"
               style={{
                 color: activeTab === tab.key ? "#f59e0b" : "#666",
                 borderBottom: activeTab === tab.key ? "2px solid #f59e0b" : "2px solid transparent",
@@ -1860,7 +1860,7 @@ export default function MacroPage() {
             <>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {/* Left: Gauge */}
-                <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+                <div className="rounded-xl p-3 sm:p-4" style={{ background: "#111", border: "1px solid #222" }}>
                   <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
                     CNN Fear & Greed Index
                   </h3>
@@ -1868,7 +1868,7 @@ export default function MacroPage() {
                     <FearGreedGauge score={fearGreed.score} lang={lang} />
                   </div>
                   {/* Previous values */}
-                  <div className="mt-3 flex justify-center gap-6">
+                  <div className="mt-3 flex justify-center gap-3 sm:gap-6">
                     {[
                       { label: lang === "kr" ? "전일" : "Prev Close", value: fearGreed.previousClose },
                       { label: lang === "kr" ? "1주전" : "1W Ago", value: fearGreed.oneWeekAgo },
@@ -1883,7 +1883,7 @@ export default function MacroPage() {
                 </div>
 
                 {/* Right: 30-day history */}
-                <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+                <div className="rounded-xl p-3 sm:p-4" style={{ background: "#111", border: "1px solid #222" }}>
                   <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
                     {lang === "kr" ? "30일 추이" : "30-Day History"}
                   </h3>
@@ -1973,7 +1973,7 @@ export default function MacroPage() {
           {peLoading ? (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {[0, 1].map((i) => (
-                <div key={i} className="rounded-xl p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+                <div key={i} className="rounded-xl p-3 sm:p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
                   <div className="mb-3 flex items-center gap-3">
                     <div className="h-3 w-24 rounded" style={{ background: "#1a1a1a" }} />
                     <div className="h-6 w-14 rounded" style={{ background: "#1a1a1a" }} />
@@ -2000,7 +2000,7 @@ export default function MacroPage() {
           {/* CAPE full-width below */}
           <div className="mt-4">
             {capeLoading ? (
-              <div className="rounded-xl p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+              <div className="rounded-xl p-3 sm:p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
                 <div className="mb-3 flex items-center gap-3">
                   <div className="h-3 w-40 rounded" style={{ background: "#1a1a1a" }} />
                   <div className="h-6 w-14 rounded" style={{ background: "#1a1a1a" }} />
@@ -2074,7 +2074,7 @@ export default function MacroPage() {
           {/* 3 charts grid */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* Chart 1: BOK vs Fed rate */}
-            <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+            <div className="rounded-xl p-3 sm:p-4" style={{ background: "#111", border: "1px solid #222" }}>
               <h3 className="mb-3 text-xs font-semibold" style={{ color: "#ccc" }}>
                 {lang === "kr" ? "한국 vs Fed 기준금리" : "BOK vs Fed Funds Rate"}
               </h3>
@@ -2092,7 +2092,7 @@ export default function MacroPage() {
             </div>
 
             {/* Chart 2: Korea CPI vs US CPI */}
-            <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+            <div className="rounded-xl p-3 sm:p-4" style={{ background: "#111", border: "1px solid #222" }}>
               <h3 className="mb-3 text-xs font-semibold" style={{ color: "#ccc" }}>
                 {lang === "kr" ? "한국 CPI vs 미국 CPI (YoY%)" : "Korea CPI vs US CPI (YoY%)"}
               </h3>
@@ -2132,7 +2132,7 @@ export default function MacroPage() {
           {fxLoading ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="rounded-xl p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+                <div key={i} className="rounded-xl p-3 sm:p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
                   <div className="h-4 w-20 rounded" style={{ background: "#1a1a1a" }} />
                   <div className="mt-2 h-6 w-24 rounded" style={{ background: "#1a1a1a" }} />
                   <div className="mt-2 h-[28px] w-full rounded" style={{ background: "#1a1a1a" }} />
@@ -2147,7 +2147,7 @@ export default function MacroPage() {
                   <button
                     key={pair.id}
                     onClick={() => setFxModal(pair)}
-                    className="rounded-xl p-4 text-left transition-all hover:border-accent/40"
+                    className="rounded-xl p-3 sm:p-4 text-left transition-all hover:border-accent/40"
                     style={{ background: "#111", border: "1px solid #222" }}
                   >
                     <div className="flex items-center justify-between">
@@ -2203,7 +2203,7 @@ export default function MacroPage() {
           {comLoading ? (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="rounded-xl p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
+                <div key={i} className="rounded-xl p-3 sm:p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
                   <div className="h-4 w-20 rounded" style={{ background: "#1a1a1a" }} />
                   <div className="mt-2 h-6 w-24 rounded" style={{ background: "#1a1a1a" }} />
                   <div className="mt-2 h-[28px] w-full rounded" style={{ background: "#1a1a1a" }} />
@@ -2232,7 +2232,7 @@ export default function MacroPage() {
                       {items.map((com) => (
                         <div
                           key={com.id}
-                          className="group relative overflow-hidden rounded-xl p-4"
+                          className="group relative overflow-hidden rounded-xl p-3 sm:p-4"
                           style={{ background: "#111", border: "1px solid #222", borderLeft: `3px solid ${borderColor}` }}
                           onMouseEnter={() => setComTooltip(com.id)}
                           onMouseLeave={() => setComTooltip(null)}
