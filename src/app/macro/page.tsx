@@ -108,7 +108,7 @@ interface IndicatorConfig {
 const INDICATORS: Record<string, IndicatorConfig> = {
   FEDFUNDS: {
     id: "FEDFUNDS", seriesKey: "FEDFUNDS",
-    labelKr: "기준금리", labelEn: "Fed Funds Rate", unit: "%", sparkColor: "#ffffff",
+    labelKr: "기준금리", labelEn: "Fed Funds Rate", unit: "%", sparkColor: "#60a5fa",
     explanation: "연준 기준금리. 금리↑ = 대출비용↑, 유동성↓, 증시압박.",
     zones: { red: [4.5, Infinity], yellow: [3, 4.5], green: [-Infinity, 3] },
     getZoneColor: (v) => (v > 4.5 ? "#f87171" : v > 3 ? "#facc15" : "#4ade80"),
@@ -118,7 +118,7 @@ const INDICATORS: Record<string, IndicatorConfig> = {
   },
   CPIAUCSL: {
     id: "CPIAUCSL", seriesKey: "CPI_YOY",
-    labelKr: "CPI YoY", labelEn: "CPI YoY", unit: "%", sparkColor: "#ffffff",
+    labelKr: "CPI YoY", labelEn: "CPI YoY", unit: "%", sparkColor: "#fb923c",
     explanation: "소비자물가 전년대비 상승률. 연준 목표 2%.",
     zones: { green: [-Infinity, 2], yellow: [2, 3], red: [3, Infinity] },
     getZoneColor: (v) => (v > 3 ? "#f87171" : v > 2 ? "#facc15" : "#4ade80"),
@@ -128,7 +128,7 @@ const INDICATORS: Record<string, IndicatorConfig> = {
   },
   UNRATE: {
     id: "UNRATE", seriesKey: "UNRATE",
-    labelKr: "실업률", labelEn: "Unemployment Rate", unit: "%", sparkColor: "#ffffff",
+    labelKr: "실업률", labelEn: "Unemployment Rate", unit: "%", sparkColor: "#a78bfa",
     explanation: "실업률. 4% 이하 = 완전고용. 급등 시 침체신호.",
     zones: { green: [-Infinity, 4], yellow: [4, 5], red: [5, Infinity] },
     getZoneColor: (v) => (v < 4 ? "#4ade80" : v < 5 ? "#facc15" : "#f87171"),
@@ -138,7 +138,7 @@ const INDICATORS: Record<string, IndicatorConfig> = {
   },
   T10Y3M: {
     id: "T10Y3M", seriesKey: "T10Y3M",
-    labelKr: "10Y-3M 금리차", labelEn: "10Y-3M Spread", unit: "%", sparkColor: "#ffffff",
+    labelKr: "10Y-3M 금리차", labelEn: "10Y-3M Spread", unit: "%", sparkColor: "#34d399",
     explanation: "장단기 금리차. 역전(음수) = 경기침체 선행 지표.",
     zones: { red: [-Infinity, 0], yellow: [0, 1], green: [1, Infinity] },
     getZoneColor: (v) => (v < 0 ? "#f87171" : v < 1 ? "#facc15" : "#4ade80"),
@@ -148,7 +148,7 @@ const INDICATORS: Record<string, IndicatorConfig> = {
   },
   BAMLH0A0HYM2: {
     id: "BAMLH0A0HYM2", seriesKey: "BAMLH0A0HYM2",
-    labelKr: "HY 스프레드", labelEn: "HY Spread", unit: "%", sparkColor: "#ffffff",
+    labelKr: "HY 스프레드", labelEn: "HY Spread", unit: "%", sparkColor: "#f87171",
     explanation: "하이일드 채권 스프레드. 신용 리스크 지표.",
     zones: { green: [-Infinity, 3], yellow: [3, 5], red: [5, Infinity] },
     getZoneColor: (v) => (v > 5 ? "#f87171" : v > 3 ? "#facc15" : "#4ade80"),
@@ -158,7 +158,7 @@ const INDICATORS: Record<string, IndicatorConfig> = {
   },
   VIX: {
     id: "VIX", seriesKey: "VIX",
-    labelKr: "VIX 공포지수", labelEn: "VIX Index", unit: "pts", sparkColor: "#ffffff",
+    labelKr: "VIX 공포지수", labelEn: "VIX Index", unit: "pts", sparkColor: "#facc15",
     explanation: "시장 변동성 지수. 공포 심리 지표.",
     zones: { green: [-Infinity, 15], yellow: [15, 25], red: [25, Infinity] },
     getZoneColor: (v) => (v > 35 ? "#f87171" : v > 25 ? "#fb923c" : v > 15 ? "#facc15" : "#4ade80"),
@@ -688,7 +688,7 @@ function DetailModal({
 
 // ── Sparkline Area (full-width chart for cards) ──────────────
 
-function CardSparkline({ data, id }: { data: { date: string; value: number }[] | undefined; id: string }) {
+function CardSparkline({ data, id, color = "#60a5fa" }: { data: { date: string; value: number }[] | undefined; id: string; color?: string }) {
   if (!data || data.length < 2) return <div className="h-[100px]" />;
   const vals = data.map((d) => d.value);
   const min = Math.min(...vals);
@@ -707,12 +707,12 @@ function CardSparkline({ data, id }: { data: { date: string; value: number }[] |
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-[100px] w-full">
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="5%" stopColor="#ffffff" stopOpacity="0.15" />
-          <stop offset="95%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="5%" stopColor={color} stopOpacity="0.15" />
+          <stop offset="95%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={areaPath} fill={`url(#${gradId})`} />
-      <path d={linePath} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" opacity="0.8" />
     </svg>
   );
 }
@@ -741,8 +741,9 @@ function MetricCard({
       onClick={onClick}
       className="group flex flex-col rounded-lg text-left transition-all hover:border-white/20"
       style={{
-        background: "#111111",
-        border: "1px solid #222222",
+        background: "#0f0f0f",
+        border: "1px solid #2a2a2a",
+        borderLeft: `3px solid ${valueColor}`,
         padding: "14px 16px",
         minHeight: "200px",
       }}
@@ -750,10 +751,10 @@ function MetricCard({
       {/* Header: label + status + % badge */}
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-medium tracking-wide" style={{ color: "#888" }}>
+          <span className="text-[12px] font-semibold tracking-wide" style={{ color: "#cccccc" }}>
             {lang === "kr" ? indicator.labelKr : indicator.labelEn}
           </span>
-          <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#666" }}>
+          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#888" }}>
             {lang === "kr" ? status.labelKr : status.label}
           </span>
         </div>
@@ -771,7 +772,7 @@ function MetricCard({
 
       {/* Value */}
       <div>
-        <div className="text-xl font-bold tabular-nums" style={{ color: valueColor }}>
+        <div className="text-2xl font-bold tabular-nums" style={{ color: valueColor }}>
           {fmt(animated, indicator.unit)}
           {indicator.unit === "%" && (
             <span className="ml-0.5 text-sm font-normal" style={{ color: "#555" }}>%</span>
@@ -780,18 +781,18 @@ function MetricCard({
             <span className="ml-0.5 text-[11px] font-normal" style={{ color: "#555" }}>pts</span>
           )}
         </div>
-        <div className="mt-0.5 text-[11px] font-medium tabular-nums" style={{ color: "#666" }}>
+        <div className="mt-0.5 text-xs font-medium tabular-nums" style={{ color: "#888" }}>
           {fmtChange(series.change ?? 0, indicator.unit)}
         </div>
       </div>
 
       {/* Sparkline — full width, fills remaining space */}
       <div className="mt-2 flex-1 w-full">
-        <CardSparkline data={series.observations ?? []} id={indicator.id} />
+        <CardSparkline data={series.observations ?? []} id={indicator.id} color={indicator.sparkColor} />
       </div>
 
       {/* Interpretation */}
-      <p className="mt-1.5 text-[10px] leading-relaxed" style={{ color: "#555" }}>
+      <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: "#777" }}>
         {interpretation}
       </p>
     </button>
@@ -1848,7 +1849,7 @@ export default function MacroPage() {
         {activeTab === "indicators" && (<>
         {/* ── Fear & Greed Index Section ─────────────────────── */}
         <div className="mb-4">
-          <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
+          <h2 className="mb-3 text-sm font-bold tracking-wider uppercase" style={{ color: "#aaaaaa" }}>
             {lang === "kr" ? "시장 심리 지수" : "Market Sentiment Index"}
           </h2>
 
@@ -1966,7 +1967,7 @@ export default function MacroPage() {
 
         {/* ── Market Valuation (PER) Section ─────────────────── */}
         <div className="mb-6">
-          <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
+          <h2 className="mb-3 text-sm font-bold tracking-wider uppercase" style={{ color: "#aaaaaa" }}>
             {lang === "kr" ? "시장 밸류에이션 (PER)" : "Market Valuation (P/E Ratio)"}
           </h2>
 
@@ -2021,7 +2022,7 @@ export default function MacroPage() {
 
         {/* ── Korea-US Comparison Section ────────────────────── */}
         <div className="mb-4">
-          <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
+          <h2 className="mb-3 text-sm font-bold tracking-wider uppercase" style={{ color: "#aaaaaa" }}>
             {lang === "kr" ? "한미 비교" : "Korea-US Comparison"}
           </h2>
 
@@ -2125,7 +2126,7 @@ export default function MacroPage() {
 
         {/* ── FX Dashboard Section ─────────────────────────── */}
         <div className="mb-4">
-          <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
+          <h2 className="mb-3 text-sm font-bold tracking-wider uppercase" style={{ color: "#aaaaaa" }}>
             {lang === "kr" ? "주요 환율" : "Major Exchange Rates"}
           </h2>
 
@@ -2196,7 +2197,7 @@ export default function MacroPage() {
 
         {/* ── Commodities & Energy Section ────────────────────── */}
         <div className="mb-4">
-          <h2 className="mb-3 text-sm font-bold" style={{ color: "#e8e8e8" }}>
+          <h2 className="mb-3 text-sm font-bold tracking-wider uppercase" style={{ color: "#aaaaaa" }}>
             {lang === "kr" ? "원자재 & 에너지" : "Commodities & Energy"}
           </h2>
 
