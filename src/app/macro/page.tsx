@@ -1387,202 +1387,6 @@ function PERChart({
   );
 }
 
-// ── CAPE Chart ────────────────────────────────────────────────
-
-type CapeRange = "5Y" | "10Y" | "30Y" | "MAX";
-const CAPE_RANGES: CapeRange[] = ["5Y", "10Y", "30Y", "MAX"];
-
-interface CapeEntry {
-  date: string;
-  cape: number;
-}
-
-function filterCapeByRange(data: CapeEntry[], range: CapeRange): CapeEntry[] {
-  if (range === "MAX") return data;
-  const years = range === "5Y" ? 5 : range === "10Y" ? 10 : 30;
-  const cutoff = new Date();
-  cutoff.setFullYear(cutoff.getFullYear() - years);
-  const cutStr = cutoff.toISOString().slice(0, 10);
-  return data.filter((d) => d.date >= cutStr);
-}
-
-function getCapeStatus(cape: number): { label: string; color: string } {
-  if (cape > 35) return { label: "버블 경고", color: "#f87171" };
-  if (cape > 25) return { label: "고평가", color: "#fb923c" };
-  if (cape >= 15) return { label: "적정", color: "#facc15" };
-  return { label: "저평가", color: "#4ade80" };
-}
-
-function CAPEChart({
-  data,
-  average,
-  lang,
-}: {
-  data: CapeEntry[];
-  average: number | null;
-  lang: string;
-}) {
-  const [range, setRange] = useState<CapeRange>("MAX");
-  const filtered = filterCapeByRange(data, range);
-  const current = filtered.length > 0 ? filtered[filtered.length - 1].cape : null;
-  const localAvg = filtered.length > 0
-    ? Math.round((filtered.reduce((s, d) => s + d.cape, 0) / filtered.length) * 10) / 10
-    : null;
-  const histAvg = average ?? localAvg;
-  const status = current != null ? getCapeStatus(current) : null;
-  const pctVsAvg = current != null && histAvg != null && histAvg > 0
-    ? Math.round(((current - histAvg) / histAvg) * 1000) / 10
-    : null;
-
-  // Thin data for performance
-  const step = Math.max(1, Math.floor(filtered.length / 400));
-  const chartData = filtered.filter((_, i) => i % step === 0 || i === filtered.length - 1);
-
-  const yMin = chartData.length > 0 ? Math.floor(Math.min(...chartData.map((d) => d.cape)) - 2) : 0;
-  const yMax = chartData.length > 0 ? Math.ceil(Math.max(...chartData.map((d) => d.cape)) + 2) : 50;
-
-  const xLabelCount = 7;
-  const xStep = Math.max(1, Math.floor(chartData.length / xLabelCount));
-  const xTicks = chartData.filter((_, i) => i % xStep === 0).map((d) => d.date);
-
-  return (
-    <div className="rounded-xl p-3 sm:p-4" style={{ background: "#111", border: "1px solid #222" }}>
-      {/* Header */}
-      <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h3 className="text-xs font-semibold" style={{ color: "#ccc" }}>
-            {lang === "kr" ? "실러 CAPE (경기조정 PER)" : "Shiller CAPE Ratio"}
-          </h3>
-          {current != null && (
-            <span className="text-xl font-bold tabular-nums" style={{ color: "#e8e8e8" }}>
-              {current.toFixed(1)}x
-            </span>
-          )}
-          {status && (
-            <span
-              className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
-              style={{ background: `${status.color}22`, color: status.color, border: `1px solid ${status.color}55` }}
-            >
-              {status.label}
-            </span>
-          )}
-        </div>
-        <div className="flex gap-1">
-          {CAPE_RANGES.map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className="rounded px-2 py-0.5 text-[10px] font-medium transition-colors"
-              style={{
-                color: range === r ? "#e8e8e8" : "#555",
-                borderBottom: range === r ? "1px solid #e8e8e8" : "1px solid transparent",
-              }}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Chart */}
-      {chartData.length < 2 ? (
-        <div className="flex h-[220px] items-center justify-center" style={{ color: "#555" }}>
-          <span className="text-xs">{lang === "kr" ? "데이터 없음" : "No data"}</span>
-        </div>
-      ) : (
-        <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
-            {/* Color zones */}
-            <ReferenceArea y1={yMin} y2={15} fill="rgba(74,222,128,0.05)" />
-            <ReferenceArea y1={15} y2={25} fill="rgba(255,255,255,0.01)" />
-            <ReferenceArea y1={25} y2={35} fill="rgba(251,146,60,0.05)" />
-            <ReferenceArea y1={35} y2={yMax} fill="rgba(248,113,113,0.07)" />
-
-            <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
-            <XAxis
-              dataKey="date"
-              ticks={xTicks}
-              tickFormatter={(v: string) => v.slice(0, 7)}
-              tick={{ fill: "#444", fontSize: 9 }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              domain={[yMin, yMax]}
-              tick={{ fill: "#444", fontSize: 9 }}
-              axisLine={false}
-              tickLine={false}
-              width={28}
-              tickFormatter={(v: number) => `${v}x`}
-            />
-            <Tooltip
-              contentStyle={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 6, fontSize: 11 }}
-              labelStyle={{ color: "#888" }}
-              formatter={(value: number | undefined) => {
-                if (value == null) return ["—", "CAPE"];
-                const diff = histAvg != null && histAvg > 0
-                  ? ` (평균 대비 ${value > histAvg ? "+" : ""}${Math.round(((value - histAvg) / histAvg) * 1000) / 10}%)`
-                  : "";
-                return [`${value.toFixed(1)}x${diff}`, lang === "kr" ? "실러 CAPE" : "Shiller CAPE"];
-              }}
-            />
-            {/* Historical average */}
-            {histAvg != null && (
-              <ReferenceLine
-                y={histAvg}
-                stroke="#555"
-                strokeDasharray="6 3"
-                label={{ value: `${lang === "kr" ? "역사적 평균" : "Hist. Avg"} ${histAvg}x`, fill: "#666", fontSize: 9, position: "insideTopRight" }}
-              />
-            )}
-            {/* Zone boundaries */}
-            <ReferenceLine y={15} stroke="rgba(74,222,128,0.3)" strokeDasharray="4 3" />
-            <ReferenceLine y={25} stroke="rgba(251,146,60,0.25)" strokeDasharray="4 3" />
-            <ReferenceLine y={35} stroke="rgba(248,113,113,0.35)" strokeDasharray="4 3" />
-            <Line
-              type="monotone"
-              dataKey="cape"
-              stroke="#a78bfa"
-              strokeWidth={1.5}
-              dot={false}
-              activeDot={{ r: 3, fill: "#a78bfa" }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      )}
-
-      {/* Legend */}
-      <div className="mt-2 flex gap-4 flex-wrap">
-        {[
-          { color: "#4ade80", label: lang === "kr" ? "저평가 (<15x)" : "Undervalued (<15x)" },
-          { color: "#facc15", label: lang === "kr" ? "적정 (15-25x)" : "Fair (15-25x)" },
-          { color: "#fb923c", label: lang === "kr" ? "고평가 (25-35x)" : "Elevated (25-35x)" },
-          { color: "#f87171", label: lang === "kr" ? "버블 경고 (>35x)" : "Bubble (>35x)" },
-        ].map((z) => (
-          <div key={z.label} className="flex items-center gap-1.5 text-[10px]" style={{ color: "#666" }}>
-            <span className="inline-block h-2 w-2 rounded-full" style={{ background: z.color }} />
-            {z.label}
-          </div>
-        ))}
-      </div>
-
-      {/* Info box */}
-      {current != null && histAvg != null && (
-        <div
-          className="mt-3 rounded-lg p-3"
-          style={{ background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.12)", borderLeft: "3px solid rgba(167,139,250,0.3)" }}
-        >
-          <p className="text-[11px] leading-[1.7]" style={{ color: "#999" }}>
-            {lang === "kr"
-              ? `CAPE(실러 PER)는 인플레이션 조정 후 10년 평균 이익 기준 밸류에이션 지표입니다. 역사적 평균은 약 ${histAvg}배이며, 현재 ${current.toFixed(1)}배는 평균 대비 ${pctVsAvg != null ? (pctVsAvg > 0 ? "+" : "") + pctVsAvg + "%" : "—"} 수준입니다.`
-              : `The CAPE (Shiller P/E) measures valuation using inflation-adjusted 10-year average earnings. The historical average is ~${histAvg}x; the current ${current.toFixed(1)}x is ${pctVsAvg != null ? (pctVsAvg > 0 ? "+" : "") + pctVsAvg + "% vs average" : "—"}.`}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Page ──────────────────────────────────────────────────────
 
 type MacroTab = "indicators" | "liquidity" | "rrg" | "commodities";
@@ -1608,8 +1412,6 @@ export default function MacroPage() {
   const [comparisonUpdatedAt, setComparisonUpdatedAt] = useState<string>("");
   const [peData, setPeData] = useState<{ sp500: PeEntry[]; nasdaq: PeEntry[] } | null>(null);
   const [peLoading, setPeLoading] = useState(true);
-  const [capeData, setCapeData] = useState<{ data: CapeEntry[]; current: number | null; average: number | null } | null>(null);
-  const [capeLoading, setCapeLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1637,17 +1439,6 @@ export default function MacroPage() {
     }
   }, []);
 
-  const fetchCape = useCallback(async () => {
-    try {
-      const res = await fetch("/api/macro/cape");
-      const json = await res.json();
-      if (json.ok) {
-        setCapeData({ data: json.data || [], current: json.current ?? null, average: json.average ?? null });
-      }
-    } catch { /* silent */ } finally {
-      setCapeLoading(false);
-    }
-  }, []);
 
   const fetchBok = useCallback(async () => {
     try {
@@ -1785,8 +1576,7 @@ export default function MacroPage() {
     fetchFx();
     fetchCommodities();
     fetchMarketPE();
-    fetchCape();
-  }, [fetchData, fetchBok, fetchFearGreed, fetchFx, fetchCommodities, fetchMarketPE, fetchCape]);
+  }, [fetchData, fetchBok, fetchFearGreed, fetchFx, fetchCommodities, fetchMarketPE]);
 
   // Auto-refresh FX rates every 60 seconds (same interval as ticker tape)
   useEffect(() => {
@@ -1998,26 +1788,6 @@ export default function MacroPage() {
             </div>
           )}
 
-          {/* CAPE full-width below */}
-          <div className="mt-4">
-            {capeLoading ? (
-              <div className="rounded-xl p-3 sm:p-4 animate-pulse" style={{ background: "#111", border: "1px solid #222" }}>
-                <div className="mb-3 flex items-center gap-3">
-                  <div className="h-3 w-40 rounded" style={{ background: "#1a1a1a" }} />
-                  <div className="h-6 w-14 rounded" style={{ background: "#1a1a1a" }} />
-                </div>
-                <div className="h-[220px] rounded-lg" style={{ background: "#0d0d0d" }} />
-              </div>
-            ) : capeData ? (
-              <CAPEChart data={capeData.data} average={capeData.average} lang={lang} />
-            ) : (
-              <div className="rounded-xl p-6 text-center" style={{ background: "#111", border: "1px solid #222" }}>
-                <span className="text-xs" style={{ color: "#666" }}>
-                  {lang === "kr" ? "CAPE 데이터를 불러올 수 없습니다." : "Unable to load CAPE data."}
-                </span>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* ── Korea-US Comparison Section ────────────────────── */}
