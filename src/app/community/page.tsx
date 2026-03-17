@@ -517,7 +517,7 @@ export default function CommunityPage() {
   };
 
   const openEditor = () => {
-    requireAuth(() => setShowEditor(true));
+    requireAuth(() => router.push("/community/write"));
   };
 
   const sorted = sortPosts(posts, sortMode);
