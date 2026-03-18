@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
       id: string;
       user_id: string;
       author_email: string | null;
+      author_nickname: string | null;
       title: string;
       content: string;
       category: string;
@@ -122,9 +123,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Subcategory required for stock discussion" }, { status: 400 });
     }
 
+    // Fetch nickname from profiles
+    const { data: profileRow } = await supabaseAdmin
+      .from("profiles")
+      .select("nickname")
+      .eq("user_id", user.id)
+      .single();
+    const authorNickname = profileRow?.nickname || null;
+
     const { data, error } = await supabaseAdmin.from("posts").insert({
       user_id: user.id,
       author_email: user.email,
+      author_nickname: authorNickname,
       title: title.trim(),
       content: (content || "").trim(),
       category: cat,

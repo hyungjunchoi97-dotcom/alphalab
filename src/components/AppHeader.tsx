@@ -79,7 +79,15 @@ export default function AppHeader({
           <LangToggle />
           {loading ? null : user ? (
             <div className="space-y-1">
-              <p className="text-[10px] truncate" style={{ color: "#6b7280" }}>{user.email}</p>
+              <a
+                href="/profile"
+                className="block text-[10px] truncate transition-colors"
+                style={{ color: "#6b7280" }}
+                onMouseEnter={(e) => e.currentTarget.style.color = "#f59e0b"}
+                onMouseLeave={(e) => e.currentTarget.style.color = "#6b7280"}
+              >
+                {user.email}
+              </a>
               <button
                 onClick={logout}
                 className="text-[10px] transition-colors"

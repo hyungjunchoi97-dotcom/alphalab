@@ -76,6 +76,7 @@ interface Post {
   id: string;
   user_id: string;
   author_email: string | null;
+  author_nickname: string | null;
   title: string;
   content: string;
   category: string;
@@ -795,7 +796,7 @@ function PostCard({
               {post.symbol}
             </span>
           )}
-          <span>{post.author_email?.split("@")[0] || "anon"}</span>
+          <span>{post.author_nickname || post.author_email?.split("@")[0] || "anon"}</span>
           <span>&middot;</span>
           <span>{timeAgo(post.created_at)}</span>
         </div>
