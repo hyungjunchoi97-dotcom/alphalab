@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useLang, LangToggle } from "@/lib/LangContext";
 import { useAuth } from "@/context/AuthContext";
-import { useTheme } from "@/lib/ThemeContext";
 import TopTickerBar from "@/components/TopTickerBar";
 import type { MessageKey } from "@/lib/i18n";
 
@@ -24,7 +23,6 @@ export default function AppHeader({
 }) {
   const { t } = useLang();
   const { user, loading, openAuthModal, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navLink = (item: typeof NAV_ITEMS[number], isMobile?: boolean) => {
@@ -78,27 +76,7 @@ export default function AppHeader({
 
         {/* Bottom: lang toggle + auth */}
         <div className="px-3 py-3 space-y-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <div className="flex items-center gap-1">
-            <LangToggle />
-            <button
-              onClick={toggleTheme}
-              className="flex items-center justify-center w-7 h-7 rounded transition-colors"
-              style={{ border: "1px solid rgba(255,255,255,0.1)", color: "#6b7280" }}
-              title={theme === "dark" ? "라이트 모드" : "다크 모드"}
-              onMouseEnter={(e) => e.currentTarget.style.color = "#e8e8e8"}
-              onMouseLeave={(e) => e.currentTarget.style.color = "#6b7280"}
-            >
-              {theme === "dark" ? (
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10A5 5 0 0012 7z" />
-                </svg>
-              ) : (
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-              )}
-            </button>
-          </div>
+          <LangToggle />
           {loading ? null : user ? (
             <div className="space-y-1">
               <a
