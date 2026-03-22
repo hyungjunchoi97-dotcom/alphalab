@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("id", user.id)
       .single();
 
     // Fetch post history
@@ -86,9 +86,9 @@ export async function POST(req: NextRequest) {
     // Check nickname uniqueness (exclude current user)
     const { data: existing } = await supabaseAdmin
       .from("profiles")
-      .select("user_id")
+      .select("id")
       .eq("nickname", nickname.trim())
-      .neq("user_id", user.id)
+      .neq("id", user.id)
       .single();
 
     if (existing) {
@@ -98,12 +98,12 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabaseAdmin
       .from("profiles")
       .upsert({
-        user_id: user.id,
+        id: user.id,
         email: user.email,
         nickname: nickname.trim(),
         bio: (bio || "").trim().slice(0, 200),
         updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id" })
+      }, { onConflict: "id" })
       .select()
       .single();
 
