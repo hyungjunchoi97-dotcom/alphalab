@@ -1328,15 +1328,13 @@ export default function RealEstateClient() {
             ) : activeTab === "tierlist" ? (
               <TierListClient embedded />
             ) : (
-            <>
-            {/* [1] Map + Stats */}
-            <div className="flex flex-col md:flex-row" style={{ minHeight: 400, borderBottom: "1px solid #1e1e1e" }}>
+            <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 
-              {/* Map */}
-              <div className="h-[400px] md:h-[600px]" style={{ flex: 1, minWidth: 0, borderRight: "1px solid #1e1e1e" }}>
+              {/* 지도 영역 */}
+              <div style={{ position: "relative", height: "60vh", minHeight: 400, flexShrink: 0 }}>
                 {loading ? (
                   <div style={{ width: "100%", height: "100%", background: "#0d0d0d", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ ...S, fontSize: 10, color: "#222" }}>LOADING…</span>
+                    <span style={{ ...S, fontSize: 11, color: "#333" }}>LOADING...</span>
                   </div>
                 ) : (
                   <SeoulMap
@@ -1345,192 +1343,156 @@ export default function RealEstateClient() {
                     onSelect={code => setSelectedDistrict(prev => prev === code ? null : code)}
                   />
                 )}
+
+                {/* 선택된 구 오버레이 */}
+                {selectedDistrictName && (
+                  <div style={{
+                    position: "absolute", top: 12, left: 12,
+                    background: "rgba(0,0,0,0.8)", border: "1px solid #f59e0b",
+                    borderRadius: 6, padding: "6px 12px",
+                    display: "flex", alignItems: "center", gap: 8,
+                  }}>
+                    <span style={{ ...S, fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>{selectedDistrictName}</span>
+                    <span style={{ ...S, fontSize: 11, color: "#888" }}>{filteredTrades.length}건</span>
+                    <button
+                      onClick={() => setSelectedDistrict(null)}
+                      style={{ ...S, fontSize: 11, color: "#555", background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: 4 }}
+                    >
+                      X
+                    </button>
+                  </div>
+                )}
+
+                {/* 범례 */}
+                <div style={{
+                  position: "absolute", bottom: 12, left: 12,
+                  background: "rgba(0,0,0,0.75)", borderRadius: 6, padding: "8px 10px",
+                  display: "flex", flexDirection: "column", gap: 4,
+                }}>
+                  {[
+                    { color: "#6a1010", label: "22억+" },
+                    { color: "#5a2e0c", label: "17~22억" },
+                    { color: "#4a4012", label: "12~17억" },
+                    { color: "#1e4a28", label: "7~12억" },
+                    { color: "#153025", label: "~7억" },
+                    { color: "#1a1a1a", label: "데이터없음" },
+                  ].map(l => (
+                    <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color, flexShrink: 0 }} />
+                      <span style={{ ...S, fontSize: 10, color: "#aaa" }}>{l.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 거래량 TOP3 */}
+                <div style={{
+                  position: "absolute", top: 12, right: 12,
+                  background: "rgba(0,0,0,0.75)", borderRadius: 6, padding: "8px 12px",
+                  minWidth: 140,
+                }}>
+                  <div style={{ ...S, fontSize: 10, color: "#555", marginBottom: 6, letterSpacing: "1px", textTransform: "uppercase" }}>거래량 TOP 3</div>
+                  {[...validDistricts].sort((a, b) => b.count - a.count).slice(0, 3).map((d, i) => (
+                    <div key={d.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ ...S, fontSize: 11, color: i === 0 ? "#f59e0b" : "#888" }}>{d.name}</span>
+                      <span style={{ ...S, fontSize: 11, color: "#aaa" }}>{d.count}건</span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* Stats panel */}
-              <aside className="w-full md:w-[270px]" style={{ flexShrink: 0, background: "#111111", display: "flex", flexDirection: "column" }}>
-                <div style={{ padding: "10px 14px", borderBottom: "1px solid #1e1e1e", flexShrink: 0 }}>
-                  <div style={{ fontSize: 9, ...S, color: "#3a3a3a", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 3 }}>
-                    {selectedData ? "선택된 구" : "전체 요약"}
+              {/* 하단 실거래 목록 */}
+              <div style={{ flex: 1, overflowY: "auto", borderTop: "1px solid #1e1e1e" }}>
+
+                {/* 헤더 */}
+                <div style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "10px 16px", borderBottom: "1px solid #1a1a1a",
+                  background: "#111", position: "sticky", top: 0, zIndex: 10,
+                }}>
+                  <div style={{ ...S, fontSize: 12, fontWeight: 700, color: "#e0e0e0" }}>
+                    {selectedDistrictName ? `${selectedDistrictName} 실거래` : "서울 전체 실거래"}
+                    <span style={{ color: "#555", fontWeight: 400, marginLeft: 8, fontSize: 11 }}>
+                      {filteredTrades.length}건 · 금액 높은 순
+                    </span>
                   </div>
-                  <div style={{ fontSize: 18, fontFamily: "'IBM Plex Sans KR', 'Noto Sans KR', sans-serif", fontWeight: 700, color: "#e0e0e0" }}>
-                    {selectedData ? selectedData.name : "서울"}
-                  </div>
-                </div>
-                <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px" }}>
-                  {selectedData ? (
-                    <DistrictDetail
-                      data={selectedData}
-                      onClear={() => setSelectedDistrict(null)}
-                      trades={allTrades}
-                    />
-                  ) : (
-                    <OverallSummary
-                      loading={loading}
-                      overallAvg={overallAvg}
-                      validCount={validDistricts.length}
-                      gangnam3Avg={gangnam3Avg}
-                      nonGangnamAvg={nonGangnamAvg}
-                      top3Price={top3Price}
-                      top3Count={top3Count}
-                      onSelect={setSelectedDistrict}
-                    />
+                  {selectedDistrictName && (
+                    <button
+                      onClick={() => setSelectedDistrict(null)}
+                      style={{ ...S, fontSize: 11, color: "#555", background: "none", border: "1px solid #2a2a2a", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}
+                    >
+                      전체 보기
+                    </button>
                   )}
                 </div>
-              </aside>
-            </div>
 
-            {/* [2] Transaction table */}
-            {loading ? (
-              <div style={{ padding: "20px 16px", ...S, fontSize: 11, color: "#222" }}>로딩 중…</div>
-            ) : (
-              <>
-                <TransactionTable
-                  trades={filteredTrades.slice(0, visibleCount)}
-                  selectedDistrict={selectedDistrict}
-                  onSelectDistrict={setSelectedDistrict}
-                  districtNameToCode={districtNameToCodeMap}
-                />
-                {visibleCount < filteredTrades.length && (
-                  <div style={{ background: "#111111", borderBottom: "1px solid #1e1e1e", padding: "10px 14px" }}>
-                    <button
-                      onClick={() => setVisibleCount(prev => prev + 50)}
+                {/* 테이블 헤더 */}
+                <div style={{
+                  display: "grid", gridTemplateColumns: "1fr 2fr 80px 60px 60px 90px",
+                  padding: "6px 16px", borderBottom: "1px solid #1a1a1a",
+                  background: "#0d0d0d",
+                }}>
+                  {["아파트명", "단지/동", "면적", "층", "날짜", "거래가"].map(h => (
+                    <div key={h} style={{ ...S, fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.5px" }}>{h}</div>
+                  ))}
+                </div>
+
+                {/* 실거래 목록 - 금액 높은 순 */}
+                {[...filteredTrades]
+                  .sort((a, b) => b.price - a.price)
+                  .slice(0, visibleCount)
+                  .map((t, i) => (
+                    <div
+                      key={i}
                       style={{
-                        width: "100%", padding: "10px",
-                        background: "#111", border: "1px solid #333",
-                        color: "#f59e0b", fontSize: 12,
-                        fontFamily: "'IBM Plex Mono', monospace",
-                        cursor: "pointer",
+                        display: "grid", gridTemplateColumns: "1fr 2fr 80px 60px 60px 90px",
+                        padding: "8px 16px", borderBottom: "1px solid #141414",
+                        background: i % 2 === 0 ? "transparent" : "#0a0a0a",
+                        cursor: "default",
                       }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "#111")}
+                      onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "transparent" : "#0a0a0a")}
+                    >
+                      <div style={{ ...S, fontSize: 12, color: "#e0e0e0", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {t.aptName}
+                      </div>
+                      <div style={{ ...S, fontSize: 11, color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {t.district} {t.dong}
+                      </div>
+                      <div style={{ ...S, fontSize: 11, color: "#888" }}>
+                        {Math.round(t.area)}m²
+                      </div>
+                      <div style={{ ...S, fontSize: 11, color: "#888" }}>
+                        {t.floor}F
+                      </div>
+                      <div style={{ ...S, fontSize: 11, color: "#555" }}>
+                        {t.date}
+                      </div>
+                      <div style={{ ...S, fontSize: 13, color: "#f59e0b", fontWeight: 700, textAlign: "right" }}>
+                        {fmtPrice(t.price)}
+                      </div>
+                    </div>
+                  ))
+                }
+
+                {/* 더 보기 */}
+                {filteredTrades.length > visibleCount && (
+                  <div style={{ padding: "12px 16px", textAlign: "center" }}>
+                    <button
+                      onClick={() => setVisibleCount(v => v + 50)}
+                      style={{ ...S, fontSize: 12, color: "#555", background: "none", border: "1px solid #2a2a2a", borderRadius: 4, padding: "6px 20px", cursor: "pointer" }}
                     >
                       더 보기 ({filteredTrades.length - visibleCount}건 남음)
                     </button>
                   </div>
                 )}
-              </>
-            )}
 
-            {/* [2.5] District news */}
-            {selectedDistrict && selectedDistrictName && (
-              <div style={{ background: "#0d0d0d", borderBottom: "1px solid #1e1e1e", padding: "10px 14px" }}>
-                <div style={{
-                  fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: "#f59e0b",
-                  fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8,
-                }}>
-                  관련 뉴스 · {selectedDistrictName}
-                </div>
-                {newsLoading ? (
-                  <div style={{ ...S, fontSize: 10, color: "#333", padding: "6px 0" }}>로딩 중…</div>
-                ) : news.length === 0 ? (
-                  <div style={{ ...S, fontSize: 10, color: "#333", padding: "6px 0" }}>관련 뉴스 없음</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {news.map((n, i) => (
-                      <a
-                        key={i}
-                        href={n.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: "block",
-                          borderLeft: "2px solid #f59e0b",
-                          paddingLeft: 8,
-                          textDecoration: "none",
-                          color: "#e0e0e0",
-                        }}
-                      >
-                        <div style={{ fontSize: 12, fontFamily: "'IBM Plex Sans KR', sans-serif", fontWeight: 500, lineHeight: 1.4 }}>
-                          {n.title}
-                        </div>
-                        <div style={{ fontSize: 10, fontFamily: "monospace", color: "#555", marginTop: 2 }}>
-                          {n.source}{n.publishedAt ? ` · ${new Date(n.publishedAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}` : ""}
-                        </div>
-                      </a>
-                    ))}
+                {filteredTrades.length === 0 && !loading && (
+                  <div style={{ padding: "40px 16px", textAlign: "center", ...S, fontSize: 12, color: "#333" }}>
+                    거래 데이터가 없습니다
                   </div>
                 )}
               </div>
-            )}
-
-            {/* [3] District ranking */}
-            {!loading && sortedByPrice.length > 0 && (
-              <div style={{ borderBottom: "1px solid #1e1e1e", background: "#0d0d0d" }}>
-                <div style={sectionHeaderStyle} onClick={() => setRankingOpen(v => !v)}>
-                  <span style={{ ...sectionTitleStyle, fontSize: 12 }}>구별 평균 매매가 랭킹</span>
-                  <span style={{
-                    fontSize: 14, color: "#ffffff", transition: "transform 0.2s",
-                    transform: rankingOpen ? "rotate(180deg)" : "rotate(0deg)",
-                    display: "inline-block",
-                  }}>▾</span>
-                </div>
-                {rankingOpen && (
-                  <div style={{ padding: "0 14px 10px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 24px" }}>
-                    {sortedByPrice.map((d, i) => {
-                      const isSel = selectedDistrict === d.code;
-                      const w = `${Math.round((d.avgPrice / maxPrice) * 100)}%`;
-                      return (
-                        <div
-                          key={d.code}
-                          onClick={() => setSelectedDistrict(prev => prev === d.code ? null : d.code)}
-                          style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "2px 0" }}
-                        >
-                          <span style={{ fontSize: 8, fontFamily: "monospace", color: "#2a2a2a", width: 14, textAlign: "right", flexShrink: 0 }}>{i + 1}</span>
-                          <span style={{ fontSize: 11, ...S, color: "#ffffff", width: 34, flexShrink: 0 }}>
-                            {d.name.replace("구", "")}
-                          </span>
-                          <div style={{ flex: 1, height: 3, background: "#1a1a1a" }}>
-                            <div style={{ width: w, height: "100%", background: isSel ? "#f59e0b" : "#2d4a2d", transition: "width 0.3s" }} />
-                          </div>
-                          <span style={{ fontSize: 11, ...S, color: "#ffffff", width: 42, textAlign: "right", flexShrink: 0 }}>
-                            {(d.avgPrice / 10000).toFixed(1)}억
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* [4] Trend chart */}
-            <div style={{ borderBottom: "1px solid #1e1e1e" }}>
-              <div style={sectionHeaderStyle} onClick={() => setTrendOpen(v => !v)}>
-                <span style={sectionTitleStyle}>지역별 평균가 추이</span>
-                <span style={{
-                  fontSize: 14, color: "#ffffff", transition: "transform 0.2s",
-                  transform: trendOpen ? "rotate(180deg)" : "rotate(0deg)",
-                  display: "inline-block",
-                }}>▾</span>
-              </div>
-              {trendOpen && (
-                <div style={{ height: 620 }}>
-                  {trendLoading ? (
-                    <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0a0a" }}>
-                      <span style={{ ...S, fontSize: 10, color: "#222" }}>LOADING TREND…</span>
-                    </div>
-                  ) : trend ? (
-                    <PriceChart
-                      months={trend.months}
-                      districts={trend.districts}
-                      districtVolumes={trend.districtVolumes ?? {}}
-                      selectedDistrict={selectedData?.name ?? null}
-                      onSelect={name => {
-                        const code = DISTRICT_NAME_TO_CODE[name];
-                        if (code) setSelectedDistrict(prev => prev === code ? null : code);
-                      }}
-                      range={trendRange}
-                      onRangeChange={setTrendRange}
-                    />
-                  ) : (
-                    <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ ...S, fontSize: 10, color: "#222" }}>추세 데이터 없음</span>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
-
-            </>
             )}
 
           </div>
