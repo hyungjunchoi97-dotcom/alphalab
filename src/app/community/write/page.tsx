@@ -14,6 +14,18 @@ const CREATE_CATEGORIES: MainCategory[] = ["stock_discussion", "macro", "free"];
 const SUBCATEGORIES: Subcategory[] = ["all", "domestic", "overseas", "crypto", "commodity", "bond"];
 const DRAFT_KEY = "community_write_draft";
 
+const FONT_COLORS = [
+  { color: "#ffffff", label: "흰색" },
+  { color: "#e8e8e8", label: "기본" },
+  { color: "#f59e0b", label: "황금" },
+  { color: "#22c55e", label: "초록" },
+  { color: "#ef4444", label: "빨강" },
+  { color: "#60a5fa", label: "파랑" },
+  { color: "#a78bfa", label: "보라" },
+  { color: "#fb923c", label: "주황" },
+  { color: "#888888", label: "회색" },
+];
+
 function TBBtn({
   label,
   onClick,
@@ -143,21 +155,74 @@ export default function CommunityWritePage() {
     });
   };
 
-  const insertTable = () => {
-    const headerCells = Array(tableCols).fill(0).map((_, i) =>
-      `<th style="border:1px solid #333;padding:8px 12px;background:#1a1a1a;color:#f59e0b;text-align:left;font-weight:600">${i === 0 ? "항목" : i === 1 ? "값" : "비고"}</th>`
-    ).join("");
+  const enableTableResize = () => {
+    if (!editorRef.current) return;
+    const tables = editorRef.current.querySelectorAll("table");
+    tables.forEach((table) => {
+      const cols = table.querySelectorAll("th, td");
+      cols.forEach((col) => {
+        if (col.querySelector(".resize-handle")) return;
+        const handle = document.createElement("div");
+        handle.className = "resize-handle";
+        handle.style.cssText =
+          "position:absolute;right:0;top:0;width:4px;height:100%;cursor:col-resize;background:transparent;z-index:5";
+        (col as HTMLElement).style.position = "relative";
+        col.appendChild(handle);
 
-    const bodyRows = Array(tableRows).fill(0).map(() => {
-      const cells = Array(tableCols).fill(0).map((_, ci) =>
-        `<td style="border:1px solid #333;padding:8px 12px;color:#e8e8e8;text-align:${ci === 0 ? "left" : "right"}">&nbsp;</td>`
-      ).join("");
-      return `<tr>${cells}</tr>`;
-    }).join("");
+        let startX = 0;
+        let startWidth = 0;
+
+        handle.addEventListener("mousedown", (e: MouseEvent) => {
+          e.preventDefault();
+          startX = e.pageX;
+          startWidth = (col as HTMLElement).offsetWidth;
+
+          const onMouseMove = (e: MouseEvent) => {
+            const diff = e.pageX - startX;
+            (col as HTMLElement).style.width = `${startWidth + diff}px`;
+          };
+          const onMouseUp = () => {
+            document.removeEventListener("mousemove", onMouseMove);
+            document.removeEventListener("mouseup", onMouseUp);
+          };
+          document.addEventListener("mousemove", onMouseMove);
+          document.addEventListener("mouseup", onMouseUp);
+        });
+      });
+    });
+  };
+
+  const insertTable = () => {
+    const headerCells = Array(tableCols)
+      .fill(0)
+      .map(
+        (_, i) =>
+          `<th style="border:1px solid #333;padding:8px 12px;background:#1a1a1a;color:#f59e0b;text-align:left;font-weight:600">${
+            i === 0 ? "항목" : i === 1 ? "값" : "비고"
+          }</th>`
+      )
+      .join("");
+
+    const bodyRows = Array(tableRows)
+      .fill(0)
+      .map(() => {
+        const cells = Array(tableCols)
+          .fill(0)
+          .map(
+            (_, ci) =>
+              `<td style="border:1px solid #333;padding:8px 12px;color:#e8e8e8;text-align:${
+                ci === 0 ? "left" : "right"
+              }">&nbsp;</td>`
+          )
+          .join("");
+        return `<tr>${cells}</tr>`;
+      })
+      .join("");
 
     const tableHtml = `
-      <div style="position:relative;margin:16px 0">
-        <table style="width:100%;border-collapse:collapse">
+      <div style="position:relative;margin:16px 0" class="table-wrapper">
+        <button onclick="this.parentElement.remove()" style="position:absolute;top:-10px;right:-10px;width:20px;height:20px;background:#ef4444;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:12px;line-height:20px;text-align:center;z-index:10">x</button>
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed">
           <thead><tr>${headerCells}</tr></thead>
           <tbody>${bodyRows}</tbody>
         </table>
@@ -167,10 +232,15 @@ export default function CommunityWritePage() {
     document.execCommand("insertHTML", false, tableHtml);
     setShowTableConfig(false);
     editorRef.current?.focus();
+    setTimeout(enableTableResize, 100);
   };
 
   const insertDivider = () => {
-    document.execCommand("insertHTML", false, '<hr style="border:none;border-top:1px solid #333;margin:16px 0" /><p><br></p>');
+    document.execCommand(
+      "insertHTML",
+      false,
+      '<hr style="border:none;border-top:1px solid #333;margin:16px 0" /><p><br></p>'
+    );
     editorRef.current?.focus();
   };
 
@@ -216,7 +286,7 @@ export default function CommunityWritePage() {
               disabled={!title.trim() || submitting}
               className="px-5 py-1.5 text-xs font-bold bg-accent text-black rounded hover:opacity-90 transition-opacity disabled:opacity-30"
             >
-              {submitting ? "..." : (lang === "kr" ? "게시" : "Publish")}
+              {submitting ? "..." : lang === "kr" ? "게시" : "Publish"}
             </button>
           </div>
         </div>
@@ -246,10 +316,10 @@ export default function CommunityWritePage() {
             {CREATE_CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c === "stock_discussion"
-                  ? (lang === "kr" ? "종목 토론방" : "Stock Discussion")
+                  ? lang === "kr" ? "종목 토론방" : "Stock Discussion"
                   : c === "macro"
-                  ? (lang === "kr" ? "매크로" : "Macro")
-                  : (lang === "kr" ? "자유" : "Free")}
+                  ? lang === "kr" ? "매크로" : "Macro"
+                  : lang === "kr" ? "자유" : "Free"}
               </option>
             ))}
           </select>
@@ -262,11 +332,11 @@ export default function CommunityWritePage() {
             >
               {SUBCATEGORIES.filter((s) => s !== "all").map((s) => (
                 <option key={s} value={s}>
-                  {s === "domestic" ? (lang === "kr" ? "국내주식" : "Domestic")
-                    : s === "overseas" ? (lang === "kr" ? "해외주식" : "Overseas")
-                    : s === "crypto" ? (lang === "kr" ? "크립토" : "Crypto")
-                    : s === "commodity" ? (lang === "kr" ? "원자재" : "Commodity")
-                    : (lang === "kr" ? "채권" : "Bond")}
+                  {s === "domestic" ? lang === "kr" ? "국내주식" : "Domestic"
+                    : s === "overseas" ? lang === "kr" ? "해외주식" : "Overseas"
+                    : s === "crypto" ? lang === "kr" ? "크립토" : "Crypto"
+                    : s === "commodity" ? lang === "kr" ? "원자재" : "Commodity"
+                    : lang === "kr" ? "채권" : "Bond"}
                 </option>
               ))}
             </select>
@@ -313,12 +383,31 @@ export default function CommunityWritePage() {
           <TBBtn label="UL" onClick={() => execCmd("insertUnorderedList")} />
           <TBBtn label="OL" onClick={() => execCmd("insertOrderedList")} />
 
+          {/* Font color palette */}
+          <div className="flex items-center gap-0.5 border-l border-white/10 pl-1 ml-1">
+            {FONT_COLORS.map((c) => (
+              <button
+                key={c.color}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  execCmd("foreColor", c.color);
+                }}
+                title={c.label}
+                className="w-5 h-5 rounded-full border border-white/20 hover:scale-110 transition-transform"
+                style={{ background: c.color }}
+              />
+            ))}
+          </div>
+
           <div className="w-px h-5 bg-[#333] mx-1" />
 
           {/* Table with config popup */}
           <div className="relative">
             <button
-              onMouseDown={(e) => { e.preventDefault(); setShowTableConfig(v => !v); }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setShowTableConfig((v) => !v);
+              }}
               className="px-2 h-7 text-[12px] text-white hover:bg-white/10 rounded transition-colors"
             >
               {lang === "kr" ? "표 삽입" : "Table"}
@@ -328,16 +417,30 @@ export default function CommunityWritePage() {
                 <div className="text-[11px] text-white font-semibold mb-2">{lang === "kr" ? "표 설정" : "Table Config"}</div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-[11px] text-[#aaa] w-8">{lang === "kr" ? "행" : "Row"}</span>
-                  <input type="number" min={1} max={20} value={tableRows} onChange={e => setTableRows(Number(e.target.value))}
-                    className="w-16 bg-[#111] border border-card-border text-white text-xs px-2 py-1 rounded outline-none" />
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={tableRows}
+                    onChange={(e) => setTableRows(Number(e.target.value))}
+                    className="w-16 bg-[#111] border border-card-border text-white text-xs px-2 py-1 rounded outline-none"
+                  />
                 </div>
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-[11px] text-[#aaa] w-8">{lang === "kr" ? "열" : "Col"}</span>
-                  <input type="number" min={1} max={10} value={tableCols} onChange={e => setTableCols(Number(e.target.value))}
-                    className="w-16 bg-[#111] border border-card-border text-white text-xs px-2 py-1 rounded outline-none" />
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={tableCols}
+                    onChange={(e) => setTableCols(Number(e.target.value))}
+                    className="w-16 bg-[#111] border border-card-border text-white text-xs px-2 py-1 rounded outline-none"
+                  />
                 </div>
-                <button onClick={insertTable}
-                  className="w-full py-1.5 text-xs font-bold bg-accent text-white rounded hover:opacity-90">
+                <button
+                  onClick={insertTable}
+                  className="w-full py-1.5 text-xs font-bold bg-accent text-white rounded hover:opacity-90"
+                >
                   {lang === "kr" ? "삽입" : "Insert"}
                 </button>
               </div>

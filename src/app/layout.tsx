@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Geist_Mono, Noto_Sans_KR, Rajdhani, JetBrains_Mono } from "next/font/google";
 import { LangProvider } from "@/lib/LangContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { ThemeProvider } from "@/lib/ThemeContext";
 import AuthModal from "@/components/AuthModal";
 import Script from "next/script";
 import "./globals.css";
@@ -105,10 +106,12 @@ export default function RootLayout({
           gtag('config', 'G-QYC0DL6BE5');
         `}</Script>
         <AuthProvider>
-          <LangProvider>
-            <div className="md:ml-56">{children}</div>
-            <AuthModal />
-          </LangProvider>
+          <ThemeProvider>
+            <LangProvider>
+              <div className="md:ml-56">{children}</div>
+              <AuthModal />
+            </LangProvider>
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>
