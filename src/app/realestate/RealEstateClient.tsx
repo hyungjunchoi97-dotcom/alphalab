@@ -580,7 +580,8 @@ export default function RealEstateClient() {
   const [visibleCount, setVisibleCount] = useState(50);
   const [districtStatsMap, setDistrictStatsMap] = useState<Record<string, { count: number; avgPrice: number; topDeals: TopDeal[] }>>({});
   const [prevDistrictStatsMap, setPrevDistrictStatsMap] = useState<Record<string, { count: number }>>({});
-  const [showTopDeals, setShowTopDeals] = useState(false);
+  const [tradesExpanded, setTradesExpanded] = useState(true);
+  const [newsExpanded, setNewsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("trades");
   const [supplyDemandRange, setSupplyDemandRange] = useState<"3Y" | "5Y">("3Y");
 
@@ -649,9 +650,9 @@ export default function RealEstateClient() {
     if (!name || newsFetchedRef.current === selectedDistrict) return;
     newsFetchedRef.current = selectedDistrict;
     setNewsLoading(true);
-    fetch(`/api/realestate/news?district=${encodeURIComponent(name)}`)
+    fetch(`/api/realestate/news?district=${encodeURIComponent(name)}&limit=10`)
       .then(r => r.json())
-      .then(j => { if (j.ok) setNews((j.news ?? []).slice(0, 3)); })
+      .then(j => { if (j.ok) setNews((j.news ?? []).slice(0, 10)); })
       .catch(() => {})
       .finally(() => setNewsLoading(false));
   }, [selectedDistrict]);
@@ -1366,8 +1367,9 @@ export default function RealEstateClient() {
                     selected={selectedDistrict}
                     onSelect={code => {
                       setSelectedDistrict(prev => {
-                        if (prev === code) { setShowTopDeals(false); return null; }
-                        setShowTopDeals(true);
+                        if (prev === code) return null;
+                        setTradesExpanded(true);
+                        setNewsExpanded(false);
                         return code;
                       });
                     }}
@@ -1409,17 +1411,19 @@ export default function RealEstateClient() {
                 </div>
               </div>
 
-              {/* 하단 실거래 목록 */}
-              <div style={{ flex: 1, overflowY: "auto", borderTop: "1px solid #1e1e1e" }}>
-
-                {/* 헤더 */}
-                <div style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "10px 16px", borderBottom: "1px solid #1a1a1a",
-                  background: "#111", position: "sticky", top: 0, zIndex: 10,
-                }}>
+              {/* ── Section A: 거래 내역 ────────────────────── */}
+              <div style={{ borderTop: "1px solid #1e1e1e" }}>
+                {/* Header (sticky) */}
+                <div
+                  onClick={() => setTradesExpanded(v => !v)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "10px 16px", borderBottom: "1px solid #1e1e1e",
+                    background: "#111", position: "sticky", top: 0, zIndex: 10, cursor: "pointer", userSelect: "none",
+                  }}
+                >
                   <div style={{ ...S, fontSize: 12, fontWeight: 700, color: "#e0e0e0" }}>
-                    {selectedDistrictName ? `${selectedDistrictName} 실거래` : "서울 전체 실거래"}
+                    {selectedDistrictName ? `${selectedDistrictName} 거래 내역` : "서울 전체 실거래"}
                     <span style={{ color: "#555", fontWeight: 400, marginLeft: 8, fontSize: 11 }}>
                       {filteredTrades.length}건 · 금액 높은 순
                     </span>
@@ -1429,150 +1433,142 @@ export default function RealEstateClient() {
                         const pct = Math.round(((allTrades.length - totalPrev) / totalPrev) * 100);
                         return (
                           <span style={{ marginLeft: 8, fontSize: 11, color: pct >= 0 ? "#4ade80" : "#f87171" }}>
-                            {pct >= 0 ? "↑" : "↓"} 전월대비 {pct >= 0 ? "+" : ""}{pct}%
+                            {pct >= 0 ? "+" : ""}{pct}% 전월대비
                           </span>
                         );
                       }
                       return null;
                     })()}
                   </div>
-                  {selectedDistrictName && (
-                    <button
-                      onClick={() => setSelectedDistrict(null)}
-                      style={{ ...S, fontSize: 11, color: "#555", background: "none", border: "1px solid #2a2a2a", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}
-                    >
-                      전체 보기
-                    </button>
-                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {selectedDistrictName && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setSelectedDistrict(null); }}
+                        style={{ ...S, fontSize: 11, color: "#555", background: "none", border: "1px solid #2a2a2a", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}
+                      >
+                        전체 보기
+                      </button>
+                    )}
+                    <span style={{ ...S, fontSize: 12, color: "#555" }}>{tradesExpanded ? "▲" : "▼"}</span>
+                  </div>
                 </div>
 
-                {/* 테이블 헤더 */}
-                <div style={{
-                  display: "grid", gridTemplateColumns: "1fr 2fr 80px 60px 60px 90px",
-                  padding: "6px 16px", borderBottom: "1px solid #1a1a1a",
-                  background: "#0d0d0d",
-                }}>
-                  {["아파트명", "단지/동", "면적", "층", "날짜", "거래가"].map(h => (
-                    <div key={h} style={{ ...S, fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.5px" }}>{h}</div>
-                  ))}
-                </div>
-
-                {/* 실거래 목록 - 금액 높은 순 */}
-                {[...filteredTrades]
-                  .sort((a, b) => b.price - a.price)
-                  .slice(0, visibleCount)
-                  .map((t, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: "grid", gridTemplateColumns: "1fr 2fr 80px 60px 60px 90px",
-                        padding: "8px 16px", borderBottom: "1px solid #141414",
-                        background: i % 2 === 0 ? "transparent" : "#0a0a0a",
-                        cursor: "default",
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "#111")}
-                      onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "transparent" : "#0a0a0a")}
-                    >
-                      <div style={{ ...S, fontSize: 12, color: "#e0e0e0", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {t.aptName}
-                      </div>
-                      <div style={{ ...S, fontSize: 11, color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {t.district} {t.dong}
-                      </div>
-                      <div style={{ ...S, fontSize: 11, color: "#888" }}>
-                        {Math.round(t.area)}m²
-                      </div>
-                      <div style={{ ...S, fontSize: 11, color: "#888" }}>
-                        {t.floor}F
-                      </div>
-                      <div style={{ ...S, fontSize: 11, color: "#555" }}>
-                        {t.date}
-                      </div>
-                      <div style={{ ...S, fontSize: 13, color: "#f59e0b", fontWeight: 700, textAlign: "right" }}>
-                        {fmtPrice(t.price)}
-                      </div>
-                    </div>
-                  ))
-                }
-
-                {/* 더 보기 */}
-                {filteredTrades.length > visibleCount && (
-                  <div style={{ padding: "12px 16px", textAlign: "center" }}>
-                    <button
-                      onClick={() => setVisibleCount(v => v + 50)}
-                      style={{ ...S, fontSize: 12, color: "#555", background: "none", border: "1px solid #2a2a2a", borderRadius: 4, padding: "6px 20px", cursor: "pointer" }}
-                    >
-                      더 보기 ({filteredTrades.length - visibleCount}건 남음)
-                    </button>
-                  </div>
-                )}
-
-                {filteredTrades.length === 0 && !loading && (
-                  <div style={{ padding: "40px 16px", textAlign: "center", ...S, fontSize: 12, color: "#333" }}>
-                    거래 데이터가 없습니다
-                  </div>
-                )}
-              </div>
-
-              {/* Top 20 Deals Panel */}
-              {showTopDeals && selectedDistrictName && districtStatsMap[selectedDistrictName] && (
-                <div style={{
-                  position: "fixed", top: 0, right: 0, bottom: 0, width: "min(420px, 90vw)",
-                  background: "#111827", borderLeft: "1px solid #374151",
-                  zIndex: 50, overflowY: "auto", boxShadow: "-4px 0 24px rgba(0,0,0,0.5)",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #374151" }}>
-                    <div>
-                      <div style={{ ...S, fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>
-                        {selectedDistrictName} 거래 TOP 20
-                      </div>
-                      <div style={{ ...S, fontSize: 10, color: "#666", marginTop: 2 }}>가격 높은 순</div>
-                    </div>
-                    <button
-                      onClick={() => setShowTopDeals(false)}
-                      style={{ ...S, fontSize: 14, color: "#666", background: "none", border: "none", cursor: "pointer", padding: "4px 8px" }}
-                    >
-                      X
-                    </button>
-                  </div>
+                {/* Content */}
+                {tradesExpanded && (
                   <div>
                     {/* Table header */}
                     <div style={{
-                      display: "grid", gridTemplateColumns: "28px 1fr 1fr 55px 40px 55px 80px",
-                      padding: "6px 12px", borderBottom: "1px solid #1f2937", background: "#0d1117",
-                      position: "sticky", top: 0, zIndex: 5,
+                      display: "grid", gridTemplateColumns: "1fr 2fr 80px 60px 60px 90px",
+                      padding: "6px 16px", borderBottom: "1px solid #1e1e1e",
+                      background: "#0d0d0d",
                     }}>
-                      {["#", "아파트", "동", "면적", "층", "날짜", "거래가"].map(h => (
-                        <div key={h} style={{ ...S, fontSize: 9, color: "#555", textTransform: "uppercase" }}>{h}</div>
+                      {["아파트명", "단지/동", "면적", "층", "날짜", "거래가"].map(h => (
+                        <div key={h} style={{ ...S, fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.5px" }}>{h}</div>
                       ))}
                     </div>
-                    {districtStatsMap[selectedDistrictName].topDeals.map((deal, i) => {
-                      const priceOk = deal.price / 10000;
-                      const priceFmt = priceOk >= 1
-                        ? `${Math.floor(priceOk)}억${deal.price % 10000 > 0 ? ` ${(deal.price % 10000).toLocaleString()}` : ""}`
-                        : `${deal.price.toLocaleString()}만`;
-                      return (
-                        <div key={i} style={{
-                          display: "grid", gridTemplateColumns: "28px 1fr 1fr 55px 40px 55px 80px",
-                          padding: "7px 12px", borderBottom: "1px solid #1f2937",
-                          background: i % 2 === 0 ? "transparent" : "#0d1117",
-                        }}>
-                          <div style={{ ...S, fontSize: 11, color: i < 3 ? "#f59e0b" : "#555" }}>{i + 1}</div>
-                          <div style={{ ...S, fontSize: 11, color: "#e0e0e0", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{deal.name}</div>
-                          <div style={{ ...S, fontSize: 10, color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{deal.dong}</div>
-                          <div style={{ ...S, fontSize: 10, color: "#888" }}>{Math.round(deal.area)}m²</div>
-                          <div style={{ ...S, fontSize: 10, color: "#888" }}>{deal.floor}F</div>
-                          <div style={{ ...S, fontSize: 10, color: "#555" }}>{deal.date.slice(5)}</div>
-                          <div style={{ ...S, fontSize: 12, color: "#f59e0b", fontWeight: 700, textAlign: "right" }}>{priceFmt}</div>
+
+                    {/* Rows */}
+                    {[...filteredTrades]
+                      .sort((a, b) => b.price - a.price)
+                      .slice(0, visibleCount)
+                      .map((t, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            display: "grid", gridTemplateColumns: "1fr 2fr 80px 60px 60px 90px",
+                            padding: "8px 16px", borderBottom: "1px solid #141414",
+                            background: i % 2 === 0 ? "transparent" : "#0a0a0a",
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#111")}
+                          onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "transparent" : "#0a0a0a")}
+                        >
+                          <div style={{ ...S, fontSize: 12, color: "#e0e0e0", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.aptName}</div>
+                          <div style={{ ...S, fontSize: 11, color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.district} {t.dong}</div>
+                          <div style={{ ...S, fontSize: 11, color: "#888" }}>{Math.round(t.area)}m²</div>
+                          <div style={{ ...S, fontSize: 11, color: "#888" }}>{t.floor}F</div>
+                          <div style={{ ...S, fontSize: 11, color: "#555" }}>{t.date}</div>
+                          <div style={{ ...S, fontSize: 13, color: "#f59e0b", fontWeight: 700, textAlign: "right" }}>{fmtPrice(t.price)}</div>
                         </div>
-                      );
-                    })}
-                    {districtStatsMap[selectedDistrictName].topDeals.length === 0 && (
-                      <div style={{ padding: "24px 16px", textAlign: "center", ...S, fontSize: 11, color: "#555" }}>
+                      ))
+                    }
+
+                    {/* Load more */}
+                    {filteredTrades.length > visibleCount && (
+                      <div style={{ padding: "12px 16px", textAlign: "center" }}>
+                        <button
+                          onClick={() => setVisibleCount(v => v + 50)}
+                          style={{ ...S, fontSize: 12, color: "#555", background: "none", border: "1px solid #2a2a2a", borderRadius: 4, padding: "6px 20px", cursor: "pointer" }}
+                        >
+                          더 보기 ({filteredTrades.length - visibleCount}건 남음)
+                        </button>
+                      </div>
+                    )}
+
+                    {filteredTrades.length === 0 && !loading && (
+                      <div style={{ padding: "40px 16px", textAlign: "center", ...S, fontSize: 12, color: "#333" }}>
                         거래 데이터가 없습니다
                       </div>
                     )}
                   </div>
+                )}
+              </div>
+
+              {/* ── Section B: 부동산 뉴스 (district selected only) ── */}
+              {selectedDistrictName && (
+                <div style={{ borderTop: "1px solid #1e1e1e" }}>
+                  {/* Header (sticky) */}
+                  <div
+                    onClick={() => setNewsExpanded(v => !v)}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "10px 16px", borderBottom: "1px solid #1e1e1e",
+                      background: "#111", position: "sticky", top: 0, zIndex: 10, cursor: "pointer", userSelect: "none",
+                    }}
+                  >
+                    <div style={{ ...S, fontSize: 12, fontWeight: 700, color: "#e0e0e0" }}>
+                      {selectedDistrictName} 부동산 뉴스
+                    </div>
+                    <span style={{ ...S, fontSize: 12, color: "#555" }}>{newsExpanded ? "▲" : "▼"}</span>
+                  </div>
+
+                  {/* Content */}
+                  {newsExpanded && (
+                    <div style={{ padding: "0" }}>
+                      {newsLoading ? (
+                        <div style={{ padding: "12px 16px" }}>
+                          {[0, 1, 2].map(i => (
+                            <div key={i} className="animate-pulse" style={{ height: 14, background: "#1a1a1a", borderRadius: 4, marginBottom: 10 }} />
+                          ))}
+                        </div>
+                      ) : news.length > 0 ? (
+                        news.map((n, i) => (
+                          <a
+                            key={i}
+                            href={n.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: "block", padding: "10px 16px",
+                              borderBottom: i < news.length - 1 ? "1px solid #1e1e1e" : "none",
+                              textDecoration: "none",
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "#111")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                          >
+                            <div style={{ ...S, fontSize: 12, color: "#d1d5db", lineHeight: 1.5, marginBottom: 4 }}>{n.title}</div>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <span style={{ ...S, fontSize: 10, color: "#555" }}>{n.source}</span>
+                              <span style={{ ...S, fontSize: 10, color: "#444" }}>{n.publishedAt?.slice(0, 10)}</span>
+                            </div>
+                          </a>
+                        ))
+                      ) : (
+                        <div style={{ padding: "24px 16px", textAlign: "center", ...S, fontSize: 11, color: "#444" }}>
+                          뉴스가 없습니다
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
