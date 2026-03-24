@@ -12,21 +12,11 @@ import {
   ResponsiveContainer,
   ReferenceArea,
 } from "recharts";
-import dynamic from "next/dynamic";
 import { useLang } from "@/lib/LangContext";
 import AppHeader from "@/components/AppHeader";
 import ShareButton from "@/components/ShareButton";
 import MacroProContent from "@/components/MacroProContent";
 
-const LiquidityDashboard = dynamic(() => import("@/components/LiquidityDashboard"), {
-  ssr: false,
-  loading: () => <div className="animate-pulse bg-[#111] h-96 rounded-xl" />,
-});
-
-const RRGChart = dynamic(() => import("@/components/RRGChart"), {
-  ssr: false,
-  loading: () => <div className="animate-pulse bg-[#111] h-[500px] rounded-xl" />,
-});
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -117,6 +107,16 @@ const INDICATORS: Record<string, IndicatorConfig> = {
     getStatus: (v) => v > 4.5 ? { label: "RESTRICTIVE", labelKr: "긴축" } : v >= 3 ? { label: "NEUTRAL", labelKr: "중립" } : { label: "ACCOMMODATIVE", labelKr: "완화" },
     getInterpretation: (s) => s === "RESTRICTIVE" ? "긴축 유지 중. 고금리 장기화 압박." : s === "NEUTRAL" ? "중립 구간. 인하 사이클 진입 여부 주목." : "완화적 환경. 유동성 공급 우호적.",
   },
+  DGS10: {
+    id: "DGS10", seriesKey: "DGS10",
+    labelKr: "미국 10년물 금리", labelEn: "10Y Treasury", unit: "%", sparkColor: "#34d399",
+    explanation: "미국 10년물 국채금리. 장기 금리 기준선. 상승 시 증시 밸류에이션 압박.",
+    zones: { green: [-Infinity, 3], yellow: [3, 4.5], red: [4.5, Infinity] },
+    getZoneColor: (v) => v > 4.5 ? "#f87171" : v > 3 ? "#facc15" : "#4ade80",
+    dashedLines: [3, 4.5], invertZone: true,
+    getStatus: (v) => v > 4.5 ? { label: "HIGH", labelKr: "고금리" } : v >= 3 ? { label: "NORMAL", labelKr: "보통" } : { label: "LOW", labelKr: "저금리" },
+    getInterpretation: (s) => s === "HIGH" ? "고금리 구간. 증시 밸류에이션 압박." : s === "NORMAL" ? "정상 구간." : "저금리 환경.",
+  },
   CPIAUCSL: {
     id: "CPIAUCSL", seriesKey: "CPI_YOY",
     labelKr: "CPI YoY", labelEn: "CPI YoY", unit: "%", sparkColor: "#fb923c",
@@ -169,7 +169,7 @@ const INDICATORS: Record<string, IndicatorConfig> = {
   },
 };
 
-const INDICATOR_ORDER = ["FEDFUNDS", "CPIAUCSL", "UNRATE", "T10Y3M", "BAMLH0A0HYM2", "VIX"];
+const INDICATOR_ORDER = ["FEDFUNDS", "DGS10", "CPIAUCSL", "UNRATE", "T10Y3M", "VIX"];
 type CardRange = "3M" | "6M" | "1Y" | "3Y" | "5Y";
 const CARD_RANGES: CardRange[] = ["3M", "6M", "1Y", "3Y", "5Y"];
 const CARD_RANGE_MONTHS: Record<CardRange, number> = { "3M": 3, "6M": 6, "1Y": 12, "3Y": 36, "5Y": 60 };
@@ -1390,7 +1390,7 @@ function PERChart({
 
 // ── Page ──────────────────────────────────────────────────────
 
-type MacroTab = "indicators" | "liquidity" | "rrg" | "commodities";
+type MacroTab = "indicators" | "commodities";
 
 export default function MacroPage() {
   const { lang } = useLang();
@@ -1608,8 +1608,6 @@ export default function MacroPage() {
         <div className="mb-4 sm:mb-6 flex gap-1 border-b overflow-x-auto scrollbar-none" style={{ borderColor: "#222" }}>
           {([
             { key: "indicators" as MacroTab, labelKr: "매크로 지표", labelEn: "Macro Indicators" },
-            { key: "liquidity" as MacroTab, labelKr: "유동성", labelEn: "Liquidity" },
-            { key: "rrg" as MacroTab, labelKr: "RRG", labelEn: "RRG" },
             { key: "commodities" as MacroTab, labelKr: "원자재", labelEn: "Commodities" },
           ]).map((tab) => (
             <button
@@ -1626,12 +1624,6 @@ export default function MacroPage() {
             </button>
           ))}
         </div>
-
-        {/* ── Liquidity Tab ────────────────────────────────────── */}
-        {activeTab === "liquidity" && <LiquidityDashboard />}
-
-        {/* ── RRG Tab ──────────────────────────────────────────── */}
-        {activeTab === "rrg" && <RRGChart />}
 
         {/* ── Commodities Tab ────────────────────────────────── */}
         {activeTab === "commodities" && <MacroProContent />}
@@ -1710,6 +1702,42 @@ export default function MacroPage() {
           )}
         </div>
 
+        {/* ── Market Charts ────────────────────────────────── */}
+        <div className="mb-6">
+          <h2 className="mb-3 text-sm font-bold tracking-wider uppercase" style={{ color: "#aaaaaa" }}>
+            {lang === "kr" ? "시장 차트" : "Market Charts"}
+          </h2>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {[
+              { symbol: "NDX", label: "나스닥 100", color: "#60a5fa" },
+              { symbol: "KOSPI", label: "코스피", color: "#34d399" },
+              { symbol: "BTC-USD", label: "비트코인", color: "#f59e0b" },
+              { symbol: "^VIX", label: "VIX", color: "#f87171" },
+            ].map(chart => (
+              <div key={chart.symbol} className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs font-semibold" style={{ color: "#ccc" }}>{chart.label}</h3>
+                  <span className="text-[10px]" style={{ color: "#555" }}>{chart.symbol}</span>
+                </div>
+                <div className="h-[140px] flex items-center justify-center">
+                  <a
+                    href={`https://www.tradingview.com/chart/?symbol=${chart.symbol}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex flex-col items-center gap-2 text-center"
+                    style={{ color: chart.color }}
+                  >
+                    <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                    </svg>
+                    <span style={{ fontSize: 11 }}>TradingView{lang === "kr" ? "에서 보기" : ""}</span>
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* ── Macro Indicator Cards ────────────────────────── */}
         <div className="mb-6">
           {/* Time range selector */}
@@ -1753,6 +1781,92 @@ export default function MacroPage() {
                 );
               })
             )}
+          </div>
+        </div>
+
+        {/* ── Liquidity Key Metrics ────────────────────────── */}
+        <div className="mb-6">
+          <h2 className="mb-3 text-sm font-bold tracking-wider uppercase" style={{ color: "#aaaaaa" }}>
+            {lang === "kr" ? "유동성 지표" : "Liquidity"}
+          </h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { key: "WALCL", label: lang === "kr" ? "연준 대차대조표" : "Fed Balance Sheet", unit: "T", color: "#60a5fa", desc: lang === "kr" ? "연준 자산 총액" : "Fed total assets" },
+              { key: "RRPONTSYD", label: lang === "kr" ? "역레포 잔고" : "Reverse Repo", unit: "B", color: "#34d399", desc: lang === "kr" ? "단기 유동성 지표" : "Short-term liquidity" },
+              { key: "WTREGEN", label: lang === "kr" ? "TGA 재무부계좌" : "TGA Balance", unit: "B", color: "#f59e0b", desc: lang === "kr" ? "재무부 현금 잔고" : "Treasury cash" },
+              { key: "WRESBAL", label: lang === "kr" ? "지급준비금" : "Bank Reserves", unit: "T", color: "#a78bfa", desc: lang === "kr" ? "은행 지급준비금" : "Bank reserves" },
+            ].map(item => {
+              const sd = seriesFull[item.key];
+              const obs = sd?.observations;
+              const latest = obs?.[obs.length - 1];
+              const prev = obs?.[obs.length - 2];
+              const val = latest?.value ?? 0;
+              const chg = prev ? ((val - prev.value) / Math.abs(prev.value)) * 100 : 0;
+              const display = item.unit === "T" ? `$${(val / 1000).toFixed(2)}T` : `$${val.toFixed(0)}B`;
+              return (
+                <div key={item.key} className="rounded-xl p-3" style={{ background: "#111", border: "1px solid #222", borderLeft: `3px solid ${item.color}` }}>
+                  <div className="text-[10px] mb-1" style={{ color: "#666" }}>{item.label}</div>
+                  {loading ? (
+                    <div className="h-5 rounded animate-pulse" style={{ background: "#1a1a1a" }} />
+                  ) : (
+                    <>
+                      <div className="text-lg font-bold" style={{ color: item.color }}>{display}</div>
+                      <div className="text-[11px]" style={{ color: chg >= 0 ? "#4ade80" : "#f87171" }}>
+                        {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
+                      </div>
+                      <div className="text-[10px] mt-1" style={{ color: "#444" }}>{item.desc}</div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Central Bank Calendar ──────────────────────────── */}
+        <div className="mb-6">
+          <h2 className="mb-3 text-sm font-bold tracking-wider uppercase" style={{ color: "#aaaaaa" }}>
+            {lang === "kr" ? "중앙은행 금리 캘린더" : "Central Bank Calendar"}
+          </h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {[
+              {
+                bank: "Fed",
+                flag: "US",
+                rate: `${seriesFull["FEDFUNDS"]?.latest?.toFixed(2) || "4.25~4.50"}%`,
+                color: "#60a5fa",
+                events: [
+                  { date: "2026-05-07", label: "FOMC" },
+                  { date: "2026-06-18", label: "FOMC" },
+                  { date: "2026-07-30", label: "FOMC" },
+                ]
+              },
+              {
+                bank: "BOJ",
+                flag: "JP",
+                rate: "0.50%",
+                color: "#f87171",
+                events: [
+                  { date: "2026-04-30", label: lang === "kr" ? "BOJ 정책회의" : "BOJ Meeting" },
+                  { date: "2026-06-17", label: lang === "kr" ? "BOJ 정책회의" : "BOJ Meeting" },
+                ]
+              },
+            ].map(cb => (
+              <div key={cb.bank} className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222", borderLeft: `3px solid ${cb.color}` }}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-bold" style={{ color: cb.color }}>{cb.bank} ({cb.flag})</span>
+                  <span className="text-lg font-bold" style={{ color: "#e8e8e8" }}>{cb.rate}</span>
+                </div>
+                <div className="space-y-2">
+                  {cb.events.map((ev, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <span className="text-[11px]" style={{ color: "#888" }}>{ev.label}</span>
+                      <span className="text-[11px] font-mono" style={{ color: i === 0 ? cb.color : "#555" }}>{ev.date}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

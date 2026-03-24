@@ -39,6 +39,7 @@ const SERIES = [
   { id: "WTREGEN", label: "TGA Balance", unit: "B$" },
   { id: "WRESBAL", label: "Bank Reserves", unit: "B$" },
   { id: "FEDFUNDS", label: "Fed Funds Rate", unit: "%" },
+  { id: "DGS10", label: "10Y Treasury Yield", unit: "%" },
   { id: "T10Y2Y", label: "10Y-2Y Spread", unit: "%" },
   { id: "T10Y3M", label: "10Y-3M Spread", unit: "%" },
   { id: "BAMLH0A0HYM2", label: "HY Spread", unit: "%" },
