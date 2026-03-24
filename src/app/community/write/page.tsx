@@ -16,14 +16,17 @@ const DRAFT_KEY = "community_write_draft";
 
 const FONT_COLORS = [
   { color: "#ffffff", label: "흰색" },
-  { color: "#e8e8e8", label: "기본" },
   { color: "#f59e0b", label: "황금" },
   { color: "#22c55e", label: "초록" },
   { color: "#ef4444", label: "빨강" },
   { color: "#60a5fa", label: "파랑" },
   { color: "#a78bfa", label: "보라" },
   { color: "#fb923c", label: "주황" },
-  { color: "#888888", label: "회색" },
+  { color: "#34d399", label: "민트" },
+  { color: "#f472b6", label: "핑크" },
+  { color: "#facc15", label: "노랑" },
+  { color: "#94a3b8", label: "회색" },
+  { color: "#ff6b6b", label: "연빨강" },
 ];
 
 function TBBtn({
@@ -68,6 +71,7 @@ export default function CommunityWritePage() {
   const [tableCols, setTableCols] = useState(3);
   const [showTableConfig, setShowTableConfig] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Draft restore
   useEffect(() => {
@@ -235,6 +239,17 @@ export default function CommunityWritePage() {
     setTimeout(enableTableResize, 100);
   };
 
+  const insertImage = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const src = e.target?.result as string;
+      const html = `<img src="${src}" style="max-width:100%;height:auto;margin:8px 0;border-radius:4px" /><p><br></p>`;
+      document.execCommand("insertHTML", false, html);
+      editorRef.current?.focus();
+    };
+    reader.readAsDataURL(file);
+  };
+
   const insertDivider = () => {
     document.execCommand(
       "insertHTML",
@@ -380,8 +395,8 @@ export default function CommunityWritePage() {
 
           <div className="w-px h-5 bg-[#333] mx-1" />
 
-          <TBBtn label="UL" onClick={() => execCmd("insertUnorderedList")} />
-          <TBBtn label="OL" onClick={() => execCmd("insertOrderedList")} />
+          <TBBtn label="• 목록" onClick={() => execCmd("insertUnorderedList")} />
+          <TBBtn label="1. 목록" onClick={() => execCmd("insertOrderedList")} />
 
           {/* Font color palette */}
           <div className="flex items-center gap-0.5 border-l border-white/10 pl-1 ml-1">
@@ -397,6 +412,13 @@ export default function CommunityWritePage() {
                 style={{ background: c.color }}
               />
             ))}
+          </div>
+
+          {/* Text alignment */}
+          <div className="flex items-center gap-0.5 border-l border-white/10 pl-1 ml-1">
+            <TBBtn label="좌" onClick={() => execCmd("justifyLeft")} />
+            <TBBtn label="중" onClick={() => execCmd("justifyCenter")} />
+            <TBBtn label="우" onClick={() => execCmd("justifyRight")} />
           </div>
 
           <div className="w-px h-5 bg-[#333] mx-1" />
@@ -448,6 +470,19 @@ export default function CommunityWritePage() {
           </div>
 
           <TBBtn label="—" onClick={insertDivider} />
+
+          <TBBtn label="이미지" onClick={() => imageInputRef.current?.click()} />
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) insertImage(file);
+              e.target.value = "";
+            }}
+          />
         </div>
 
         {/* contentEditable editor */}
@@ -455,7 +490,7 @@ export default function CommunityWritePage() {
           ref={editorRef}
           contentEditable
           suppressContentEditableWarning
-          className="min-h-[calc(100vh-280px)] bg-background px-8 sm:px-16 md:px-24 py-8 outline-none text-white leading-relaxed"
+          className="min-h-[calc(100vh-280px)] bg-background px-3 sm:px-6 py-8 outline-none text-white leading-relaxed"
           style={{
             fontSize: "17px",
             lineHeight: "1.9",
@@ -464,6 +499,12 @@ export default function CommunityWritePage() {
             maxWidth: "100%",
           }}
           data-placeholder={lang === "kr" ? "내용을 입력하세요..." : "Write your content..."}
+          onDrop={(e) => {
+            e.preventDefault();
+            const file = e.dataTransfer.files?.[0];
+            if (file && file.type.startsWith("image/")) insertImage(file);
+          }}
+          onDragOver={(e) => e.preventDefault()}
         />
       </main>
 
