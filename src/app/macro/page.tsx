@@ -1709,30 +1709,24 @@ export default function MacroPage() {
           </h2>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {[
-              { symbol: "NDX", label: "나스닥 100", color: "#60a5fa" },
-              { symbol: "KOSPI", label: "코스피", color: "#34d399" },
-              { symbol: "BTC-USD", label: "비트코인", color: "#f59e0b" },
-              { symbol: "^VIX", label: "VIX", color: "#f87171" },
+              { symbol: "NASDAQ:NDX", label: "나스닥 100" },
+              { symbol: "KRX:KOSPI", label: "코스피" },
+              { symbol: "BITSTAMP:BTCUSD", label: "비트코인" },
+              { symbol: "TVC:VIX", label: "VIX 공포지수" },
+              { symbol: "NYMEX:CL1!", label: "WTI 원유" },
+              { symbol: "OANDA:XAUUSD", label: "금 (Gold)" },
             ].map(chart => (
-              <div key={chart.symbol} className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222" }}>
-                <div className="flex items-center justify-between mb-3">
+              <div key={chart.symbol} className="rounded-xl overflow-hidden" style={{ background: "#111", border: "1px solid #222" }}>
+                <div className="flex items-center justify-between px-4 py-2 border-b border-[#1a1a1a]">
                   <h3 className="text-xs font-semibold" style={{ color: "#ccc" }}>{chart.label}</h3>
                   <span className="text-[10px]" style={{ color: "#555" }}>{chart.symbol}</span>
                 </div>
-                <div className="h-[140px] flex items-center justify-center">
-                  <a
-                    href={`https://www.tradingview.com/chart/?symbol=${chart.symbol}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex flex-col items-center gap-2 text-center"
-                    style={{ color: chart.color }}
-                  >
-                    <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                    </svg>
-                    <span style={{ fontSize: 11 }}>TradingView{lang === "kr" ? "에서 보기" : ""}</span>
-                  </a>
-                </div>
+                <iframe
+                  src={`https://www.tradingview.com/widgetembed/?frameElementId=tv_chart_${chart.symbol.replace(/[^a-zA-Z0-9]/g, "_")}&symbol=${encodeURIComponent(chart.symbol)}&interval=D&hidesidetoolbar=1&hidetoptoolbar=0&symboledit=1&saveimage=0&toolbarbg=000000&studies=[]&theme=dark&style=1&timezone=Asia%2FSeoul&withdateranges=1&showpopupbutton=0&studies_overrides={}&overrides={}&enabled_features=[]&disabled_features=[]&locale=kr&utm_source=thealphalabs.net&utm_medium=widget&utm_campaign=chart`}
+                  style={{ width: "100%", height: 300, border: "none" }}
+                  scrolling="no"
+                  allowFullScreen
+                />
               </div>
             ))}
           </div>
