@@ -29,22 +29,24 @@ const NAME_TO_CODE: Record<string, string> = {
 };
 
 const LEGEND_ITEMS = [
-  { color: "#ef4444", label: "200건+" },
-  { color: "#f97316", label: "151~200건" },
-  { color: "#facc15", label: "101~150건" },
-  { color: "#4ade80", label: "51~100건" },
-  { color: "#16a34a", label: "21~50건" },
-  { color: "#166534", label: "~20건" },
-  { color: "#374151", label: "데이터 없음" },
+  { color: "#ef4444", label: "300건+" },
+  { color: "#f97316", label: "201~300건" },
+  { color: "#facc15", label: "151~200건" },
+  { color: "#4ade80", label: "101~150건" },
+  { color: "#16a34a", label: "61~100건" },
+  { color: "#166534", label: "31~60건" },
+  { color: "#14532d", label: "~30건" },
+  { color: "#1f2937", label: "데이터없음" },
 ];
 
-function countColor(count: number): string {
-  if (count <= 0) return "#374151";
-  if (count <= 20) return "#166534";
-  if (count <= 50) return "#16a34a";
-  if (count <= 100) return "#4ade80";
-  if (count <= 150) return "#facc15";
-  if (count <= 200) return "#f97316";
+function getColorByCount(count: number): string {
+  if (count === 0) return "#1f2937";
+  if (count <= 30) return "#14532d";
+  if (count <= 60) return "#166534";
+  if (count <= 100) return "#16a34a";
+  if (count <= 150) return "#4ade80";
+  if (count <= 200) return "#facc15";
+  if (count <= 300) return "#f97316";
   return "#ef4444";
 }
 
@@ -209,7 +211,7 @@ export default function SeoulMap({ districts, selected, onSelect }: Props) {
       const code = NAME_TO_CODE[geoName];
       const data = code ? districtMap.get(code) : undefined;
       const isSelected = selected === code;
-      const fillColor = data ? countColor(data.count) : "#374151";
+      const fillColor = data ? getColorByCount(data.count) : "#374151";
       const shortName = geoName.replace("구", "");
       const centroid = pathGen.centroid(f as Parameters<typeof pathGen.centroid>[0]);
       // MoM change

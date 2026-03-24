@@ -1702,36 +1702,6 @@ export default function MacroPage() {
           )}
         </div>
 
-        {/* ── Market Charts ────────────────────────────────── */}
-        <div className="mb-6">
-          <h2 className="mb-3 text-sm font-bold tracking-wider uppercase" style={{ color: "#aaaaaa" }}>
-            {lang === "kr" ? "시장 차트" : "Market Charts"}
-          </h2>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {[
-              { symbol: "NASDAQ:NDX", label: "나스닥 100" },
-              { symbol: "KRX:KOSPI", label: "코스피" },
-              { symbol: "BITSTAMP:BTCUSD", label: "비트코인" },
-              { symbol: "TVC:VIX", label: "VIX 공포지수" },
-              { symbol: "NYMEX:CL1!", label: "WTI 원유" },
-              { symbol: "OANDA:XAUUSD", label: "금 (Gold)" },
-            ].map(chart => (
-              <div key={chart.symbol} className="rounded-xl overflow-hidden" style={{ background: "#111", border: "1px solid #222" }}>
-                <div className="flex items-center justify-between px-4 py-2 border-b border-[#1a1a1a]">
-                  <h3 className="text-xs font-semibold" style={{ color: "#ccc" }}>{chart.label}</h3>
-                  <span className="text-[10px]" style={{ color: "#555" }}>{chart.symbol}</span>
-                </div>
-                <iframe
-                  src={`https://www.tradingview.com/widgetembed/?frameElementId=tv_chart_${chart.symbol.replace(/[^a-zA-Z0-9]/g, "_")}&symbol=${encodeURIComponent(chart.symbol)}&interval=D&hidesidetoolbar=1&hidetoptoolbar=0&symboledit=1&saveimage=0&toolbarbg=000000&studies=[]&theme=dark&style=1&timezone=Asia%2FSeoul&withdateranges=1&showpopupbutton=0&studies_overrides={}&overrides={}&enabled_features=[]&disabled_features=[]&locale=kr&utm_source=thealphalabs.net&utm_medium=widget&utm_campaign=chart`}
-                  style={{ width: "100%", height: 300, border: "none" }}
-                  scrolling="no"
-                  allowFullScreen
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* ── Macro Indicator Cards ────────────────────────── */}
         <div className="mb-6">
           {/* Time range selector */}
@@ -1778,38 +1748,84 @@ export default function MacroPage() {
           </div>
         </div>
 
-        {/* ── Liquidity Key Metrics ────────────────────────── */}
+        {/* ── Liquidity Key Metrics (Line Charts) ─────────── */}
         <div className="mb-6">
           <h2 className="mb-3 text-sm font-bold tracking-wider uppercase" style={{ color: "#aaaaaa" }}>
             {lang === "kr" ? "유동성 지표" : "Liquidity"}
           </h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { key: "WALCL", label: lang === "kr" ? "연준 대차대조표" : "Fed Balance Sheet", unit: "T", color: "#60a5fa", desc: lang === "kr" ? "연준 자산 총액" : "Fed total assets" },
-              { key: "RRPONTSYD", label: lang === "kr" ? "역레포 잔고" : "Reverse Repo", unit: "B", color: "#34d399", desc: lang === "kr" ? "단기 유동성 지표" : "Short-term liquidity" },
-              { key: "WTREGEN", label: lang === "kr" ? "TGA 재무부계좌" : "TGA Balance", unit: "B", color: "#f59e0b", desc: lang === "kr" ? "재무부 현금 잔고" : "Treasury cash" },
-              { key: "WRESBAL", label: lang === "kr" ? "지급준비금" : "Bank Reserves", unit: "T", color: "#a78bfa", desc: lang === "kr" ? "은행 지급준비금" : "Bank reserves" },
-            ].map(item => {
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {([
+              { key: "WALCL", label: lang === "kr" ? "연준 대차대조표" : "Fed Balance Sheet", color: "#3b82f6", divisor: 1000000, suffix: "T" },
+              { key: "RRPONTSYD", label: lang === "kr" ? "역레포 잔고" : "Reverse Repo", color: "#10b981", divisor: 1, suffix: "B" },
+              { key: "WTREGEN", label: lang === "kr" ? "TGA 재무부계좌" : "TGA Balance", color: "#f59e0b", divisor: 1000, suffix: "B" },
+              { key: "WRESBAL", label: lang === "kr" ? "지급준비금" : "Bank Reserves", color: "#8b5cf6", divisor: 1000000, suffix: "T" },
+            ] as const).map(item => {
               const sd = seriesFull[item.key];
-              const obs = sd?.observations;
-              const latest = obs?.[obs.length - 1];
-              const prev = obs?.[obs.length - 2];
-              const val = latest?.value ?? 0;
-              const chg = prev ? ((val - prev.value) / Math.abs(prev.value)) * 100 : 0;
-              const display = item.unit === "T" ? `$${(val / 1000).toFixed(2)}T` : `$${val.toFixed(0)}B`;
+              const obs = sd?.observations ?? [];
+              const latest = obs[obs.length - 1];
+              const prev = obs.length >= 2 ? obs[obs.length - 2] : null;
+              const latestVal = latest?.value ?? 0;
+              const chg = prev ? ((latestVal - prev.value) / Math.abs(prev.value)) * 100 : 0;
+              const fmtVal = (v: number) => item.suffix === "T" ? `$${(v / item.divisor).toFixed(2)}T` : `$${(v / item.divisor).toFixed(0)}B`;
+              // Last 6 months of data for x-axis display
+              const sixMonthsAgo = new Date();
+              sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+              const cutoff = sixMonthsAgo.toISOString().slice(0, 10);
+              const chartData = obs.filter(o => o.date >= cutoff).map(o => ({ date: o.date, value: o.value }));
               return (
-                <div key={item.key} className="rounded-xl p-3" style={{ background: "#111", border: "1px solid #222", borderLeft: `3px solid ${item.color}` }}>
-                  <div className="text-[10px] mb-1" style={{ color: "#666" }}>{item.label}</div>
+                <div key={item.key} className="rounded-xl p-4" style={{ background: "#111827", border: "1px solid #1f2937" }}>
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="text-xs font-semibold" style={{ color: "#ccc" }}>{item.label}</div>
+                      {!loading && latest && (
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-base font-bold" style={{ color: item.color }}>{fmtVal(latestVal)}</span>
+                          <span className="text-[11px]" style={{ color: chg >= 0 ? "#4ade80" : "#f87171" }}>
+                            {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-mono" style={{ color: "#555" }}>{item.key}</span>
+                  </div>
+                  {/* Chart */}
                   {loading ? (
-                    <div className="h-5 rounded animate-pulse" style={{ background: "#1a1a1a" }} />
+                    <div className="h-[160px] rounded-lg animate-pulse" style={{ background: "#0d1117" }} />
+                  ) : chartData.length > 1 ? (
+                    <ResponsiveContainer width="100%" height={160}>
+                      <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                        <CartesianGrid stroke="#374151" strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: "#555", fontSize: 9 }}
+                          tickLine={false}
+                          axisLine={{ stroke: "#374151" }}
+                          tickFormatter={(d: string) => d.slice(5, 7) + "/" + d.slice(8, 10)}
+                          interval="preserveStartEnd"
+                          minTickGap={40}
+                        />
+                        <YAxis
+                          tick={{ fill: "#555", fontSize: 9 }}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(v: number) => item.suffix === "T" ? `${(v / item.divisor).toFixed(1)}` : `${(v / item.divisor).toFixed(0)}`}
+                          width={40}
+                          domain={["dataMin", "dataMax"]}
+                        />
+                        <Tooltip
+                          contentStyle={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 6, fontSize: 11 }}
+                          labelStyle={{ color: "#9ca3af" }}
+                          formatter={(v: unknown) => [fmtVal(Number(v ?? 0)), item.label]}
+                          labelFormatter={(d) => String(d)}
+                        />
+                        <Line type="monotone" dataKey="value" stroke={item.color} strokeWidth={1.5} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
                   ) : (
-                    <>
-                      <div className="text-lg font-bold" style={{ color: item.color }}>{display}</div>
-                      <div className="text-[11px]" style={{ color: chg >= 0 ? "#4ade80" : "#f87171" }}>
-                        {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
-                      </div>
-                      <div className="text-[10px] mt-1" style={{ color: "#444" }}>{item.desc}</div>
-                    </>
+                    <div className="h-[160px] flex items-center justify-center rounded-lg" style={{ background: "#0d1117" }}>
+                      <span className="text-xs" style={{ color: "#555" }}>{lang === "kr" ? "데이터 없음" : "No data"}</span>
+                    </div>
                   )}
                 </div>
               );
