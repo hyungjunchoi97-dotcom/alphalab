@@ -386,10 +386,30 @@ export async function GET(request: NextRequest) {
   }
   recentTrades.sort((a, b) => b.price - a.price);
 
+  // 구별 상세 통계 (districtStatsMap)
+  const districtStatsMap: Record<string, { count: number; avgPrice: number; topDeals: { name: string; dong: string; area: number; floor: number; date: string; price: number }[] }> = {};
+  for (const d of SEOUL_DISTRICTS) {
+    const trades = byDistrict.get(d.name) ?? [];
+    const prices = currMap[d.code] ?? [];
+    const avg = prices.length ? Math.round(prices.reduce((s, p) => s + p, 0) / prices.length) : 0;
+    districtStatsMap[d.name] = {
+      count: trades.length,
+      avgPrice: avg,
+      topDeals: trades.slice(0, 20).map(t => ({ name: t.aptName, dong: t.dong, area: t.area, floor: t.floor, date: t.date, price: t.price })),
+    };
+  }
+
+  // 전월 구별 거래건수
+  const prevDistrictStatsMap: Record<string, { count: number }> = {};
+  for (const d of SEOUL_DISTRICTS) {
+    const prevPrices = prevMap[d.code] ?? [];
+    prevDistrictStatsMap[d.name] = { count: prevPrices.length };
+  }
+
   const validCount = districtStats.filter((d) => d.avgPrice > 0).length;
   console.log(`[부동산API] 결과: ${dealYmd} | ${validCount}/25 구 | 거래 ${allTrades.length}건`);
 
-  const payload = { districts: districtStats, recentTrades, updatedAt: new Date().toISOString(), dealYmd };
+  const payload = { districts: districtStats, recentTrades, districtStatsMap, prevDistrictStatsMap, updatedAt: new Date().toISOString(), dealYmd };
 
   // 메모리 캐시 저장
   memCacheMap.set(cacheKey, { data: payload, cachedAt: Date.now() });

@@ -23,10 +23,21 @@ interface Trade {
   price: number;
 }
 
+interface TopDeal {
+  name: string;
+  dong: string;
+  area: number;
+  floor: number;
+  date: string;
+  price: number;
+}
+
 interface ApiResponse {
   ok: boolean;
   districts: DistrictData[];
   recentTrades: Trade[];
+  districtStatsMap?: Record<string, { count: number; avgPrice: number; topDeals: TopDeal[] }>;
+  prevDistrictStatsMap?: Record<string, { count: number }>;
   updatedAt: string;
   cached: boolean;
   dealYmd?: string;
@@ -567,6 +578,9 @@ export default function RealEstateClient() {
   const [newsLoading, setNewsLoading] = useState(false);
   const newsFetchedRef = useRef<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(50);
+  const [districtStatsMap, setDistrictStatsMap] = useState<Record<string, { count: number; avgPrice: number; topDeals: TopDeal[] }>>({});
+  const [prevDistrictStatsMap, setPrevDistrictStatsMap] = useState<Record<string, { count: number }>>({});
+  const [showTopDeals, setShowTopDeals] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("trades");
   const [supplyDemandRange, setSupplyDemandRange] = useState<"3Y" | "5Y">("3Y");
 
@@ -591,9 +605,16 @@ export default function RealEstateClient() {
       if (!refresh && json.districts?.every(d => d.avgPrice === 0)) {
         const retryRes = await fetch(`/api/realestate/seoul?ym=${month}&refresh=true`);
         const retryJson: ApiResponse = await retryRes.json();
-        if (retryJson.ok) { setData(retryJson); return; }
+        if (retryJson.ok) {
+          setData(retryJson);
+          if (retryJson.districtStatsMap) setDistrictStatsMap(retryJson.districtStatsMap);
+          if (retryJson.prevDistrictStatsMap) setPrevDistrictStatsMap(retryJson.prevDistrictStatsMap);
+          return;
+        }
       }
       setData(json);
+      if (json.districtStatsMap) setDistrictStatsMap(json.districtStatsMap);
+      if (json.prevDistrictStatsMap) setPrevDistrictStatsMap(json.prevDistrictStatsMap);
     } catch (e) {
       setError(e instanceof Error ? e.message : "데이터 로드 실패");
     } finally {
@@ -637,7 +658,10 @@ export default function RealEstateClient() {
 
   // Derived
   const districts = data?.districts ?? [];
-  const validDistricts = districts.filter(d => d.avgPrice > 0);
+  const validDistricts = districts.filter(d => d.avgPrice > 0).map(d => ({
+    ...d,
+    prevCount: prevDistrictStatsMap[d.name]?.count,
+  }));
   const sortedByPrice = [...validDistricts].sort((a, b) => b.avgPrice - a.avgPrice);
   const maxPrice = sortedByPrice[0]?.avgPrice ?? 1;
 
@@ -1340,7 +1364,13 @@ export default function RealEstateClient() {
                   <SeoulMap
                     districts={validDistricts}
                     selected={selectedDistrict}
-                    onSelect={code => setSelectedDistrict(prev => prev === code ? null : code)}
+                    onSelect={code => {
+                      setSelectedDistrict(prev => {
+                        if (prev === code) { setShowTopDeals(false); return null; }
+                        setShowTopDeals(true);
+                        return code;
+                      });
+                    }}
                   />
                 )}
 
@@ -1362,27 +1392,6 @@ export default function RealEstateClient() {
                     </button>
                   </div>
                 )}
-
-                {/* 범례 */}
-                <div style={{
-                  position: "absolute", bottom: 12, left: 12,
-                  background: "rgba(0,0,0,0.75)", borderRadius: 6, padding: "8px 10px",
-                  display: "flex", flexDirection: "column", gap: 4,
-                }}>
-                  {[
-                    { color: "#6a1010", label: "22억+" },
-                    { color: "#5a2e0c", label: "17~22억" },
-                    { color: "#4a4012", label: "12~17억" },
-                    { color: "#1e4a28", label: "7~12억" },
-                    { color: "#153025", label: "~7억" },
-                    { color: "#1a1a1a", label: "데이터없음" },
-                  ].map(l => (
-                    <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color, flexShrink: 0 }} />
-                      <span style={{ ...S, fontSize: 10, color: "#aaa" }}>{l.label}</span>
-                    </div>
-                  ))}
-                </div>
 
                 {/* 거래량 TOP3 */}
                 <div style={{
@@ -1414,6 +1423,18 @@ export default function RealEstateClient() {
                     <span style={{ color: "#555", fontWeight: 400, marginLeft: 8, fontSize: 11 }}>
                       {filteredTrades.length}건 · 금액 높은 순
                     </span>
+                    {!selectedDistrictName && (() => {
+                      const totalPrev = Object.values(prevDistrictStatsMap).reduce((s, d) => s + d.count, 0);
+                      if (totalPrev > 0) {
+                        const pct = Math.round(((allTrades.length - totalPrev) / totalPrev) * 100);
+                        return (
+                          <span style={{ marginLeft: 8, fontSize: 11, color: pct >= 0 ? "#4ade80" : "#f87171" }}>
+                            {pct >= 0 ? "↑" : "↓"} 전월대비 {pct >= 0 ? "+" : ""}{pct}%
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                   {selectedDistrictName && (
                     <button
@@ -1492,6 +1513,68 @@ export default function RealEstateClient() {
                   </div>
                 )}
               </div>
+
+              {/* Top 20 Deals Panel */}
+              {showTopDeals && selectedDistrictName && districtStatsMap[selectedDistrictName] && (
+                <div style={{
+                  position: "fixed", top: 0, right: 0, bottom: 0, width: "min(420px, 90vw)",
+                  background: "#111827", borderLeft: "1px solid #374151",
+                  zIndex: 50, overflowY: "auto", boxShadow: "-4px 0 24px rgba(0,0,0,0.5)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #374151" }}>
+                    <div>
+                      <div style={{ ...S, fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>
+                        {selectedDistrictName} 거래 TOP 20
+                      </div>
+                      <div style={{ ...S, fontSize: 10, color: "#666", marginTop: 2 }}>가격 높은 순</div>
+                    </div>
+                    <button
+                      onClick={() => setShowTopDeals(false)}
+                      style={{ ...S, fontSize: 14, color: "#666", background: "none", border: "none", cursor: "pointer", padding: "4px 8px" }}
+                    >
+                      X
+                    </button>
+                  </div>
+                  <div>
+                    {/* Table header */}
+                    <div style={{
+                      display: "grid", gridTemplateColumns: "28px 1fr 1fr 55px 40px 55px 80px",
+                      padding: "6px 12px", borderBottom: "1px solid #1f2937", background: "#0d1117",
+                      position: "sticky", top: 0, zIndex: 5,
+                    }}>
+                      {["#", "아파트", "동", "면적", "층", "날짜", "거래가"].map(h => (
+                        <div key={h} style={{ ...S, fontSize: 9, color: "#555", textTransform: "uppercase" }}>{h}</div>
+                      ))}
+                    </div>
+                    {districtStatsMap[selectedDistrictName].topDeals.map((deal, i) => {
+                      const priceOk = deal.price / 10000;
+                      const priceFmt = priceOk >= 1
+                        ? `${Math.floor(priceOk)}억${deal.price % 10000 > 0 ? ` ${(deal.price % 10000).toLocaleString()}` : ""}`
+                        : `${deal.price.toLocaleString()}만`;
+                      return (
+                        <div key={i} style={{
+                          display: "grid", gridTemplateColumns: "28px 1fr 1fr 55px 40px 55px 80px",
+                          padding: "7px 12px", borderBottom: "1px solid #1f2937",
+                          background: i % 2 === 0 ? "transparent" : "#0d1117",
+                        }}>
+                          <div style={{ ...S, fontSize: 11, color: i < 3 ? "#f59e0b" : "#555" }}>{i + 1}</div>
+                          <div style={{ ...S, fontSize: 11, color: "#e0e0e0", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{deal.name}</div>
+                          <div style={{ ...S, fontSize: 10, color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{deal.dong}</div>
+                          <div style={{ ...S, fontSize: 10, color: "#888" }}>{Math.round(deal.area)}m²</div>
+                          <div style={{ ...S, fontSize: 10, color: "#888" }}>{deal.floor}F</div>
+                          <div style={{ ...S, fontSize: 10, color: "#555" }}>{deal.date.slice(5)}</div>
+                          <div style={{ ...S, fontSize: 12, color: "#f59e0b", fontWeight: 700, textAlign: "right" }}>{priceFmt}</div>
+                        </div>
+                      );
+                    })}
+                    {districtStatsMap[selectedDistrictName].topDeals.length === 0 && (
+                      <div style={{ padding: "24px 16px", textAlign: "center", ...S, fontSize: 11, color: "#555" }}>
+                        거래 데이터가 없습니다
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             )}
 

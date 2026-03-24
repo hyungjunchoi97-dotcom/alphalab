@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 
 export interface DistrictData {
@@ -9,6 +9,7 @@ export interface DistrictData {
   avgPrice: number; // 만원
   count: number;
   change: number | null;
+  prevCount?: number;
 }
 
 interface Props {
@@ -28,29 +29,23 @@ const NAME_TO_CODE: Record<string, string> = {
 };
 
 const LEGEND_ITEMS = [
-  { color: "#1a1a1a", label: "데이터 없음" },
-  { color: "#153025", label: "~7억" },
-  { color: "#1e4a28", label: "7~12억" },
-  { color: "#4a4012", label: "12~17억" },
-  { color: "#5a2e0c", label: "17~22억" },
-  { color: "#6a1010", label: "22억+" },
+  { color: "#ef4444", label: "200건+" },
+  { color: "#f97316", label: "151~200건" },
+  { color: "#facc15", label: "101~150건" },
+  { color: "#4ade80", label: "51~100건" },
+  { color: "#16a34a", label: "21~50건" },
+  { color: "#166534", label: "~20건" },
+  { color: "#374151", label: "데이터 없음" },
 ];
 
-function priceColor(avgPrice: number): string {
-  const ok = avgPrice / 10000;
-  if (ok <= 0) return "#1a1a1a";
-  if (ok < 7) return "#153025";
-  if (ok < 12) return "#1e4a28";
-  if (ok < 17) return "#4a4012";
-  if (ok < 22) return "#5a2e0c";
-  return "#6a1010";
-}
-
-function fmtPrice(manwon: number): string {
-  if (!manwon) return "—";
-  const ok = manwon / 10000;
-  if (ok >= 1) return `${ok.toFixed(1)}억`;
-  return `${manwon.toLocaleString()}만`;
+function countColor(count: number): string {
+  if (count <= 0) return "#374151";
+  if (count <= 20) return "#166534";
+  if (count <= 50) return "#16a34a";
+  if (count <= 100) return "#4ade80";
+  if (count <= 150) return "#facc15";
+  if (count <= 200) return "#f97316";
+  return "#ef4444";
 }
 
 // Han River in geographic coordinates
@@ -84,8 +79,16 @@ interface TooltipState {
   avgPrice: number;
   count: number;
   change: number | null;
+  prevCount?: number;
   x: number;
   y: number;
+}
+
+function fmtPrice(manwon: number): string {
+  if (!manwon) return "-";
+  const ok = manwon / 10000;
+  if (ok >= 1) return `${ok.toFixed(1)}억`;
+  return `${manwon.toLocaleString()}만`;
 }
 
 export default function SeoulMap({ districts, selected, onSelect }: Props) {
@@ -113,7 +116,7 @@ export default function SeoulMap({ districts, selected, onSelect }: Props) {
   );
   const pathGen = useMemo(() => geoPath().projection(projection), [projection]);
 
-  // Projected label positions (geographic → SVG pixel)
+  // Projected label positions (geographic -> SVG pixel)
   const labelPositions = useMemo(() => {
     const proj = (lon: number, lat: number) => projection([lon, lat]) ?? [0, 0];
     return {
@@ -177,7 +180,7 @@ export default function SeoulMap({ districts, selected, onSelect }: Props) {
 
   const handleMouseUp = useCallback(() => { dragRef.current.active = false; }, []);
 
-  // Korea background paths (경기/인천)
+  // Korea background paths
   const koreaPaths = useMemo(() => {
     if (!koreaGeo) return [];
     return koreaGeo.features
@@ -206,9 +209,18 @@ export default function SeoulMap({ districts, selected, onSelect }: Props) {
       const code = NAME_TO_CODE[geoName];
       const data = code ? districtMap.get(code) : undefined;
       const isSelected = selected === code;
-      const fillColor = data ? priceColor(data.avgPrice) : "#1a1a1a";
+      const fillColor = data ? countColor(data.count) : "#374151";
       const shortName = geoName.replace("구", "");
       const centroid = pathGen.centroid(f as Parameters<typeof pathGen.centroid>[0]);
+      // MoM change
+      let momText = "";
+      let momColor = "#888";
+      if (data?.prevCount != null && data.prevCount > 0) {
+        const pct = Math.round(((data.count - data.prevCount) / data.prevCount) * 100);
+        if (pct > 0) { momText = `+${pct}%`; momColor = "#4ade80"; }
+        else if (pct < 0) { momText = `${pct}%`; momColor = "#f87171"; }
+        else { momText = "0%"; momColor = "#888"; }
+      }
       return {
         key: String(f.properties?.code ?? geoName),
         d: pathGen(f as Parameters<typeof pathGen>[0]) ?? "",
@@ -220,6 +232,8 @@ export default function SeoulMap({ districts, selected, onSelect }: Props) {
         isSelected,
         fillColor,
         shortName,
+        momText,
+        momColor,
       };
     });
   }, [seoulGeo, pathGen, districtMap, selected]);
@@ -227,158 +241,192 @@ export default function SeoulMap({ districts, selected, onSelect }: Props) {
   const k = transform.k;
 
   return (
-    <div className="relative w-full" style={{ aspectRatio: "4 / 3", background: "#0f0f0f" }}>
-      {/* Legend */}
-      <div className="absolute top-2 left-2 z-10 space-y-0.5">
+    <div className="w-full" style={{ background: "#0f0f0f" }}>
+      <div className="relative" style={{ aspectRatio: "4 / 3" }}>
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${W} ${H}`}
+          style={{ width: "100%", height: "100%", background: "#0f0f0f", display: "block" }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
+          <rect width={W} height={H} fill="#0f0f0f" />
+
+          <g transform={`translate(${transform.x},${transform.y}) scale(${k})`}>
+            {/* Korea background */}
+            {koreaPaths.map(p => (
+              <g key={p.key}>
+                <path d={p.d} fill="#1a1a1a" stroke="#2a2a2a" strokeWidth={0.5 / k} />
+                {p.name && p.cx > -999 && (
+                  <text
+                    x={p.cx} y={p.cy}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize={7 / k}
+                    stroke="rgba(0,0,0,0.8)" strokeWidth={1.5 / k} paintOrder="stroke"
+                    fill={p.isIncheon ? "#7a9a9a" : "#8a8aaa"}
+                    style={{ pointerEvents: "none", fontFamily: "monospace" }}
+                  >
+                    {p.name}
+                  </text>
+                )}
+              </g>
+            ))}
+
+            {/* Han River */}
+            <path d={hangangPath} fill="#1a3a6a" opacity={0.85} style={{ pointerEvents: "none" }} />
+            <text
+              x={labelPositions.hangang[0]} y={labelPositions.hangang[1]}
+              textAnchor="middle" dominantBaseline="middle"
+              fontSize={9 / k} fill="#60a5fa" opacity={0.9}
+              style={{ pointerEvents: "none", fontFamily: "monospace" }}
+            >
+              한강
+            </text>
+
+            {/* Seoul 25 districts */}
+            {seoulPaths.map(p => (
+              <g key={p.key}>
+                <path
+                  d={p.d}
+                  fill={p.fillColor}
+                  stroke={p.isSelected ? "#ffffff" : "rgba(255,255,255,0.25)"}
+                  strokeWidth={(p.isSelected ? 1.5 : 0.4) / k}
+                  style={{ cursor: p.code ? "pointer" : "default" }}
+                  onClick={() => { if (p.code) onSelect(p.code); }}
+                  onMouseEnter={(e) => {
+                    if (!p.data) return;
+                    const rect = svgRef.current?.getBoundingClientRect();
+                    setTooltip({
+                      name: p.geoName,
+                      avgPrice: p.data.avgPrice,
+                      count: p.data.count,
+                      change: p.data.change,
+                      prevCount: p.data.prevCount,
+                      x: e.clientX - (rect?.left ?? 0),
+                      y: e.clientY - (rect?.top ?? 0),
+                    });
+                  }}
+                  onMouseMove={(e) => {
+                    const rect = svgRef.current?.getBoundingClientRect();
+                    setTooltip(prev => prev
+                      ? { ...prev, x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) }
+                      : null);
+                  }}
+                  onMouseLeave={() => setTooltip(null)}
+                />
+                {p.geoName && p.cx > -999 && (
+                  <>
+                    {/* District name */}
+                    <text
+                      x={p.cx} y={p.cy - 6 / k}
+                      textAnchor="middle" dominantBaseline="middle"
+                      fontSize={7 / k}
+                      stroke="rgba(0,0,0,0.95)" strokeWidth={2 / k} paintOrder="stroke"
+                      fill="rgba(255,255,255,0.75)"
+                      style={{ pointerEvents: "none", fontFamily: "monospace" }}
+                    >
+                      {p.shortName}
+                    </text>
+                    {/* Count */}
+                    {p.data && p.data.count > 0 && (
+                      <text
+                        x={p.cx} y={p.cy + 4 / k}
+                        textAnchor="middle" dominantBaseline="middle"
+                        fontSize={9 / k} fontWeight="bold"
+                        stroke="rgba(0,0,0,0.95)" strokeWidth={2.5 / k} paintOrder="stroke"
+                        fill="rgba(255,255,255,0.95)"
+                        style={{ pointerEvents: "none", fontFamily: "monospace" }}
+                      >
+                        {p.data.count}건
+                      </text>
+                    )}
+                    {/* MoM change */}
+                    {p.momText && (
+                      <text
+                        x={p.cx} y={p.cy + 13 / k}
+                        textAnchor="middle" dominantBaseline="middle"
+                        fontSize={6 / k}
+                        stroke="rgba(0,0,0,0.9)" strokeWidth={1.5 / k} paintOrder="stroke"
+                        fill={p.momColor}
+                        style={{ pointerEvents: "none", fontFamily: "monospace" }}
+                      >
+                        {p.momText.startsWith("+") ? `▲${p.momText}` : p.momText.startsWith("-") ? `▼${p.momText}` : `-${p.momText}`}
+                      </text>
+                    )}
+                  </>
+                )}
+              </g>
+            ))}
+
+            {/* Region labels */}
+            <text
+              x={labelPositions.seoul[0]} y={labelPositions.seoul[1]}
+              textAnchor="middle" dominantBaseline="middle"
+              fontSize={14 / k} fontWeight="bold"
+              fill="rgba(255,255,255,0.22)" style={{ pointerEvents: "none" }}
+            >
+              서울
+            </text>
+            <text
+              x={labelPositions.gyeonggi[0]} y={labelPositions.gyeonggi[1]}
+              textAnchor="middle" dominantBaseline="middle"
+              fontSize={13 / k}
+              fill="rgba(200,200,200,0.28)" style={{ pointerEvents: "none" }}
+            >
+              경기
+            </text>
+            <text
+              x={labelPositions.incheon[0]} y={labelPositions.incheon[1]}
+              textAnchor="middle" dominantBaseline="middle"
+              fontSize={12 / k}
+              fill="rgba(200,200,200,0.28)" style={{ pointerEvents: "none" }}
+            >
+              인천
+            </text>
+          </g>
+        </svg>
+
+        {/* Tooltip */}
+        {tooltip && (
+          <div
+            className="pointer-events-none absolute z-20 rounded px-3 py-2 font-mono"
+            style={{
+              left: tooltip.x + 14,
+              top: tooltip.y - 14,
+              fontSize: 12,
+              background: "#1a1a1a",
+              border: "1px solid #2e2e2e",
+              color: "#e8e8e8",
+              minWidth: 140,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div className="font-semibold mb-1" style={{ color: "#e8e8e8", fontSize: 13 }}>{tooltip.name}</div>
+            <div style={{ color: "#f5a623" }}>평균 {fmtPrice(tooltip.avgPrice)}</div>
+            <div style={{ color: "#888888" }}>거래 {tooltip.count}건</div>
+            {tooltip.prevCount != null && tooltip.prevCount > 0 && (
+              <div style={{ color: "#888" }}>전월 {tooltip.prevCount}건</div>
+            )}
+            {tooltip.change != null && (
+              <div style={{ color: tooltip.change >= 0 ? "#22c55e" : "#ef4444" }}>
+                전월比 {tooltip.change >= 0 ? "+" : ""}{tooltip.change}%
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Legend - separate from map container to avoid overlap */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", padding: "8px 12px", background: "#0f0f0f" }}>
         {LEGEND_ITEMS.map(item => (
-          <div key={item.label} className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm" style={{ background: item.color }} />
-            <span className="text-xs font-mono" style={{ color: "#888888" }}>{item.label}</span>
+          <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: item.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 10, color: "#888", fontFamily: "monospace" }}>{item.label}</span>
           </div>
         ))}
       </div>
-
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${W} ${H}`}
-        style={{ width: "100%", height: "100%", background: "#0f0f0f", display: "block" }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      >
-        {/* Explicit background rect — no projection artifact */}
-        <rect width={W} height={H} fill="#0f0f0f" />
-
-        <g transform={`translate(${transform.x},${transform.y}) scale(${k})`}>
-          {/* 경기/인천 background */}
-          {koreaPaths.map(p => (
-            <g key={p.key}>
-              <path d={p.d} fill="#1a1a1a" stroke="#2a2a2a" strokeWidth={0.5 / k} />
-              {p.name && p.cx > -999 && (
-                <text
-                  x={p.cx} y={p.cy}
-                  textAnchor="middle" dominantBaseline="middle"
-                  fontSize={7 / k}
-                  stroke="rgba(0,0,0,0.8)" strokeWidth={1.5 / k} paintOrder="stroke"
-                  fill={p.isIncheon ? "#7a9a9a" : "#8a8aaa"}
-                  style={{ pointerEvents: "none", fontFamily: "monospace" }}
-                >
-                  {p.name}
-                </text>
-              )}
-            </g>
-          ))}
-
-          {/* Han River */}
-          <path d={hangangPath} fill="#1a3a6a" opacity={0.85} style={{ pointerEvents: "none" }} />
-          <text
-            x={labelPositions.hangang[0]} y={labelPositions.hangang[1]}
-            textAnchor="middle" dominantBaseline="middle"
-            fontSize={9 / k} fill="#60a5fa" opacity={0.9}
-            style={{ pointerEvents: "none", fontFamily: "monospace" }}
-          >
-            한강
-          </text>
-
-          {/* Seoul 25 districts */}
-          {seoulPaths.map(p => (
-            <g key={p.key}>
-              <path
-                d={p.d}
-                fill={p.fillColor}
-                stroke={p.isSelected ? "#ffffff" : "rgba(255,255,255,0.25)"}
-                strokeWidth={(p.isSelected ? 1.5 : 0.4) / k}
-                style={{ cursor: p.code ? "pointer" : "default" }}
-                onClick={() => { if (p.code) onSelect(p.code); }}
-                onMouseEnter={(e) => {
-                  if (!p.data) return;
-                  const rect = svgRef.current?.getBoundingClientRect();
-                  setTooltip({
-                    name: p.geoName,
-                    avgPrice: p.data.avgPrice,
-                    count: p.data.count,
-                    change: p.data.change,
-                    x: e.clientX - (rect?.left ?? 0),
-                    y: e.clientY - (rect?.top ?? 0),
-                  });
-                }}
-                onMouseMove={(e) => {
-                  const rect = svgRef.current?.getBoundingClientRect();
-                  setTooltip(prev => prev
-                    ? { ...prev, x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) }
-                    : null);
-                }}
-                onMouseLeave={() => setTooltip(null)}
-              />
-              {p.geoName && p.cx > -999 && (
-                <text
-                  x={p.cx} y={p.cy}
-                  textAnchor="middle" dominantBaseline="middle"
-                  fontSize={9 / k}
-                  stroke="rgba(0,0,0,0.95)" strokeWidth={2.5 / k} paintOrder="stroke"
-                  fill="rgba(255,255,255,0.92)"
-                  style={{ pointerEvents: "none", fontFamily: "monospace" }}
-                >
-                  {p.shortName}
-                </text>
-              )}
-            </g>
-          ))}
-
-          {/* Region labels */}
-          <text
-            x={labelPositions.seoul[0]} y={labelPositions.seoul[1]}
-            textAnchor="middle" dominantBaseline="middle"
-            fontSize={14 / k} fontWeight="bold"
-            fill="rgba(255,255,255,0.22)" style={{ pointerEvents: "none" }}
-          >
-            서울
-          </text>
-          <text
-            x={labelPositions.gyeonggi[0]} y={labelPositions.gyeonggi[1]}
-            textAnchor="middle" dominantBaseline="middle"
-            fontSize={13 / k}
-            fill="rgba(200,200,200,0.28)" style={{ pointerEvents: "none" }}
-          >
-            경기
-          </text>
-          <text
-            x={labelPositions.incheon[0]} y={labelPositions.incheon[1]}
-            textAnchor="middle" dominantBaseline="middle"
-            fontSize={12 / k}
-            fill="rgba(200,200,200,0.28)" style={{ pointerEvents: "none" }}
-          >
-            인천
-          </text>
-        </g>
-      </svg>
-
-      {/* Tooltip */}
-      {tooltip && (
-        <div
-          className="pointer-events-none absolute z-20 rounded px-3 py-2 font-mono"
-          style={{
-            left: tooltip.x + 14,
-            top: tooltip.y - 14,
-            fontSize: 12,
-            background: "#1a1a1a",
-            border: "1px solid #2e2e2e",
-            color: "#e8e8e8",
-            minWidth: 140,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.6)",
-          }}
-        >
-          <div className="font-semibold mb-1" style={{ color: "#e8e8e8", fontSize: 13 }}>{tooltip.name}</div>
-          <div style={{ color: "#f5a623" }}>평균 {fmtPrice(tooltip.avgPrice)}</div>
-          <div style={{ color: "#888888" }}>거래 {tooltip.count}건</div>
-          {tooltip.change != null && (
-            <div style={{ color: tooltip.change >= 0 ? "#22c55e" : "#ef4444" }}>
-              전월比 {tooltip.change >= 0 ? "+" : ""}{tooltip.change}%
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
