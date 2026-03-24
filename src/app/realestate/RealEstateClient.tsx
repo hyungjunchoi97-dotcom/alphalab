@@ -518,7 +518,7 @@ function OverallSummary({ loading, overallAvg, validCount, gangnam3Avg, nonGangn
 
       <div>
         <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#f59e0b50", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 5 }}>
-          고가 TOP 3
+          고가 TOP 5
         </div>
         {top3Price.map((d, i) => (
           <div
@@ -540,7 +540,7 @@ function OverallSummary({ loading, overallAvg, validCount, gangnam3Avg, nonGangn
 
       <div>
         <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#f59e0b50", letterSpacing: "1px", textTransform: "uppercase", marginBottom: 5 }}>
-          거래량 TOP 3
+          거래량 TOP 5
         </div>
         {top3Count.map((d, i) => (
           <div
@@ -672,8 +672,8 @@ export default function RealEstateClient() {
   const gangnam3Avg = gangnam3.length ? gangnam3.reduce((s, d) => s + d.avgPrice, 0) / gangnam3.length : 0;
   const nonGangnam = validDistricts.filter(d => !["강남구", "서초구", "송파구"].includes(d.name));
   const nonGangnamAvg = nonGangnam.length ? nonGangnam.reduce((s, d) => s + d.avgPrice, 0) / nonGangnam.length : 0;
-  const top3Price = sortedByPrice.slice(0, 3);
-  const top3Count = [...validDistricts].sort((a, b) => b.count - a.count).slice(0, 3);
+  const top3Price = sortedByPrice.slice(0, 5);
+  const top3Count = [...validDistricts].sort((a, b) => b.count - a.count).slice(0, 5);
 
   const districtMap = new Map(districts.map(d => [d.code, d]));
   const selectedData = selectedDistrict ? districtMap.get(selectedDistrict) : null;
@@ -1401,8 +1401,8 @@ export default function RealEstateClient() {
                   background: "rgba(0,0,0,0.75)", borderRadius: 6, padding: "8px 12px",
                   minWidth: 140,
                 }}>
-                  <div style={{ ...S, fontSize: 10, color: "#555", marginBottom: 6, letterSpacing: "1px", textTransform: "uppercase" }}>거래량 TOP 3</div>
-                  {[...validDistricts].sort((a, b) => b.count - a.count).slice(0, 3).map((d, i) => (
+                  <div style={{ ...S, fontSize: 10, color: "#555", marginBottom: 6, letterSpacing: "1px", textTransform: "uppercase" }}>거래량 TOP 5</div>
+                  {[...validDistricts].sort((a, b) => b.count - a.count).slice(0, 5).map((d, i) => (
                     <div key={d.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                       <span style={{ ...S, fontSize: 11, color: i === 0 ? "#f59e0b" : "#888" }}>{d.name}</span>
                       <span style={{ ...S, fontSize: 11, color: "#aaa" }}>{d.count}건</span>

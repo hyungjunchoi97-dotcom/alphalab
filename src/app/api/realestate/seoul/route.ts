@@ -354,7 +354,7 @@ export async function GET(request: NextRequest) {
       name: d.name,
       avgPrice,
       avgPriceInBillion: Math.round(avgPrice / 1000) / 10,
-      count: currPrices.length > 0 ? currPrices.length : prevPrices.length,
+      count: currPrices.length,
       change,
     };
   });
@@ -382,7 +382,7 @@ export async function GET(request: NextRequest) {
   const recentTrades: Trade[] = [];
   for (const trades of byDistrict.values()) {
     trades.sort((a, b) => b.price - a.price);
-    recentTrades.push(...trades.slice(0, 20));
+    recentTrades.push(...trades);
   }
   recentTrades.sort((a, b) => b.price - a.price);
 
