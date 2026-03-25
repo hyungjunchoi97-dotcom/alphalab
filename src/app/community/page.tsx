@@ -712,6 +712,18 @@ export default function CommunityPage() {
                   onLike={handleLike}
                   onClick={() => router.push(`/community/${post.id}`)}
                   t={t}
+                  isAdmin={session?.user?.email === "hyungjunchoi97@gmail.com"}
+                  onDelete={(e, postId) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (!confirm("이 글을 삭제하시겠습니까?")) return;
+                    fetch(`/api/community/posts/${postId}`, {
+                      method: "DELETE",
+                      headers: { Authorization: `Bearer ${session?.access_token}` },
+                    })
+                      .then((r) => r.json())
+                      .then((json) => { if (json.ok) setPosts((prev) => prev.filter((p) => p.id !== postId)); });
+                  }}
                 />
               ))
             )}
@@ -752,12 +764,16 @@ function PostCard({
   onLike,
   onClick,
   t,
+  isAdmin,
+  onDelete,
 }: {
   post: Post;
   liked: boolean;
   onLike: (e: React.MouseEvent, id: string) => void;
   onClick: () => void;
   t: (key: MessageKey) => string;
+  isAdmin?: boolean;
+  onDelete?: (e: React.MouseEvent, id: string) => void;
 }) {
   return (
     <div
@@ -830,6 +846,17 @@ function PostCard({
             </svg>
             {post.commentCount} {t("commComment")}
           </span>
+          {isAdmin && onDelete && (
+            <button
+              onClick={(e) => onDelete(e, post.id)}
+              className="ml-auto flex items-center gap-1 text-red-500 hover:text-red-400 transition-colors"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              삭제
+            </button>
+          )}
         </div>
       </div>
     </div>
