@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
       try {
         const { title, content } = await generatePost(item);
 
-        const { data, error } = await supabaseAdmin.from("posts").insert({
+        const insertPayload = {
           title,
           content,
           category: "stock_discussion",
@@ -143,7 +143,14 @@ export async function GET(req: NextRequest) {
           user_id: BOT_USER_ID,
           author_nickname: "AlphaLab",
           is_bot: true,
-        }).select("id").single();
+        };
+        console.log("[daily-stock-posts] inserting:", JSON.stringify(insertPayload, null, 2));
+
+        const { data, error } = await supabaseAdmin.from("posts").insert(insertPayload).select("id").single();
+
+        if (error) {
+          console.error("[daily-stock-posts] insert error:", error.message, error.details, error.hint);
+        }
 
         if (error) {
           results.push({ ticker: item.ticker, status: "db_error", error: error.message });
