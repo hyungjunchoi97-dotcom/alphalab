@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 export const runtime = "nodejs";
 
-const ADMIN_EMAIL = "hyungjunchoi97@gmail.com";
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim()).filter(Boolean);
 
 export async function DELETE(
   req: NextRequest,
@@ -34,7 +34,7 @@ export async function DELETE(
       return NextResponse.json({ ok: false, error: "Comment not found" }, { status: 404 });
     }
 
-    if (comment.author_email !== user.email && user.email !== ADMIN_EMAIL) {
+    if (comment.author_email !== user.email && !ADMIN_EMAILS.includes(user.email ?? "")) {
       return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
 

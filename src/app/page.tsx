@@ -182,20 +182,12 @@ export default function Home() {
                     return (
                       <div
                         key={idx.key}
-                        className="h-[64px] rounded flex flex-col items-center justify-center px-1 bg-[#111]"
+                        className="h-[52px] rounded flex flex-col items-center justify-center px-1 bg-[#111]"
                       >
                         <span style={{ fontSize: 10, color: "#9ca3af", lineHeight: 1 }}>{idx.label}</span>
                         <span style={{ fontSize: 14, fontWeight: 700, fontFamily: "monospace", color: "#ffffff", marginTop: 2, lineHeight: 1 }}>
                           {fmtPrice(q.price, idx.key)}
                         </span>
-                        <div style={{ display: "flex", alignItems: "center", gap: 2, marginTop: 2 }}>
-                          <span style={{ fontSize: 8, lineHeight: 1, color: q.changePct >= 0 ? "#22c55e" : "#ef4444" }}>
-                            {q.changePct >= 0 ? "▲" : "▼"}
-                          </span>
-                          <span style={{ fontSize: 10, fontFamily: "monospace", lineHeight: 1, color: q.changePct >= 0 ? "#22c55e" : "#ef4444" }}>
-                            {q.changePct >= 0 ? "+" : ""}{q.changePct.toFixed(2)}%
-                          </span>
-                        </div>
                       </div>
                     );
                   })}

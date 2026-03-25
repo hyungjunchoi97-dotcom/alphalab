@@ -107,6 +107,12 @@ export async function POST(req: NextRequest) {
     if (!title?.trim()) {
       return NextResponse.json({ ok: false, error: "Title required" }, { status: 400 });
     }
+    if (title.trim().length > 200) {
+      return NextResponse.json({ ok: false, error: "Title too long (max 200)" }, { status: 400 });
+    }
+    if (content && content.length > 50000) {
+      return NextResponse.json({ ok: false, error: "Content too long (max 50000)" }, { status: 400 });
+    }
 
     const validCategories = [
       "stock_discussion", "macro", "free",

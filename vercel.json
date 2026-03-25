@@ -1,1 +1,9 @@
-{"github": {"silent": true}}
+{
+  "github": { "silent": true },
+  "crons": [
+    {
+      "path": "/api/cron/daily-stock-posts",
+      "schedule": "30 0 * * 1-5"
+    }
+  ]
+}

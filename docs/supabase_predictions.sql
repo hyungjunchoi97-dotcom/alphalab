@@ -39,10 +39,8 @@ create index if not exists idx_prediction_votes_prediction on prediction_votes(p
 alter table predictions enable row level security;
 alter table prediction_votes enable row level security;
 
--- Predictions: anyone can read, service role can insert/update
+-- Predictions: anyone can read, only service role can insert/update (no policy = denied for anon/authenticated)
 create policy "predictions_select" on predictions for select using (true);
-create policy "predictions_insert" on predictions for insert with check (true);
-create policy "predictions_update" on predictions for update using (true);
 
 -- Votes: anyone can read, authenticated users can insert their own
 create policy "votes_select" on prediction_votes for select using (true);

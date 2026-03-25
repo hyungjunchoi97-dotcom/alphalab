@@ -35,7 +35,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "File too large (max 5MB)" }, { status: 400 });
     }
 
-    const ext = file.name.split(".").pop() || "jpg";
+    // Whitelist extensions to prevent malicious file types
+    const ALLOWED_EXT: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/gif": "gif",
+      "image/webp": "webp",
+    };
+    const ext = ALLOWED_EXT[file.type] || "jpg";
     const fileName = `${user.id}/${Date.now()}.${ext}`;
 
     const arrayBuffer = await file.arrayBuffer();

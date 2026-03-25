@@ -38,11 +38,11 @@ create index if not exists idx_prompt_ratings_prompt on prompt_ratings(prompt_id
 alter table prompts enable row level security;
 alter table prompt_ratings enable row level security;
 
--- Prompts: anyone can read, service role handles insert/update/delete
+-- Prompts: anyone can read, only own prompts can be modified
 create policy "prompts_select" on prompts for select using (true);
-create policy "prompts_insert" on prompts for insert with check (true);
-create policy "prompts_update" on prompts for update using (true);
-create policy "prompts_delete" on prompts for delete using (true);
+create policy "prompts_insert_own" on prompts for insert with check (auth.uid() = author_id);
+create policy "prompts_update_own" on prompts for update using (auth.uid() = author_id);
+create policy "prompts_delete_own" on prompts for delete using (auth.uid() = author_id);
 
 -- Ratings: anyone can read, authenticated users can insert their own
 create policy "prompt_ratings_select" on prompt_ratings for select using (true);

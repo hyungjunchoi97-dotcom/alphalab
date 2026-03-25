@@ -988,9 +988,9 @@ function fgLabelEn(score: number): string {
 // ── Fear & Greed Gauge (speedometer) ─────────────────────────
 
 function FearGreedGauge({ score, lang }: { score: number; lang: string }) {
-  const W = 400, H = 220;
-  const cx = W / 2, cy = 185;
-  const r = 150;
+  const W = 500, H = 260;
+  const cx = W / 2, cy = 220;
+  const r = 185;
   // Arc from 180° to 0° (left to right)
   const startAngle = Math.PI;
   const endAngle = 0;
@@ -1020,17 +1020,17 @@ function FearGreedGauge({ score, lang }: { score: number; lang: string }) {
   const ny = cy - (r - 15) * Math.sin(needleAngle);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxWidth: 400 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxWidth: 500 }}>
       {/* Zone arcs */}
       {zones.map((z, i) => (
-        <path key={i} d={arcPath(z.from, z.to)} fill="none" stroke={z.color} strokeWidth="22" strokeLinecap="butt" opacity="0.7" />
+        <path key={i} d={arcPath(z.from, z.to)} fill="none" stroke={z.color} strokeWidth="28" strokeLinecap="butt" opacity="0.7" />
       ))}
       {/* Needle */}
       <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#e8e8e8" strokeWidth="3" strokeLinecap="round" />
       <circle cx={cx} cy={cy} r="7" fill="#e8e8e8" />
       {/* Score text */}
-      <text x={cx} y={cy - 40} textAnchor="middle" fill={fgColor(score)} fontSize="52" fontWeight="800">{score}</text>
-      <text x={cx} y={cy - 14} textAnchor="middle" fill={fgColor(score)} fontSize="16" fontWeight="600">
+      <text x={cx} y={cy - 40} textAnchor="middle" fill={fgColor(score)} fontSize="64" fontWeight="800">{score}</text>
+      <text x={cx} y={cy - 14} textAnchor="middle" fill={fgColor(score)} fontSize="18" fontWeight="600">
         {lang === "kr" ? fgLabelKr(score) : fgLabelEn(score)}
       </text>
       {/* Min/Max labels */}
@@ -1645,22 +1645,22 @@ export default function MacroPage() {
             <>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {/* Left: Gauge */}
-              <div className="rounded-xl p-4 sm:p-6" style={{ background: "#111", border: "1px solid #222" }}>
+              <div className="rounded-xl p-4" style={{ background: "#111", border: "1px solid #222", minHeight: 380 }}>
                 <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
                   CNN Fear & Greed Index
                 </h3>
-                <div className="flex justify-center items-center py-2">
+                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", width: "100%" }}>
                   <FearGreedGauge score={fearGreed.score} lang={lang} />
                 </div>
-                <div className="mt-3 flex justify-center gap-3 sm:gap-6">
+                <div className="mt-3 flex justify-center gap-6 sm:gap-12">
                   {[
                     { label: lang === "kr" ? "전일" : "Prev Close", value: fearGreed.previousClose },
                     { label: lang === "kr" ? "1주전" : "1W Ago", value: fearGreed.oneWeekAgo },
                     { label: lang === "kr" ? "1개월전" : "1M Ago", value: fearGreed.oneMonthAgo },
                   ].map((item, i) => (
                     <div key={i} className="text-center">
-                      <div className="text-xs" style={{ color: "#888" }}>{item.label}</div>
-                      <div className="text-lg font-bold" style={{ color: fgColor(item.value) }}>{item.value}</div>
+                      <div className="text-sm" style={{ color: "#888" }}>{item.label}</div>
+                      <div className="text-2xl font-bold" style={{ color: fgColor(item.value) }}>{item.value}</div>
                     </div>
                   ))}
                 </div>

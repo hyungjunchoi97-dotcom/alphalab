@@ -80,6 +80,9 @@ export async function POST(
     if (!content?.trim()) {
       return NextResponse.json({ ok: false, error: "Content required" }, { status: 400 });
     }
+    if (content.length > 5000) {
+      return NextResponse.json({ ok: false, error: "Comment too long (max 5000)" }, { status: 400 });
+    }
 
     // If parent_id is provided, verify it's a top-level comment (depth 1 only)
     if (parent_id) {

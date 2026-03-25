@@ -3,6 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
+const ALLOWED_ORIGINS = [
+  "https://thealphalabs.net",
+  "http://localhost:3000",
+];
+
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url);
   const code = searchParams.get("code");
@@ -17,5 +22,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(origin);
+  // Validate redirect origin to prevent open redirect
+  const safeOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return NextResponse.redirect(safeOrigin);
 }
