@@ -12,6 +12,8 @@ import type { MessageKey } from "@/lib/i18n";
 const INPUT =
   "w-full rounded-lg border border-card-border bg-background px-3 py-2 text-xs text-foreground focus:border-accent focus:outline-none";
 
+const ADMIN_EMAIL = "hyungjunchoi97@gmail.com";
+
 const CAT_BADGE_COLOR: Record<string, string> = {
   stock_discussion: "bg-blue-500/20 text-blue-400",
   macro: "bg-cyan-500/20 text-cyan-400",
@@ -126,6 +128,7 @@ export default function PostDetailPage() {
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [imageExpanded, setImageExpanded] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchPost = useCallback(async () => {
     try {
@@ -202,11 +205,43 @@ export default function PostDetailPage() {
     finally { setCommentSubmitting(false); }
   };
 
+  const canDelete = session?.user?.email === post?.author_email || session?.user?.email === ADMIN_EMAIL;
+
+  const handleDeletePost = async () => {
+    if (!session || !post) return;
+    if (!confirm("게시글을 삭제하시겠습니까?")) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/community/posts/${post.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const json = await res.json();
+      if (json.ok) router.push("/community");
+      else alert(json.error || "삭제 실패");
+    } catch { alert("오류가 발생했습니다"); }
+    setDeleting(false);
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!session) return;
+    if (!confirm("댓글을 삭제하시겠습니까?")) return;
+    try {
+      const res = await fetch(`/api/community/comments/${commentId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const json = await res.json();
+      if (json.ok) fetchComments();
+      else alert(json.error || "삭제 실패");
+    } catch { alert("오류가 발생했습니다"); }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
         <AppHeader active="community" />
-        <main className="mx-auto max-w-3xl px-4 py-8">
+        <main className="px-4 sm:px-6 py-8">
           <div className="py-16 text-center text-xs text-muted">Loading...</div>
         </main>
       </div>
@@ -217,7 +252,7 @@ export default function PostDetailPage() {
     return (
       <div className="min-h-screen bg-background">
         <AppHeader active="community" />
-        <main className="mx-auto max-w-3xl px-4 py-8">
+        <main className="px-4 sm:px-6 py-8">
           <div className="py-16 text-center text-sm text-muted">
             {lang === "kr" ? "게시글을 찾을 수 없습니다" : "Post not found"}
           </div>
@@ -233,7 +268,7 @@ export default function PostDetailPage() {
     <div className="min-h-screen bg-background">
       <AppHeader active="community" />
 
-      <main className="mx-auto max-w-3xl px-4 py-5 space-y-4">
+      <main className="px-4 sm:px-6 py-5 space-y-4">
         {/* Back */}
         <button
           onClick={() => router.push("/community")}
@@ -266,7 +301,18 @@ export default function PostDetailPage() {
             <span>{timeAgo(post.created_at)}</span>
           </div>
 
-          <h1 className="text-lg font-bold leading-snug">{post.title}</h1>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-lg font-bold leading-snug">{post.title}</h1>
+            {canDelete && (
+              <button
+                onClick={handleDeletePost}
+                disabled={deleting}
+                style={{ fontSize: 11, color: "#ef4444", background: "none", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 4, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}
+              >
+                {deleting ? "삭제 중..." : "삭제"}
+              </button>
+            )}
+          </div>
 
           {post.content && (
             <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{post.content}</p>
@@ -364,15 +410,25 @@ export default function PostDetailPage() {
                     <span>{timeAgo(c.created_at)}</span>
                   </div>
                   <p className="mt-1.5 text-[12px] leading-relaxed text-foreground/90">{c.content}</p>
-                  <button
-                    onClick={() => {
-                      setReplyTo(replyTo === c.id ? null : c.id);
-                      setReplyText("");
-                    }}
-                    className="mt-2 text-[10px] text-accent hover:underline"
-                  >
-                    {lang === "kr" ? "답글" : "Reply"}
-                  </button>
+                  <div className="mt-2 flex items-center">
+                    <button
+                      onClick={() => {
+                        setReplyTo(replyTo === c.id ? null : c.id);
+                        setReplyText("");
+                      }}
+                      className="text-[10px] text-accent hover:underline"
+                    >
+                      {lang === "kr" ? "답글" : "Reply"}
+                    </button>
+                    {(session?.user?.email === c.author_email || session?.user?.email === ADMIN_EMAIL) && (
+                      <button
+                        onClick={() => handleDeleteComment(c.id)}
+                        style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", marginLeft: 8 }}
+                      >
+                        삭제
+                      </button>
+                    )}
+                  </div>
 
                   {/* Reply input (inline under the comment) */}
                   {replyTo === c.id && (
@@ -412,7 +468,14 @@ export default function PostDetailPage() {
                           <span>{timeAgo(reply.created_at)}</span>
                         </div>
                         <p className="mt-1 text-[11px] leading-relaxed text-foreground/80">{reply.content}</p>
-                        {/* No "답글" button on replies — depth 1 max */}
+                        {(session?.user?.email === reply.author_email || session?.user?.email === ADMIN_EMAIL) && (
+                          <button
+                            onClick={() => handleDeleteComment(reply.id)}
+                            style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", marginTop: 4 }}
+                          >
+                            삭제
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>

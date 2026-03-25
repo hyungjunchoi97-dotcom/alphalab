@@ -170,6 +170,7 @@ const INDICATORS: Record<string, IndicatorConfig> = {
 };
 
 const INDICATOR_ORDER = ["FEDFUNDS", "DGS10", "CPIAUCSL", "UNRATE", "T10Y3M", "VIX"];
+
 type CardRange = "3M" | "6M" | "1Y" | "3Y" | "5Y";
 const CARD_RANGES: CardRange[] = ["3M", "6M", "1Y", "3Y", "5Y"];
 const CARD_RANGE_MONTHS: Record<CardRange, number> = { "3M": 3, "6M": 6, "1Y": 12, "3Y": 36, "5Y": 60 };
@@ -1642,44 +1643,43 @@ export default function MacroPage() {
             </div>
           ) : fearGreed ? (
             <>
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {/* Left: Gauge */}
-                <div className="rounded-xl p-4 sm:p-6" style={{ background: "#111", border: "1px solid #222" }}>
-                  <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
-                    CNN Fear & Greed Index
-                  </h3>
-                  <div className="flex justify-center items-center py-2">
-                    <FearGreedGauge score={fearGreed.score} lang={lang} />
-                  </div>
-                  {/* Previous values */}
-                  <div className="mt-3 flex justify-center gap-3 sm:gap-6">
-                    {[
-                      { label: lang === "kr" ? "전일" : "Prev Close", value: fearGreed.previousClose },
-                      { label: lang === "kr" ? "1주전" : "1W Ago", value: fearGreed.oneWeekAgo },
-                      { label: lang === "kr" ? "1개월전" : "1M Ago", value: fearGreed.oneMonthAgo },
-                    ].map((item, i) => (
-                      <div key={i} className="text-center">
-                        <div className="text-xs" style={{ color: "#888" }}>{item.label}</div>
-                        <div className="text-lg font-bold" style={{ color: fgColor(item.value) }}>{item.value}</div>
-                      </div>
-                    ))}
-                  </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {/* Left: Gauge */}
+              <div className="rounded-xl p-4 sm:p-6" style={{ background: "#111", border: "1px solid #222" }}>
+                <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
+                  CNN Fear & Greed Index
+                </h3>
+                <div className="flex justify-center items-center py-2">
+                  <FearGreedGauge score={fearGreed.score} lang={lang} />
                 </div>
-
-                {/* Right: 30-day history */}
-                <div className="rounded-xl p-4 sm:p-6" style={{ background: "#111", border: "1px solid #222" }}>
-                  <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
-                    {lang === "kr" ? "30일 추이" : "30-Day History"}
-                  </h3>
-                  {(fearGreed.history ?? []).length > 1 ? (
-                    <FearGreedHistoryChart history={fearGreed.history ?? []} />
-                  ) : (
-                    <div className="flex h-[280px] items-center justify-center" style={{ color: "#555" }}>
-                      <span className="text-xs">{lang === "kr" ? "히스토리 데이터 없음" : "No history data"}</span>
+                <div className="mt-3 flex justify-center gap-3 sm:gap-6">
+                  {[
+                    { label: lang === "kr" ? "전일" : "Prev Close", value: fearGreed.previousClose },
+                    { label: lang === "kr" ? "1주전" : "1W Ago", value: fearGreed.oneWeekAgo },
+                    { label: lang === "kr" ? "1개월전" : "1M Ago", value: fearGreed.oneMonthAgo },
+                  ].map((item, i) => (
+                    <div key={i} className="text-center">
+                      <div className="text-xs" style={{ color: "#888" }}>{item.label}</div>
+                      <div className="text-lg font-bold" style={{ color: fgColor(item.value) }}>{item.value}</div>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
+
+              {/* Right: 30-day history */}
+              <div className="rounded-xl p-4 sm:p-6" style={{ background: "#111", border: "1px solid #222" }}>
+                <h3 className="mb-2 text-xs font-semibold" style={{ color: "#ccc" }}>
+                  {lang === "kr" ? "30일 추이" : "30-Day History"}
+                </h3>
+                {(fearGreed.history ?? []).length > 1 ? (
+                  <FearGreedHistoryChart history={fearGreed.history ?? []} />
+                ) : (
+                  <div className="flex h-[280px] items-center justify-center" style={{ color: "#555" }}>
+                    <span className="text-xs">{lang === "kr" ? "히스토리 데이터 없음" : "No history data"}</span>
+                  </div>
+                )}
+              </div>
+            </div>
 
               {/* Explanation */}
               <div

@@ -213,7 +213,7 @@ function tradeFromItem(item: any, district: { code: string; name: string }, mont
 async function detectBestMonth(): Promise<string> {
   for (const ym of CANDIDATE_MONTHS) {
     const r = await fetchDistrictRaw("11680", ym);
-    if (r.error === null && r.httpStatus === 200) {
+    if (r.error === null && r.httpStatus === 200 && r.items.length >= 50) {
       console.log(`[부동산API] 자동 선택 월: ${ym} (items: ${r.items.length})`);
       return ym;
     }
@@ -266,6 +266,13 @@ export async function GET(request: NextRequest) {
   let dealYmd = ymParam ?? "";
   if (!dealYmd) {
     dealYmd = await detectBestMonth();
+  }
+  // If user explicitly requested a month, always use that month
+  if (ymParam) dealYmd = ymParam;
+
+  // Evict stale mem cache entries for different months
+  for (const [key] of memCacheMap) {
+    if (!key.includes(dealYmd)) memCacheMap.delete(key);
   }
 
   const cacheKey = `realestate_seoul_${dealYmd}`;

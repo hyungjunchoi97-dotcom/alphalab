@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import AppHeader from "@/components/AppHeader";
@@ -54,6 +54,10 @@ export default function ProfilePage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState(false);
 
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarChanged, setAvatarChanged] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (!loading && !user) {
       openAuthModal();
@@ -77,7 +81,6 @@ export default function ProfilePage() {
             setNickname(json.profile.nickname || "");
             setBio(json.profile.bio || "");
           } else {
-            // Default nickname from email prefix
             setNickname(json.email?.split("@")[0] || "");
           }
         }
@@ -115,6 +118,22 @@ export default function ProfilePage() {
     setSaving(false);
   };
 
+  const handleAvatarChange = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setAvatarUrl(e.target?.result as string);
+      setAvatarChanged(true);
+      setTimeout(() => setAvatarChanged(false), 2000);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const ADMIN_EMAIL = "hyungjunchoi97@gmail.com";
+  const isAdmin = user?.email === ADMIN_EMAIL;
+
+  const displayName = profile?.nickname || email.split("@")[0] || "-";
+  const initial = displayName.charAt(0).toUpperCase();
+
   if (!loading && !user) {
     return null;
   }
@@ -122,17 +141,17 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen" style={{ background: "#080c12", color: "#e8e8e8" }}>
       <AppHeader active="community" />
-      <main className="md:pl-56 pt-0">
+      <main className="pt-0">
         <div className="max-w-2xl mx-auto px-4 py-8">
 
           {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-6 relative" style={{ textAlign: "center" }}>
             <h1 className="text-base font-semibold font-mono tracking-tight" style={{ color: "#e8e8e8" }}>
               MY PROFILE
             </h1>
             <button
               onClick={() => router.push("/community")}
-              className="text-xs transition-colors"
+              className="text-xs transition-colors absolute right-0 top-0"
               style={{ color: "#6b7280" }}
               onMouseEnter={(e) => e.currentTarget.style.color = "#e8e8e8"}
               onMouseLeave={(e) => e.currentTarget.style.color = "#6b7280"}
@@ -148,38 +167,87 @@ export default function ProfilePage() {
           ) : (
             <>
               {/* Profile card */}
-              <div className="rounded-lg p-5 mb-4" style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <div className="text-lg font-semibold font-mono" style={{ color: "#e8e8e8" }}>
-                      {profile?.nickname || email.split("@")[0] || "-"}
-                    </div>
-                    <div className="text-xs mt-0.5" style={{ color: "#6b7280" }}>{email}</div>
-                  </div>
-                  <button
-                    onClick={() => { setEditing(!editing); setSaveError(null); }}
-                    className="text-xs px-3 py-1.5 rounded transition-all"
-                    style={{
-                      background: editing ? "rgba(255,255,255,0.06)" : "transparent",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      color: "#9ca3af",
-                    }}
+              <div className="rounded-lg p-5 mb-4 relative" style={{ background: "#0d1117", border: "1px solid rgba(255,255,255,0.07)" }}>
+                {/* Edit button - top right */}
+                <button
+                  onClick={() => { setEditing(!editing); setSaveError(null); }}
+                  className="text-xs px-3 py-1.5 rounded transition-all absolute top-4 right-4"
+                  style={{
+                    background: editing ? "rgba(255,255,255,0.06)" : "transparent",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    color: "#9ca3af",
+                  }}
+                >
+                  {editing ? "취소" : "편집"}
+                </button>
+
+                {/* Avatar - centered */}
+                <div className="flex flex-col items-center mb-4">
+                  <div
+                    onClick={() => avatarInputRef.current?.click()}
+                    style={{ cursor: "pointer", position: "relative" }}
+                    onMouseEnter={(e) => { (e.currentTarget.firstElementChild as HTMLElement).style.filter = "brightness(0.8)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget.firstElementChild as HTMLElement).style.filter = "brightness(1)"; }}
                   >
-                    {editing ? "취소" : "편집"}
-                  </button>
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt=""
+                        style={{
+                          width: 80, height: 80, borderRadius: "50%", objectFit: "cover",
+                          border: "2px solid rgba(255,255,255,0.1)", transition: "filter 0.15s",
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: 80, height: 80, borderRadius: "50%", background: "#1f2937",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 28, color: "#f59e0b", fontWeight: 700, fontFamily: "monospace",
+                        border: "2px solid rgba(255,255,255,0.1)", transition: "filter 0.15s",
+                      }}>
+                        {initial}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-center mt-1.5">
+                    {avatarChanged ? (
+                      <span style={{ fontSize: 10, color: "#34d399" }}>변경됨</span>
+                    ) : (
+                      <span style={{ fontSize: 10, color: "#555" }}>클릭하여 변경</span>
+                    )}
+                  </div>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAvatarChange(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+
+                {/* Name & email - centered */}
+                <div className="text-center mb-4">
+                  <div className="text-lg font-semibold font-mono" style={{ color: "#e8e8e8" }}>
+                    {displayName}
+                  </div>
+                  <div className="text-xs mt-0.5" style={{ color: "#6b7280" }}>{email}</div>
                 </div>
 
                 {profile?.bio && !editing && (
-                  <p className="text-sm mb-3" style={{ color: "#9ca3af" }}>{profile.bio}</p>
+                  <p className="text-sm mb-3 text-center" style={{ color: "#9ca3af" }}>{profile.bio}</p>
                 )}
 
                 {/* Stats row */}
-                <div className="flex gap-6">
-                  <div>
+                <div className="flex justify-center gap-6">
+                  <div className="text-center">
                     <div className="text-lg font-mono font-semibold" style={{ color: "#f59e0b" }}>{posts.length}</div>
                     <div className="text-[10px]" style={{ color: "#6b7280" }}>작성글</div>
                   </div>
-                  <div>
+                  <div className="text-center">
                     <div className="text-lg font-mono font-semibold" style={{ color: "#6b7280" }}>{likedCount}</div>
                     <div className="text-[10px]" style={{ color: "#6b7280" }}>좋아요한 글</div>
                   </div>
@@ -279,6 +347,79 @@ export default function ProfilePage() {
                   </div>
                 )}
               </div>
+
+              {isAdmin && (
+                <div style={{ marginTop: 24 }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    marginBottom: 12,
+                  }}>
+                    <h2 style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                      관리자
+                    </h2>
+                    <span style={{ fontSize: 10, color: "#374151", fontFamily: "monospace" }}>
+                      {ADMIN_EMAIL}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                    {[
+                      {
+                        href: "/admin",
+                        title: "관리자 대시보드",
+                        desc: "게시글 관리, 유저 통계, 캐시 초기화",
+                        icon: (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                            <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                          </svg>
+                        )
+                      },
+                      {
+                        href: "/admin/community",
+                        title: "커뮤니티 관리",
+                        desc: "게시글 숨기기, 고정, 삭제",
+                        icon: (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                          </svg>
+                        )
+                      },
+                    ].map((item) => (
+                      <button
+                        key={item.href}
+                        onClick={() => router.push(item.href)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 12,
+                          padding: "12px 0", background: "transparent", border: "none",
+                          borderBottom: "1px solid rgba(255,255,255,0.05)",
+                          cursor: "pointer", textAlign: "left", width: "100%",
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                      >
+                        <div style={{
+                          width: 32, height: 32, borderRadius: 6,
+                          background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.2)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "#f59e0b", flexShrink: 0,
+                        }}>
+                          {item.icon}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "#e0e0e0", marginBottom: 2 }}>
+                            {item.title}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#6b7280" }}>{item.desc}</div>
+                        </div>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2">
+                          <path d="M9 18l6-6-6-6"/>
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/LangContext";
 import { useAuth } from "@/context/AuthContext";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
-import AppHeader from "@/components/AppHeader";
 
 type MainCategory = "stock_discussion" | "macro" | "free";
 type Subcategory = "all" | "domestic" | "overseas" | "crypto" | "commodity" | "bond";
@@ -26,11 +25,19 @@ export default function CommunityWritePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveTime, setSaveTime] = useState<string | null>(null);
-  const [tableRows, setTableRows] = useState(3);
-  const [tableCols, setTableCols] = useState(3);
-  const [showTableConfig, setShowTableConfig] = useState(false);
+
   const [showColorPalette, setShowColorPalette] = useState(false);
   const [selectedColor, setSelectedColor] = useState("#ffffff");
+  const [showTableConfig, setShowTableConfig] = useState(false);
+  const [tableRows, setTableRows] = useState(3);
+  const [tableCols, setTableCols] = useState(3);
+  const [showHrMenu, setShowHrMenu] = useState(false);
+  const [showBulletMenu, setShowBulletMenu] = useState(false);
+  const [showQuoteMenu, setShowQuoteMenu] = useState(false);
+  const [drafts, setDrafts] = useState<{ key: string; title: string; savedAt: string; content: string; category: string; subcategory: string }[]>([]);
+  const [showDrafts, setShowDrafts] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
+
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,6 +53,10 @@ export default function CommunityWritePage() {
         if (draft.content && editorRef.current) editorRef.current.innerHTML = draft.content;
       }
     } catch { /* */ }
+    try {
+      const saved = localStorage.getItem("community_drafts");
+      if (saved) setDrafts(JSON.parse(saved));
+    } catch { /* */ }
   }, []);
 
   useEffect(() => {
@@ -56,29 +67,67 @@ export default function CommunityWritePage() {
 
   // Close popups on outside click
   useEffect(() => {
-    const handleClick = () => {
-      setShowColorPalette(false);
-      setShowTableConfig(false);
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    const h = () => { setShowColorPalette(false); setShowTableConfig(false); setShowHrMenu(false); setShowDrafts(false); setShowBulletMenu(false); setShowQuoteMenu(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const execCmd = (cmd: string, value?: string) => {
+  const exec = (cmd: string, value?: string) => {
     document.execCommand(cmd, false, value);
     editorRef.current?.focus();
   };
 
   const handleSaveDraft = () => {
     const content = editorRef.current?.innerHTML || "";
+    // Save single auto-restore draft
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content, category, subcategory }));
+    // Save to drafts list
+    const newDraft = {
+      key: Date.now().toString(),
+      title: title.trim() || "제목 없음",
+      content,
+      category,
+      subcategory,
+      savedAt: new Date().toISOString(),
+    };
+    const updated = [newDraft, ...drafts].slice(0, 10);
+    setDrafts(updated);
+    localStorage.setItem("community_drafts", JSON.stringify(updated));
     setSaveTime(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }));
+    setDraftSaved(true);
+    setTimeout(() => setDraftSaved(false), 2000);
+    setShowDrafts(true);
+  };
+
+  const handleLoadDraft = (draft: typeof drafts[0]) => {
+    if (draft.title !== "제목 없음") setTitle(draft.title);
+    if (editorRef.current) editorRef.current.innerHTML = draft.content;
+    if (CREATE_CATEGORIES.includes(draft.category as MainCategory)) setCategory(draft.category as MainCategory);
+    if (draft.subcategory) setSubcategory(draft.subcategory as Subcategory);
+    setShowDrafts(false);
+    editorRef.current?.focus();
+  };
+
+  const handleDeleteDraft = (key: string) => {
+    const updated = drafts.filter(d => d.key !== key);
+    setDrafts(updated);
+    localStorage.setItem("community_drafts", JSON.stringify(updated));
+  };
+
+  const draftTimeAgo = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "방금";
+    if (mins < 60) return `${mins}분 전`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}시간 전`;
+    return `${Math.floor(hours / 24)}일 전`;
   };
 
   const handleExit = () => {
     const content = editorRef.current?.innerText?.trim() || "";
     if (title.trim() || content) {
-      if (!window.confirm(lang === "kr" ? "작성 중인 글이 있습니다. 나가시겠습니까?" : "You have unsaved changes. Leave?")) return;
+      if (!window.confirm(lang === "kr" ? "작성 중인 글이 있습니다. 나가시겠습니까?" : "Discard changes?")) return;
     }
     router.push("/community");
   };
@@ -86,29 +135,20 @@ export default function CommunityWritePage() {
   const handlePublish = () => {
     requireAuth(async () => {
       if (!title.trim() || !session?.access_token) return;
-
       if (category === "stock_discussion" && subcategory === "all") {
-        setError(lang === "kr" ? "종목토론방은 하위 카테고리를 선택해야 합니다" : "Subcategory required for Stock Discussion");
+        setError(lang === "kr" ? "하위 카테고리를 선택해주세요" : "Subcategory required");
         return;
       }
-
       setSubmitting(true);
       setError(null);
-
-      const textContent = editorRef.current?.innerText || "";
-      const htmlContent = editorRef.current?.innerHTML || "";
-
       try {
         const res = await fetch("/api/community/posts", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
           body: JSON.stringify({
             title: title.trim(),
-            content: textContent.trim(),
-            htmlContent: htmlContent.trim(),
+            content: (editorRef.current?.innerText || "").trim(),
+            htmlContent: (editorRef.current?.innerHTML || "").trim(),
             category,
             subcategory: category === "stock_discussion" ? subcategory : null,
             symbol: null,
@@ -116,98 +156,51 @@ export default function CommunityWritePage() {
           }),
         });
         const json = await res.json();
-        if (json.ok) {
-          localStorage.removeItem(DRAFT_KEY);
-          router.push("/community");
-        } else {
-          setError(json.error || (lang === "kr" ? "게시 실패" : "Failed to publish"));
-        }
-      } catch {
-        setError(lang === "kr" ? "네트워크 오류" : "Network error");
-      } finally {
-        setSubmitting(false);
-      }
-    });
-  };
-
-  const enableTableResize = () => {
-    if (!editorRef.current) return;
-    const tables = editorRef.current.querySelectorAll("table");
-    tables.forEach((table) => {
-      const cols = table.querySelectorAll("th, td");
-      cols.forEach((col) => {
-        if (col.querySelector(".resize-handle")) return;
-        const handle = document.createElement("div");
-        handle.className = "resize-handle";
-        handle.style.cssText =
-          "position:absolute;right:0;top:0;width:4px;height:100%;cursor:col-resize;background:transparent;z-index:5";
-        (col as HTMLElement).style.position = "relative";
-        col.appendChild(handle);
-
-        let startX = 0;
-        let startWidth = 0;
-
-        handle.addEventListener("mousedown", (e: MouseEvent) => {
-          e.preventDefault();
-          startX = e.pageX;
-          startWidth = (col as HTMLElement).offsetWidth;
-
-          const onMouseMove = (e: MouseEvent) => {
-            const diff = e.pageX - startX;
-            (col as HTMLElement).style.width = `${startWidth + diff}px`;
-          };
-          const onMouseUp = () => {
-            document.removeEventListener("mousemove", onMouseMove);
-            document.removeEventListener("mouseup", onMouseUp);
-          };
-          document.addEventListener("mousemove", onMouseMove);
-          document.addEventListener("mouseup", onMouseUp);
-        });
-      });
+        if (json.ok) { localStorage.removeItem(DRAFT_KEY); router.push("/community"); }
+        else setError(json.error || "게시 실패");
+      } catch { setError("네트워크 오류"); }
+      finally { setSubmitting(false); }
     });
   };
 
   const insertTable = () => {
-    const headerCells = Array(tableCols)
-      .fill(0)
-      .map(
-        (_, i) =>
-          `<th style="border:1px solid #333;padding:8px 12px;background:#1a1a1a;color:#f59e0b;text-align:left;font-weight:600">${
-            i === 0 ? "항목" : i === 1 ? "값" : "비고"
-          }</th>`
-      )
-      .join("");
+    if (!editorRef.current) return;
 
-    const bodyRows = Array(tableRows)
-      .fill(0)
-      .map(() => {
-        const cells = Array(tableCols)
-          .fill(0)
-          .map(
-            (_, ci) =>
-              `<td style="border:1px solid #333;padding:8px 12px;color:#e8e8e8;text-align:${
-                ci === 0 ? "left" : "right"
-              }">&nbsp;</td>`
-          )
-          .join("");
-        return `<tr>${cells}</tr>`;
-      })
-      .join("");
+    const tableId = `tbl-${Date.now()}`;
+    const hCells = Array(tableCols).fill(0).map((_, i) =>
+      `<th style="border:1px solid #374151;padding:8px 12px;background:#1f2937;color:#f59e0b;text-align:left;font-weight:600;min-width:80px">${i === 0 ? "항목" : `열 ${i+1}`}</th>`
+    ).join("");
+    const bRows = Array(tableRows).fill(0).map(() => {
+      const cells = Array(tableCols).fill(0).map(() =>
+        `<td style="border:1px solid #374151;padding:8px 12px;color:#e0e0e0;min-width:80px">&nbsp;</td>`
+      ).join("");
+      return `<tr>${cells}</tr>`;
+    }).join("");
 
-    const tableHtml = `
-      <div style="position:relative;margin:16px 0" class="table-wrapper">
-        <button onclick="this.parentElement.remove()" style="position:absolute;top:-10px;right:-10px;width:20px;height:20px;background:#ef4444;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:12px;line-height:20px;text-align:center;z-index:10">x</button>
-        <table style="width:100%;border-collapse:collapse;table-layout:fixed">
-          <thead><tr>${headerCells}</tr></thead>
-          <tbody>${bodyRows}</tbody>
-        </table>
-      </div>
-      <p><br></p>
-    `;
-    document.execCommand("insertHTML", false, tableHtml);
+    const html = `<div id="${tableId}" style="position:relative;margin:16px 0;overflow-x:auto" contenteditable="false">
+      <button onclick="document.getElementById('${tableId}').remove()" style="position:absolute;top:-8px;right:-8px;width:20px;height:20px;background:#ef4444;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:11px;z-index:10;display:flex;align-items:center;justify-content:center;line-height:1">x</button>
+      <table id="${tableId}-table" style="width:100%;border-collapse:collapse;table-layout:auto">
+        <thead><tr>${hCells}</tr></thead>
+        <tbody contenteditable="true">${bRows}</tbody>
+      </table>
+    </div><p><br></p>`;
+
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      const div = document.createElement("div");
+      div.innerHTML = html;
+      range.deleteContents();
+      const frag = document.createDocumentFragment();
+      let node;
+      while ((node = div.firstChild)) frag.appendChild(node);
+      range.insertNode(frag);
+    } else {
+      editorRef.current.insertAdjacentHTML("beforeend", html);
+    }
+
     setShowTableConfig(false);
-    editorRef.current?.focus();
-    setTimeout(enableTableResize, 100);
+    editorRef.current.focus();
   };
 
   const insertImage = (file: File) => {
@@ -215,447 +208,441 @@ export default function CommunityWritePage() {
     reader.onload = (e) => {
       const src = e.target?.result as string;
       const id = `img-${Date.now()}`;
-      const html = `
-        <div id="${id}" style="position:relative;display:inline-block;margin:8px 0;max-width:100%" class="img-wrapper" contenteditable="false">
-          <img src="${src}" style="max-width:100%;height:auto;border-radius:4px;display:block" draggable="true" />
-          <button onclick="document.getElementById('${id}').remove()" style="position:absolute;top:-8px;right:-8px;width:20px;height:20px;background:#ef4444;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;z-index:10">x</button>
-        </div>
-        <p><br></p>
-      `;
-      document.execCommand("insertHTML", false, html);
+      document.execCommand("insertHTML", false, `<div id="${id}" style="position:relative;display:inline-block;margin:8px 0;max-width:100%" contenteditable="false"><img src="${src}" style="max-width:100%;height:auto;border-radius:6px;display:block" /><button onclick="document.getElementById('${id}').remove()" style="position:absolute;top:-8px;right:-8px;width:20px;height:20px;background:#ef4444;color:#fff;border:none;border-radius:50%;cursor:pointer;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;z-index:10">x</button></div><p><br></p>`);
       editorRef.current?.focus();
     };
     reader.readAsDataURL(file);
   };
 
+  const insertHr = (style: string) => {
+    document.execCommand("insertHTML", false, `<hr style="${style}"><p><br></p>`);
+    setShowHrMenu(false);
+    editorRef.current?.focus();
+  };
+
+  // Toolbar button helper
+  const TB = ({ children, onClick, title: t, active }: { children: React.ReactNode; onClick: () => void; title?: string; active?: boolean }) => (
+    <button
+      onMouseDown={(e) => { e.preventDefault(); onClick(); }}
+      title={t}
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "center",
+        width: 32, height: 32, borderRadius: 4, border: "none",
+        background: active ? "#2a2a2a" : "transparent", color: "#ccc",
+        cursor: "pointer", fontSize: 13, fontFamily: "'IBM Plex Mono', monospace",
+      }}
+      onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "#1a1a1a"; }}
+      onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+    >
+      {children}
+    </button>
+  );
+
+  const Sep = () => <div style={{ width: 1, height: 20, background: "#2a2a2a", margin: "0 3px", flexShrink: 0 }} />;
+
+  const selStyle: React.CSSProperties = {
+    background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 4,
+    padding: "4px 8px", fontSize: 11, color: "#ccc", outline: "none", cursor: "pointer",
+    fontFamily: "'IBM Plex Mono', monospace",
+  };
+
+  const charCount = editorRef.current?.innerText?.length ?? 0;
+
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader active="community" />
+    <div className="md:-ml-56" style={{ width: "100vw", height: "100vh", background: "#0a0a0a", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-      <main className="w-full px-0">
-        {/* Error banner */}
-        {error && (
-          <div className="mx-6 mt-2 mb-0 rounded border border-[#f87171]/30 bg-[#1a0808] px-4 py-2">
-            <p className="text-[11px] font-mono text-[#f87171]">{error}</p>
-          </div>
-        )}
+      {/* ── Top bar ─────────────────────────────────────────── */}
+      <div style={{
+        height: 48, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 16px", background: "#111", borderBottom: "1px solid #1f2937",
+      }}>
+        <button onClick={handleExit} style={{ fontSize: 13, color: "#9ca3af", background: "none", border: "none", cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace" }}
+          onMouseEnter={(e) => e.currentTarget.style.color = "#fff"}
+          onMouseLeave={(e) => e.currentTarget.style.color = "#9ca3af"}
+        >
+          ← {lang === "kr" ? "뒤로" : "Back"}
+        </button>
+        <div />
+        <div style={{ display: "flex", gap: 8, alignItems: "center", position: "relative" }} onMouseDown={(e) => e.stopPropagation()}>
+          <button onClick={handleSaveDraft} style={{ fontSize: 12, color: draftSaved ? "#4ade80" : "#6b7280", background: "none", border: "none", cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace", transition: "color 0.2s" }}>
+            {draftSaved ? (lang === "kr" ? "저장 완료" : "Saved") : (lang === "kr" ? "임시저장" : "Draft")}
+          </button>
+          <button onClick={handlePublish} disabled={!title.trim() || submitting}
+            style={{ fontSize: 13, fontWeight: 700, color: "#000", background: "#f59e0b", border: "none", borderRadius: 4, padding: "6px 16px", cursor: "pointer", opacity: (!title.trim() || submitting) ? 0.4 : 1, fontFamily: "'IBM Plex Mono', monospace" }}>
+            {submitting ? "..." : (lang === "kr" ? "게시" : "Publish")}
+          </button>
 
-        {/* Top action bar */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-card-border bg-background sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleExit}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#aaa] hover:text-white transition-colors"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              {lang === "kr" ? "돌아가기" : "Back"}
-            </button>
-            {saveTime && (
-              <span className="text-[10px] text-[#555]">
-                {lang === "kr" ? `임시저장됨 ${saveTime}` : `Draft saved ${saveTime}`}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSaveDraft}
-              className="px-3 py-1.5 text-xs text-[#aaa] border border-card-border rounded hover:text-white hover:border-[#444] transition-colors"
-            >
-              {lang === "kr" ? "임시저장" : "Save Draft"}
-            </button>
-            <button
-              onClick={handlePublish}
-              disabled={!title.trim() || submitting}
-              className="px-5 py-1.5 text-xs font-bold bg-accent text-black rounded hover:opacity-90 transition-opacity disabled:opacity-30"
-            >
-              {submitting ? "..." : lang === "kr" ? "게시" : "Publish"}
-            </button>
-          </div>
-        </div>
-
-        {/* Title input */}
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={lang === "kr" ? "제목을 입력하세요" : "Enter title"}
-          className="w-full bg-transparent border-b-2 border-card-border text-2xl font-bold text-white placeholder-white/20 outline-none pb-4 mb-0 px-6 pt-4"
-          style={{ fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif" }}
-          autoFocus
-        />
-
-        {/* Category + subcategory selects */}
-        <div className="flex items-center gap-2 px-6 py-3 border-b border-card-border">
-          <select
-            value={category}
-            onChange={(e) => {
-              const val = e.target.value as MainCategory;
-              setCategory(val);
-              if (val !== "stock_discussion") setSubcategory("all");
-              else setSubcategory("domestic");
-            }}
-            className="bg-[#1a1a1a] border border-[#333] text-white text-xs px-3 py-1.5 rounded outline-none cursor-pointer"
-          >
-            {CREATE_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c === "stock_discussion"
-                  ? lang === "kr" ? "종목 토론방" : "Stock Discussion"
-                  : c === "macro"
-                  ? lang === "kr" ? "매크로" : "Macro"
-                  : lang === "kr" ? "자유" : "Free"}
-              </option>
-            ))}
-          </select>
-
-          {category === "stock_discussion" && (
-            <select
-              value={subcategory}
-              onChange={(e) => setSubcategory(e.target.value as Subcategory)}
-              className="bg-[#1a1a1a] border border-[#333] text-white text-xs px-3 py-1.5 rounded outline-none cursor-pointer"
-            >
-              {SUBCATEGORIES.filter((s) => s !== "all").map((s) => (
-                <option key={s} value={s}>
-                  {s === "domestic" ? lang === "kr" ? "국내주식" : "Domestic"
-                    : s === "overseas" ? lang === "kr" ? "해외주식" : "Overseas"
-                    : s === "crypto" ? lang === "kr" ? "크립토" : "Crypto"
-                    : s === "commodity" ? lang === "kr" ? "원자재" : "Commodity"
-                    : lang === "kr" ? "채권" : "Bond"}
-                </option>
-              ))}
-            </select>
+          {/* Drafts panel */}
+          {showDrafts && (
+            <div style={{
+              position: "absolute", top: 40, right: 0, zIndex: 50,
+              background: "#111", border: "1px solid #1f2937", borderRadius: 6,
+              minWidth: 320, maxHeight: 400, overflowY: "auto",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+              fontFamily: "'IBM Plex Mono', monospace",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid #1f2937" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#e0e0e0" }}>임시저장 목록</span>
+                <button onClick={() => setShowDrafts(false)} style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer" }}>X</button>
+              </div>
+              {drafts.length === 0 ? (
+                <div style={{ padding: "24px 14px", textAlign: "center", fontSize: 11, color: "#6b7280" }}>
+                  저장된 임시글이 없습니다
+                </div>
+              ) : (
+                drafts.map(draft => (
+                  <div key={draft.key} style={{ padding: "10px 14px", borderBottom: "1px solid #1f2937" }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#e0e0e0", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {draft.title}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#6b7280", marginBottom: 6 }}>{draftTimeAgo(draft.savedAt)}</div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        onClick={() => handleLoadDraft(draft)}
+                        style={{ fontSize: 10, color: "#f59e0b", background: "none", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 3, padding: "2px 8px", cursor: "pointer" }}
+                      >
+                        불러오기
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDraft(draft.key)}
+                        style={{ fontSize: 10, color: "#ef4444", background: "none", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 3, padding: "2px 8px", cursor: "pointer" }}
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           )}
         </div>
+      </div>
 
-        {/* Word-style Toolbar */}
-        <div className="border-b border-[#2a2a2a] bg-[#1a1a1a] sticky top-[49px] z-10 select-none">
-          {/* Row 1: Font/Size/Style */}
-          <div className="flex flex-wrap items-center gap-0.5 px-3 py-1.5 border-b border-[#222]">
-            {/* Font select */}
-            <select
-              onChange={(e) => { execCmd("fontName", e.target.value); e.target.value = ""; }}
-              defaultValue=""
-              className="bg-[#111] border border-[#333] rounded px-2 py-1 text-[11px] text-white outline-none cursor-pointer w-[100px]"
-            >
-              <option value="" disabled>{lang === "kr" ? "글꼴" : "Font"}</option>
-              <option value="'Noto Sans KR', sans-serif">{lang === "kr" ? "기본" : "Default"}</option>
-              <option value="Georgia, serif">{lang === "kr" ? "명조" : "Serif"}</option>
-              <option value="ui-monospace, monospace">{lang === "kr" ? "고정폭" : "Mono"}</option>
-            </select>
-
-            <div className="w-px h-5 bg-[#333] mx-1" />
-
-            {/* Font size */}
-            <select
-              onChange={(e) => { execCmd("fontSize", e.target.value); e.target.value = "3"; }}
-              defaultValue="3"
-              className="bg-[#111] border border-[#333] rounded px-2 py-1 text-[11px] text-white outline-none cursor-pointer w-[70px]"
-            >
-              <option value="1">10</option>
-              <option value="2">12</option>
-              <option value="3">14</option>
-              <option value="4">18</option>
-              <option value="5">24</option>
-              <option value="6">32</option>
-              <option value="7">48</option>
-            </select>
-
-            <div className="w-px h-5 bg-[#333] mx-1" />
-
-            {/* B/I/U/S */}
-            {[
-              { label: "B", cmd: "bold", style: { fontWeight: "bold" } as React.CSSProperties },
-              { label: "I", cmd: "italic", style: { fontStyle: "italic" } as React.CSSProperties },
-              { label: "U", cmd: "underline", style: { textDecoration: "underline" } as React.CSSProperties },
-              { label: "S", cmd: "strikeThrough", style: { textDecoration: "line-through" } as React.CSSProperties },
-            ].map(btn => (
-              <button
-                key={btn.cmd}
-                onMouseDown={(e) => { e.preventDefault(); execCmd(btn.cmd); }}
-                className="w-7 h-7 text-[13px] text-[#ccc] hover:bg-[#333] hover:text-white rounded transition-colors flex items-center justify-center"
-                style={btn.style}
-              >
-                {btn.label}
-              </button>
+      {/* ── Category bar ──────────────────────────────────────── */}
+      <div style={{
+        height: 40, flexShrink: 0, display: "flex", alignItems: "center", gap: 8,
+        padding: "0 16px", background: "#111", borderBottom: "1px solid #1f2937",
+      }}>
+        <span style={{ fontSize: 11, color: "#6b7280", fontFamily: "'IBM Plex Mono', monospace" }}>{lang === "kr" ? "게시 위치:" : "Post in:"}</span>
+        <select value={category} onChange={(e) => { const v = e.target.value as MainCategory; setCategory(v); if (v !== "stock_discussion") setSubcategory("all"); else setSubcategory("domestic"); }} style={selStyle}>
+          {CREATE_CATEGORIES.map(c => (
+            <option key={c} value={c}>{c === "stock_discussion" ? (lang === "kr" ? "종목토론" : "Stock") : c === "macro" ? (lang === "kr" ? "매크로" : "Macro") : (lang === "kr" ? "자유" : "Free")}</option>
+          ))}
+        </select>
+        {category === "stock_discussion" && (
+          <select value={subcategory} onChange={(e) => setSubcategory(e.target.value as Subcategory)} style={selStyle}>
+            {SUBCATEGORIES.filter(s => s !== "all").map(s => (
+              <option key={s} value={s}>{s === "domestic" ? (lang === "kr" ? "국내" : "KR") : s === "overseas" ? (lang === "kr" ? "해외" : "US") : s === "crypto" ? (lang === "kr" ? "크립토" : "Crypto") : s === "commodity" ? (lang === "kr" ? "원자재" : "Commodity") : (lang === "kr" ? "채권" : "Bond")}</option>
             ))}
+          </select>
+        )}
+        {saveTime && <span style={{ fontSize: 10, color: "#4b5563", fontFamily: "'IBM Plex Mono', monospace", marginLeft: "auto" }}>저장 {saveTime}</span>}
+      </div>
 
-            <div className="w-px h-5 bg-[#333] mx-1" />
+      {/* Error */}
+      {error && (
+        <div style={{ padding: "6px 16px", background: "#1a0808", borderBottom: "1px solid rgba(248,113,113,0.3)" }}>
+          <span style={{ fontSize: 11, color: "#f87171", fontFamily: "'IBM Plex Mono', monospace" }}>{error}</span>
+        </div>
+      )}
 
-            {/* Font color */}
-            <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
-              <button
-                onMouseDown={(e) => { e.preventDefault(); setShowColorPalette(v => !v); }}
-                className="flex flex-col items-center justify-center w-7 h-7 rounded hover:bg-[#333] transition-colors gap-0.5"
-              >
-                <span className="text-[12px] font-bold text-white" style={{ lineHeight: 1 }}>A</span>
-                <div className="w-5 h-1 rounded-sm" style={{ background: selectedColor }} />
-              </button>
-              {showColorPalette && (
-                <div className="absolute top-8 left-0 z-30 bg-[#1a1a1a] border border-[#333] rounded-lg p-2 shadow-xl" style={{ minWidth: 160 }}>
-                  <div className="text-[10px] text-[#666] mb-1.5 px-1">{lang === "kr" ? "글자 색상" : "Text color"}</div>
-                  <div className="grid grid-cols-6 gap-1">
-                    {[
-                      "#ffffff", "#f59e0b", "#22c55e", "#ef4444", "#60a5fa", "#a78bfa",
-                      "#fb923c", "#34d399", "#f472b6", "#facc15", "#94a3b8", "#ff6b6b",
-                      "#e0e0e0", "#fbbf24", "#4ade80", "#f87171", "#93c5fd", "#c4b5fd",
-                    ].map(color => (
-                      <button
-                        key={color}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          execCmd("foreColor", color);
-                          setSelectedColor(color);
-                          setShowColorPalette(false);
-                        }}
-                        className="w-6 h-6 rounded border border-white/10 hover:scale-110 transition-transform"
-                        style={{ background: color }}
-                        title={color}
-                      />
-                    ))}
+      {/* ── Main content area ─────────────────────────────────── */}
+      <div style={{ flex: 1, overflowY: "auto", background: "#0a0a0a", padding: "24px 16px", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
+        <div style={{ width: "100%", maxWidth: 900 }}>
+
+          {/* Writing card */}
+          <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 6, overflow: "hidden" }}>
+
+            {/* Title area */}
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid #1f2937" }}>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={lang === "kr" ? "제목" : "Title"}
+                style={{
+                  width: "100%", background: "transparent", border: "none", outline: "none",
+                  fontSize: 18, fontWeight: 700, color: "#f0f0f0", padding: 0,
+                  fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif",
+                }}
+                autoFocus
+              />
+            </div>
+
+            {/* Toolbar */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 2,
+              padding: "6px 8px", background: "#161616", borderBottom: "1px solid #1f2937",
+              overflowX: "auto", overflowY: "hidden",
+            }}>
+              <select onChange={(e) => { exec("fontName", e.target.value); e.target.value = ""; }} defaultValue="" style={{ ...selStyle, width: 80 }}>
+                <option value="" disabled>글꼴</option>
+                <option value="'Noto Sans KR', sans-serif">나눔고딕</option>
+                <option value="'Malgun Gothic', sans-serif">맑은고딕</option>
+                <option value="'IBM Plex Mono', monospace">IBM Plex</option>
+                <option value="Georgia, serif">명조</option>
+              </select>
+              <select onChange={(e) => { exec("fontSize", e.target.value); e.target.value = "4"; }} defaultValue="4" style={{ ...selStyle, width: 62 }}>
+                <option value="1">10</option><option value="2">12</option><option value="3">14</option>
+                <option value="4">18</option><option value="5">24</option><option value="6">32</option>
+              </select>
+              <Sep />
+              <TB onClick={() => exec("bold")}><b>B</b></TB>
+              <TB onClick={() => exec("italic")}><i>I</i></TB>
+              <TB onClick={() => exec("underline")}><u>U</u></TB>
+              <TB onClick={() => exec("strikeThrough")}><s>S</s></TB>
+              <Sep />
+              <div style={{ position: "relative" }} onMouseDown={(e) => e.stopPropagation()}>
+                <TB onClick={() => setShowColorPalette(v => !v)}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, lineHeight: 1 }}>A</span>
+                    <div style={{ width: 16, height: 3, borderRadius: 1, background: selectedColor }} />
                   </div>
-                  <div className="mt-2 pt-2 border-t border-[#333]">
-                    <div className="text-[10px] text-[#666] mb-1.5 px-1">{lang === "kr" ? "형광펜" : "Highlight"}</div>
-                    <div className="flex gap-1">
-                      {["#f59e0b44", "#22c55e44", "#ef444444", "#60a5fa44", "#a78bfa44"].map(color => (
-                        <button
-                          key={color}
-                          onMouseDown={(e) => { e.preventDefault(); execCmd("hiliteColor", color); setShowColorPalette(false); }}
-                          className="w-6 h-6 rounded border border-white/10 hover:scale-110 transition-transform"
-                          style={{ background: color }}
-                        />
+                </TB>
+                {showColorPalette && (
+                  <div style={{ position: "absolute", top: 36, left: 0, zIndex: 50, background: "#1a1a1a", border: "1px solid #555", borderRadius: 8, padding: 10, minWidth: 150, boxShadow: "0 4px 16px rgba(0,0,0,0.5)" }}>
+                    <div style={{ fontSize: 10, color: "#888", marginBottom: 6 }}>글자색</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 3 }}>
+                      {["#ffffff", "#e0e0e0", "#fbbf24", "#4ade80", "#f87171", "#93c5fd", "#c4b5fd", "#f97316"].map(c => (
+                        <button key={c} onMouseDown={(e) => { e.preventDefault(); exec("foreColor", c); setSelectedColor(c); setShowColorPalette(false); }}
+                          style={{ width: 18, height: 18, borderRadius: 3, background: c, border: "1px solid #333", cursor: "pointer" }} />
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#888", marginTop: 8, marginBottom: 4 }}>형광펜</div>
+                    <div style={{ display: "flex", gap: 3 }}>
+                      {["rgba(245,158,11,0.3)", "rgba(74,222,128,0.3)", "rgba(248,113,113,0.3)", "rgba(96,165,250,0.3)", "rgba(167,139,250,0.3)"].map(c => (
+                        <button key={c} onMouseDown={(e) => { e.preventDefault(); exec("hiliteColor", c); setShowColorPalette(false); }}
+                          style={{ width: 18, height: 18, borderRadius: 3, background: c, border: "1px solid #333", cursor: "pointer" }} />
                       ))}
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+              <Sep />
+              <TB onClick={() => exec("justifyLeft")}>
+                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><rect x="1" y="2" width="14" height="1.5" rx=".5"/><rect x="1" y="6" width="10" height="1.5" rx=".5"/><rect x="1" y="10" width="14" height="1.5" rx=".5"/><rect x="1" y="14" width="8" height="1.5" rx=".5"/></svg>
+              </TB>
+              <TB onClick={() => exec("justifyCenter")}>
+                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><rect x="1" y="2" width="14" height="1.5" rx=".5"/><rect x="3" y="6" width="10" height="1.5" rx=".5"/><rect x="1" y="10" width="14" height="1.5" rx=".5"/><rect x="4" y="14" width="8" height="1.5" rx=".5"/></svg>
+              </TB>
+              <TB onClick={() => exec("justifyRight")}>
+                <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><rect x="1" y="2" width="14" height="1.5" rx=".5"/><rect x="5" y="6" width="10" height="1.5" rx=".5"/><rect x="1" y="10" width="14" height="1.5" rx=".5"/><rect x="7" y="14" width="8" height="1.5" rx=".5"/></svg>
+              </TB>
+              <Sep />
+              {(["h1", "h2", "h3", "p"] as const).map(tag => (
+                <TB key={tag} onClick={() => exec("formatBlock", tag)}>
+                  <span style={{ fontSize: tag === "p" ? 11 : 12, fontWeight: tag === "p" ? 400 : 700 }}>{tag === "p" ? "P" : tag.toUpperCase()}</span>
+                </TB>
+              ))}
+              <Sep />
+              <div style={{ position: "relative" }} onMouseDown={(e) => e.stopPropagation()}>
+                <TB onClick={() => setShowBulletMenu(v => !v)} title="목록">
+                  <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14">
+                    <circle cx="2.5" cy="4" r="1.2"/>
+                    <rect x="5" y="3.2" width="10" height="1.5" rx=".5"/>
+                    <circle cx="2.5" cy="8" r="1.2"/>
+                    <rect x="5" y="7.2" width="10" height="1.5" rx=".5"/>
+                    <circle cx="2.5" cy="12" r="1.2"/>
+                    <rect x="5" y="11.2" width="10" height="1.5" rx=".5"/>
+                  </svg>
+                </TB>
+                {showBulletMenu && (
+                  <div style={{ position: "absolute", top: 36, left: 0, zIndex: 50, background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, padding: 8, minWidth: 160 }}>
+                    <div style={{ fontSize: 10, color: "#888", marginBottom: 6, padding: "0 4px" }}>목록 스타일</div>
+                    {[
+                      { label: "● 채워진 원", style: "disc" },
+                      { label: "○ 빈 원", style: "circle" },
+                      { label: "■ 채워진 사각형", style: "square" },
+                      { label: "→ 화살표", html: `<ul style="list-style:none;padding-left:20px"><li style="padding:2px 0">→ &nbsp;</li></ul>` },
+                      { label: "✦ 다이아몬드", html: `<ul style="list-style:none;padding-left:20px"><li style="padding:2px 0">◆ &nbsp;</li></ul>` },
+                    ].map((item) => (
+                      <button
+                        key={item.label}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          if (item.html) {
+                            document.execCommand("insertHTML", false, item.html);
+                          } else {
+                            document.execCommand("insertUnorderedList");
+                            const sel = window.getSelection();
+                            if (sel && sel.rangeCount > 0) {
+                              const range = sel.getRangeAt(0);
+                              const li = range.startContainer.parentElement?.closest("ul");
+                              if (li) (li as HTMLElement).style.listStyleType = item.style!;
+                            }
+                          }
+                          setShowBulletMenu(false);
+                          editorRef.current?.focus();
+                        }}
+                        style={{ display: "block", width: "100%", textAlign: "left", padding: "5px 8px", background: "transparent", border: "none", color: "#ccc", fontSize: 12, cursor: "pointer", borderRadius: 4, fontFamily: "'IBM Plex Mono', monospace" }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "#2a2a2a"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Sep />
+              <div style={{ position: "relative" }} onMouseDown={(e) => e.stopPropagation()}>
+                <TB onClick={() => setShowTableConfig(v => !v)}>
+                  <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><rect x="1" y="1" width="14" height="14" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2"/><line x1="1" y1="5" x2="15" y2="5" stroke="currentColor" strokeWidth="1"/><line x1="1" y1="10" x2="15" y2="10" stroke="currentColor" strokeWidth="1"/><line x1="6" y1="1" x2="6" y2="15" stroke="currentColor" strokeWidth="1"/><line x1="11" y1="1" x2="11" y2="15" stroke="currentColor" strokeWidth="1"/></svg>
+                </TB>
+                {showTableConfig && (
+                  <div style={{ position: "absolute", top: 36, left: 0, zIndex: 20, background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, padding: 12, minWidth: 160 }}>
+                    <div style={{ fontSize: 11, color: "#ccc", fontWeight: 600, marginBottom: 8 }}>표 설정</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, color: "#888", width: 24 }}>행</span>
+                      <input type="number" min={1} max={20} value={tableRows} onChange={e => setTableRows(Number(e.target.value))}
+                        style={{ width: 50, background: "#111", border: "1px solid #333", color: "#ccc", fontSize: 12, padding: "2px 6px", borderRadius: 4, outline: "none" }} />
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                      <span style={{ fontSize: 11, color: "#888", width: 24 }}>열</span>
+                      <input type="number" min={1} max={10} value={tableCols} onChange={e => setTableCols(Number(e.target.value))}
+                        style={{ width: 50, background: "#111", border: "1px solid #333", color: "#ccc", fontSize: 12, padding: "2px 6px", borderRadius: 4, outline: "none" }} />
+                    </div>
+                    <button onClick={insertTable} style={{ width: "100%", padding: "5px 0", fontSize: 12, fontWeight: 700, background: "#f59e0b", color: "#000", border: "none", borderRadius: 4, cursor: "pointer" }}>삽입</button>
+                  </div>
+                )}
+              </div>
+              <div style={{ position: "relative" }} onMouseDown={(e) => e.stopPropagation()}>
+                <TB onClick={() => setShowQuoteMenu(v => !v)} title="인용구"><span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1 }}>&ldquo;</span></TB>
+                {showQuoteMenu && (
+                  <div style={{ position: "absolute", top: 36, left: 0, zIndex: 50, background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, padding: 8, minWidth: 200 }}>
+                    <div style={{ fontSize: 10, color: "#888", marginBottom: 6, padding: "0 4px" }}>인용구 스타일</div>
+                    {[
+                      {
+                        label: "기본 (주황 라인)",
+                        html: `<blockquote style="border-left:3px solid #f59e0b;padding:10px 16px;margin:16px 0;background:#161616;color:#bbb;border-radius:0 6px 6px 0"><p><br></p></blockquote><p><br></p>`
+                      },
+                      {
+                        label: "파란 라인",
+                        html: `<blockquote style="border-left:3px solid #3b82f6;padding:10px 16px;margin:16px 0;background:#0f172a;color:#93c5fd;border-radius:0 6px 6px 0"><p><br></p></blockquote><p><br></p>`
+                      },
+                      {
+                        label: "초록 (정보)",
+                        html: `<blockquote style="border-left:3px solid #22c55e;padding:10px 16px;margin:16px 0;background:#052e16;color:#86efac;border-radius:0 6px 6px 0"><p><br></p></blockquote><p><br></p>`
+                      },
+                      {
+                        label: "빨간 (경고)",
+                        html: `<blockquote style="border-left:3px solid #ef4444;padding:10px 16px;margin:16px 0;background:#1c0a0a;color:#fca5a5;border-radius:0 6px 6px 0"><p><br></p></blockquote><p><br></p>`
+                      },
+                      {
+                        label: "박스형",
+                        html: `<div style="border:1px solid #374151;border-radius:8px;padding:14px 16px;margin:16px 0;background:#111;color:#e0e0e0"><p><br></p></div><p><br></p>`
+                      },
+                    ].map((item) => (
+                      <button
+                        key={item.label}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          document.execCommand("insertHTML", false, item.html);
+                          setShowQuoteMenu(false);
+                          editorRef.current?.focus();
+                        }}
+                        style={{ display: "block", width: "100%", textAlign: "left", padding: "5px 8px", background: "transparent", border: "none", color: "#ccc", fontSize: 12, cursor: "pointer", borderRadius: 4, fontFamily: "'IBM Plex Mono', monospace" }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "#2a2a2a"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div style={{ position: "relative" }} onMouseDown={(e) => e.stopPropagation()}>
+                <TB onClick={() => setShowHrMenu(v => !v)}><span style={{ fontSize: 14, fontWeight: 700 }}>&mdash;</span></TB>
+                {showHrMenu && (
+                  <div style={{ position: "absolute", top: 36, left: 0, zIndex: 20, background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, padding: 8, minWidth: 140 }}>
+                    {[
+                      { label: "실선", style: "border:none;border-top:1px solid #333;margin:16px 0" },
+                      { label: "점선", style: "border:none;border-top:1px dashed #555;margin:16px 0" },
+                      { label: "강조선", style: "border:none;border-top:3px solid #f59e0b;margin:16px 0" },
+                    ].map(hr => (
+                      <button key={hr.label} onMouseDown={(e) => { e.preventDefault(); insertHr(hr.style); }}
+                        style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 8px", fontSize: 11, color: "#ccc", background: "none", border: "none", cursor: "pointer", borderRadius: 4 }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "#222"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                        {hr.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Sep />
+              <TB onClick={() => exec("undo")}>
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14"><path d="M2 6h7a4 4 0 010 8H5" strokeLinecap="round"/><path d="M2 6l3-3M2 6l3 3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </TB>
+              <TB onClick={() => exec("redo")}>
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" width="14" height="14"><path d="M14 6H7a4 4 0 000 8h4" strokeLinecap="round"/><path d="M14 6l-3-3M14 6l-3 3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </TB>
             </div>
 
-            <div className="w-px h-5 bg-[#333] mx-1" />
-
-            {/* Alignment icons */}
-            {[
-              { cmd: "justifyLeft", icon: (
-                <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                  <rect x="1" y="2" width="14" height="1.5" rx="0.5"/>
-                  <rect x="1" y="5.5" width="10" height="1.5" rx="0.5"/>
-                  <rect x="1" y="9" width="14" height="1.5" rx="0.5"/>
-                  <rect x="1" y="12.5" width="8" height="1.5" rx="0.5"/>
-                </svg>
-              )},
-              { cmd: "justifyCenter", icon: (
-                <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                  <rect x="1" y="2" width="14" height="1.5" rx="0.5"/>
-                  <rect x="3" y="5.5" width="10" height="1.5" rx="0.5"/>
-                  <rect x="1" y="9" width="14" height="1.5" rx="0.5"/>
-                  <rect x="4" y="12.5" width="8" height="1.5" rx="0.5"/>
-                </svg>
-              )},
-              { cmd: "justifyRight", icon: (
-                <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                  <rect x="1" y="2" width="14" height="1.5" rx="0.5"/>
-                  <rect x="5" y="5.5" width="10" height="1.5" rx="0.5"/>
-                  <rect x="1" y="9" width="14" height="1.5" rx="0.5"/>
-                  <rect x="7" y="12.5" width="8" height="1.5" rx="0.5"/>
-                </svg>
-              )},
-            ].map(btn => (
-              <button
-                key={btn.cmd}
-                onMouseDown={(e) => { e.preventDefault(); execCmd(btn.cmd); }}
-                className="w-7 h-7 text-[#ccc] hover:bg-[#333] hover:text-white rounded transition-colors flex items-center justify-center"
-              >
-                {btn.icon}
-              </button>
-            ))}
-          </div>
-
-          {/* Row 2: Headings/Lists/Insert */}
-          <div className="flex flex-wrap items-center gap-0.5 px-3 py-1.5">
-            {/* Heading styles */}
-            {[
-              { val: "h1", label: lang === "kr" ? "제목 1" : "H1" },
-              { val: "h2", label: lang === "kr" ? "제목 2" : "H2" },
-              { val: "h3", label: lang === "kr" ? "제목 3" : "H3" },
-              { val: "p", label: lang === "kr" ? "본문" : "Body" },
-            ].map(h => (
-              <button
-                key={h.val}
-                onMouseDown={(e) => { e.preventDefault(); execCmd("formatBlock", h.val); }}
-                className="px-2.5 h-7 text-[11px] text-[#aaa] hover:bg-[#333] hover:text-white rounded transition-colors"
-              >
-                {h.label}
-              </button>
-            ))}
-
-            <div className="w-px h-5 bg-[#333] mx-1" />
-
-            {/* Lists */}
-            <button
-              onMouseDown={(e) => { e.preventDefault(); execCmd("insertUnorderedList"); }}
-              className="w-7 h-7 text-[#ccc] hover:bg-[#333] hover:text-white rounded transition-colors flex items-center justify-center"
-              title={lang === "kr" ? "글머리 기호" : "Bullet list"}
-            >
-              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                <circle cx="2.5" cy="4" r="1.2"/>
-                <rect x="5" y="3.2" width="10" height="1.5" rx="0.5"/>
-                <circle cx="2.5" cy="8" r="1.2"/>
-                <rect x="5" y="7.2" width="10" height="1.5" rx="0.5"/>
-                <circle cx="2.5" cy="12" r="1.2"/>
-                <rect x="5" y="11.2" width="10" height="1.5" rx="0.5"/>
-              </svg>
-            </button>
-            <button
-              onMouseDown={(e) => { e.preventDefault(); execCmd("insertOrderedList"); }}
-              className="w-7 h-7 text-[#ccc] hover:bg-[#333] hover:text-white rounded transition-colors flex items-center justify-center"
-              title={lang === "kr" ? "번호 매기기" : "Numbered list"}
-            >
-              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                <text x="0.5" y="5" fontSize="5" fontFamily="monospace">1.</text>
-                <rect x="5" y="3.2" width="10" height="1.5" rx="0.5"/>
-                <text x="0.5" y="9.5" fontSize="5" fontFamily="monospace">2.</text>
-                <rect x="5" y="7.7" width="10" height="1.5" rx="0.5"/>
-                <text x="0.5" y="14" fontSize="5" fontFamily="monospace">3.</text>
-                <rect x="5" y="12.2" width="10" height="1.5" rx="0.5"/>
-              </svg>
-            </button>
-
-            <div className="w-px h-5 bg-[#333] mx-1" />
-
-            {/* Table insert */}
-            <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
-              <button
-                onMouseDown={(e) => { e.preventDefault(); setShowTableConfig(v => !v); }}
-                className="flex items-center gap-1 px-2.5 h-7 text-[11px] text-[#ccc] hover:bg-[#333] hover:text-white rounded transition-colors"
-                title={lang === "kr" ? "표 삽입" : "Insert table"}
-              >
-                <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                  <rect x="1" y="1" width="14" height="14" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2"/>
-                  <line x1="1" y1="5" x2="15" y2="5" stroke="currentColor" strokeWidth="1"/>
-                  <line x1="1" y1="10" x2="15" y2="10" stroke="currentColor" strokeWidth="1"/>
-                  <line x1="6" y1="1" x2="6" y2="15" stroke="currentColor" strokeWidth="1"/>
-                  <line x1="11" y1="1" x2="11" y2="15" stroke="currentColor" strokeWidth="1"/>
-                </svg>
-                {lang === "kr" ? "표" : "Table"}
-              </button>
-              {showTableConfig && (
-                <div className="absolute top-8 left-0 z-20 bg-[#1a1a1a] border border-[#333] rounded-lg p-3 shadow-xl min-w-[180px]">
-                  <div className="text-[11px] text-white font-semibold mb-2">{lang === "kr" ? "표 설정" : "Table Config"}</div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[11px] text-[#aaa] w-8">{lang === "kr" ? "행" : "Row"}</span>
-                    <input type="number" min={1} max={20} value={tableRows} onChange={e => setTableRows(Number(e.target.value))}
-                      className="w-16 bg-[#111] border border-[#333] text-white text-xs px-2 py-1 rounded outline-none" />
-                  </div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[11px] text-[#aaa] w-8">{lang === "kr" ? "열" : "Col"}</span>
-                    <input type="number" min={1} max={10} value={tableCols} onChange={e => setTableCols(Number(e.target.value))}
-                      className="w-16 bg-[#111] border border-[#333] text-white text-xs px-2 py-1 rounded outline-none" />
-                  </div>
-                  <button onClick={insertTable} className="w-full py-1.5 text-xs font-bold bg-accent text-black rounded hover:opacity-90">
-                    {lang === "kr" ? "삽입" : "Insert"}
-                  </button>
-                </div>
-              )}
+            {/* Editor */}
+            <div style={{ padding: "12px 16px" }}>
+              <div
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning
+                style={{
+                  minHeight: 500, outline: "none",
+                  fontSize: 18, lineHeight: 1.8, color: "#e0e0e0",
+                  fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif",
+                  caretColor: "#f59e0b",
+                }}
+                data-placeholder={lang === "kr" ? "내용을 입력하세요..." : "Write here..."}
+                onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f?.type.startsWith("image/")) insertImage(f); }}
+                onDragOver={(e) => e.preventDefault()}
+              />
             </div>
 
-            {/* Image insert */}
-            <button
-              onMouseDown={(e) => { e.preventDefault(); imageInputRef.current?.click(); }}
-              className="flex items-center gap-1 px-2.5 h-7 text-[11px] text-[#ccc] hover:bg-[#333] hover:text-white rounded transition-colors"
-              title={lang === "kr" ? "이미지 삽입" : "Insert image"}
-            >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" className="w-3.5 h-3.5">
-                <rect x="1" y="2" width="14" height="12" rx="1.5"/>
-                <circle cx="5.5" cy="6" r="1.5"/>
-                <path d="M1 11l4-4 3 3 2-2 5 5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              {lang === "kr" ? "이미지" : "Image"}
-            </button>
-            <input ref={imageInputRef} type="file" accept="image/*" className="hidden"
-              onChange={(e) => { const file = e.target.files?.[0]; if (file) insertImage(file); e.target.value = ""; }} />
+            {/* Bottom bar */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "8px 16px", borderTop: "1px solid #1f2937", background: "#161616",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <button onClick={() => imageInputRef.current?.click()}
+                  style={{ fontSize: 12, color: "#9ca3af", background: "none", border: "1px solid #2a2a2a", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {lang === "kr" ? "사진 추가" : "Add image"}
+                </button>
+                <input ref={imageInputRef} type="file" accept="image/*" style={{ display: "none" }}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) insertImage(f); e.target.value = ""; }} />
+                <span style={{ fontSize: 10, color: "#4b5563", fontFamily: "'IBM Plex Mono', monospace" }}>{charCount}자</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button onClick={handleSaveDraft} style={{ fontSize: 11, color: "#6b7280", background: "none", border: "none", cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {lang === "kr" ? "임시저장" : "Draft"}
+                </button>
+                <button onClick={handlePublish} disabled={!title.trim() || submitting}
+                  style={{ fontSize: 12, fontWeight: 700, color: "#000", background: "#f59e0b", border: "none", borderRadius: 4, padding: "5px 14px", cursor: "pointer", opacity: (!title.trim() || submitting) ? 0.4 : 1, fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {submitting ? "..." : (lang === "kr" ? "게시" : "Publish")}
+                </button>
+              </div>
+            </div>
 
-            {/* Divider */}
-            <button
-              onMouseDown={(e) => {
-                e.preventDefault();
-                document.execCommand("insertHTML", false, `<hr style="border:none;border-top:1px solid #333;margin:16px 0"><p><br></p>`);
-                editorRef.current?.focus();
-              }}
-              className="flex items-center gap-1 px-2.5 h-7 text-[11px] text-[#ccc] hover:bg-[#333] hover:text-white rounded transition-colors"
-              title={lang === "kr" ? "구분선" : "Divider"}
-            >
-              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                <rect x="0" y="7" width="16" height="2" rx="1"/>
-                <rect x="0" y="3" width="5" height="1" rx="0.5" opacity="0.4"/>
-                <rect x="0" y="12" width="5" height="1" rx="0.5" opacity="0.4"/>
-              </svg>
-              {lang === "kr" ? "구분선" : "Line"}
-            </button>
-
-            <div className="w-px h-5 bg-[#333] mx-1" />
-
-            {/* Undo/Redo */}
-            <button onMouseDown={(e) => { e.preventDefault(); execCmd("undo"); }}
-              className="w-7 h-7 text-[#ccc] hover:bg-[#333] hover:text-white rounded transition-colors flex items-center justify-center" title={lang === "kr" ? "실행 취소" : "Undo"}>
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
-                <path d="M2 6h7a4 4 0 010 8H5" strokeLinecap="round"/>
-                <path d="M2 6l3-3M2 6l3 3" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-            <button onMouseDown={(e) => { e.preventDefault(); execCmd("redo"); }}
-              className="w-7 h-7 text-[#ccc] hover:bg-[#333] hover:text-white rounded transition-colors flex items-center justify-center" title={lang === "kr" ? "다시 실행" : "Redo"}>
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
-                <path d="M14 6H7a4 4 0 000 8h4" strokeLinecap="round"/>
-                <path d="M14 6l-3-3M14 6l-3 3" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
           </div>
         </div>
-
-        {/* contentEditable editor */}
-        <div
-          ref={editorRef}
-          contentEditable
-          suppressContentEditableWarning
-          className="min-h-[calc(100vh-320px)] bg-background px-3 sm:px-6 py-8 outline-none text-white leading-relaxed"
-          style={{
-            fontSize: "17px",
-            lineHeight: "1.9",
-            fontFamily: "'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif",
-            caretColor: "#f59e0b",
-            maxWidth: "100%",
-          }}
-          data-placeholder={lang === "kr" ? "내용을 입력하세요..." : "Write your content..."}
-          onDrop={(e) => {
-            e.preventDefault();
-            const file = e.dataTransfer.files?.[0];
-            if (file && file.type.startsWith("image/")) insertImage(file);
-          }}
-          onDragOver={(e) => e.preventDefault()}
-        />
-      </main>
+      </div>
 
       <style>{`
         [contenteditable][data-placeholder]:empty:before {
-          content: attr(data-placeholder);
-          color: #555;
-          pointer-events: none;
-          white-space: pre-line;
-          font-size: 16px;
-          font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+          content: attr(data-placeholder); color: #4b5563; pointer-events: none;
+          font-size: 15px; font-family: 'Pretendard', sans-serif;
         }
-        [contenteditable] { font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; }
-        [contenteditable] h1 { font-size: 26px; font-weight: 700; color: #ffffff; margin: 20px 0 10px; line-height: 1.4; }
-        [contenteditable] h2 { font-size: 22px; font-weight: 700; color: #f0f0f0; margin: 18px 0 8px; line-height: 1.4; }
-        [contenteditable] h3 { font-size: 18px; font-weight: 600; color: #e8e8e8; margin: 14px 0 6px; line-height: 1.4; }
+        [contenteditable] h1 { font-size: 24px; font-weight: 700; color: #f0f0f0; margin: 20px 0 10px; line-height: 1.4; }
+        [contenteditable] h2 { font-size: 20px; font-weight: 700; color: #e0e0e0; margin: 18px 0 8px; line-height: 1.4; }
+        [contenteditable] h3 { font-size: 17px; font-weight: 600; color: #d0d0d0; margin: 14px 0 6px; line-height: 1.4; }
         [contenteditable] p { margin: 8px 0; }
-        [contenteditable] blockquote { border-left: 3px solid #f59e0b; padding: 8px 16px; margin: 16px 0; background: #111; color: #aaa; font-style: italic; border-radius: 0 4px 4px 0; }
+        [contenteditable] blockquote { border-left: 3px solid #f59e0b; padding: 10px 20px; margin: 16px 0; background: #161616; color: #9ca3af; font-style: italic; border-radius: 0 4px 4px 0; }
         [contenteditable] table { width: 100%; border-collapse: collapse; margin: 16px 0; }
-        [contenteditable] td, [contenteditable] th { border: 1px solid #333; padding: 8px 12px; }
-        [contenteditable] hr { border: none; border-top: 1px solid #333; margin: 24px 0; }
+        [contenteditable] td, [contenteditable] th { border: 1px solid #2a2a2a; padding: 8px 12px; color: #e0e0e0; }
+        [contenteditable] hr { border: none; margin: 20px 0; }
         [contenteditable] ul { list-style: disc; padding-left: 28px; margin: 8px 0; }
         [contenteditable] ol { list-style: decimal; padding-left: 28px; margin: 8px 0; }
         [contenteditable] li { margin: 4px 0; }
         [contenteditable] a { color: #60a5fa; text-decoration: underline; }
+        [contenteditable] img { max-width: 100%; border-radius: 6px; margin: 8px 0; }
       `}</style>
     </div>
   );

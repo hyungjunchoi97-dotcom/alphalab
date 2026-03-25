@@ -404,13 +404,13 @@ function DistrictDetail({ data, onClear, trades }: DistrictDetailProps) {
           style={{
             fontSize: 9, fontFamily: "'IBM Plex Mono', monospace",
             background: "#1a1a1a", border: "1px solid #2a2a2a",
-            color: "#555", padding: "2px 8px", cursor: "pointer",
+            color: "#9ca3af", padding: "2px 8px", cursor: "pointer",
           }}
         >전체 보기</button>
       </div>
 
       <div style={{ background: "#161616", border: "1px solid #1e1e1e", padding: "10px 12px" }}>
-        <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", marginBottom: 4, letterSpacing: "0.5px" }}>평균 매매가</div>
+        <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#9ca3af", marginBottom: 4, letterSpacing: "0.5px" }}>평균 매매가</div>
         <div style={{ fontSize: 28, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: "#f59e0b", lineHeight: 1 }}>
           {fmtPrice(data.avgPrice)}
         </div>
@@ -418,11 +418,11 @@ function DistrictDetail({ data, onClear, trades }: DistrictDetailProps) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
         <div style={{ background: "#161616", border: "1px solid #1e1e1e", padding: "8px 10px" }}>
-          <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", marginBottom: 3 }}>거래 건수</div>
+          <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#9ca3af", marginBottom: 3 }}>거래 건수</div>
           <div style={{ fontSize: 14, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: "#e0e0e0" }}>{data.count}건</div>
         </div>
         <div style={{ background: "#161616", border: "1px solid #1e1e1e", padding: "8px 10px" }}>
-          <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", marginBottom: 3 }}>전월 대비</div>
+          <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#9ca3af", marginBottom: 3 }}>전월 대비</div>
           <div style={{
             fontSize: 14, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600,
             color: data.change == null ? "#444" : data.change > 0 ? "#22c55e" : data.change < 0 ? "#ef4444" : "#888",
@@ -487,16 +487,16 @@ function OverallSummary({ loading, overallAvg, validCount, gangnam3Avg, nonGangn
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div>
-        <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", marginBottom: 3 }}>서울 평균 매매가</div>
+        <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#9ca3af", marginBottom: 3 }}>서울 평균 매매가</div>
         <div style={{ fontSize: 28, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: "#f59e0b", lineHeight: 1 }}>
           {fmtPrice(Math.round(overallAvg))}
         </div>
-        <div style={{ fontSize: 10, fontFamily: "monospace", color: "#333", marginTop: 3 }}>{validCount}개 구 · 구 클릭시 상세</div>
+        <div style={{ fontSize: 10, fontFamily: "monospace", color: "#9ca3af", marginTop: 3 }}>{validCount}개 구 · 구 클릭시 상세</div>
       </div>
 
       {gangnam3Avg > 0 && (
         <div style={{ background: "#161616", border: "1px solid #1e1e1e", padding: "8px 10px" }}>
-          <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#444", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 7 }}>
+          <div style={{ fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 7 }}>
             강남3구 vs 비강남
           </div>
           {[
@@ -528,7 +528,7 @@ function OverallSummary({ loading, overallAvg, validCount, gangnam3Avg, nonGangn
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ""; }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 9, color: "#333", fontFamily: "monospace" }}>{i + 1}</span>
+              <span style={{ fontSize: 9, color: "#9ca3af", fontFamily: "monospace" }}>{i + 1}</span>
               <span style={{ fontSize: 12, fontFamily: "'IBM Plex Sans KR', 'Noto Sans KR', sans-serif", color: "#e0e0e0" }}>{d.name}</span>
             </div>
             <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, color: "#f59e0b" }}>
@@ -550,10 +550,10 @@ function OverallSummary({ loading, overallAvg, validCount, gangnam3Avg, nonGangn
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ""; }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 9, color: "#333", fontFamily: "monospace" }}>{i + 1}</span>
+              <span style={{ fontSize: 9, color: "#9ca3af", fontFamily: "monospace" }}>{i + 1}</span>
               <span style={{ fontSize: 12, fontFamily: "'IBM Plex Sans KR', 'Noto Sans KR', sans-serif", color: "#e0e0e0" }}>{d.name}</span>
             </div>
-            <span style={{ fontSize: 12, fontFamily: "monospace", color: "#666" }}>{d.count}건</span>
+            <span style={{ fontSize: 12, fontFamily: "monospace", color: "#a0a8b4" }}>{d.count}건</span>
           </div>
         ))}
       </div>
@@ -789,10 +789,10 @@ export default function RealEstateClient() {
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
                 <div style={{ background: "#0d0d0d", border: "1px solid #2a2a2a", borderLeft: "3px solid #f59e0b", borderRadius: 10, padding: "16px 20px" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>서울 주택 수요·공급 사이클 분석</div>
-                  <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"2022년 금리 급등으로 붕괴된 거래량은 2023년 하반기부터 점진적 회복세를 보이고 있습니다.\n공급 측면에서는 2022~2023년 인허가·착공 급감으로 인해 2025~2027년 입주 물량 부족이 예상됩니다.\n주담대 잔액은 2024년 하반기 재차 증가 전환되어 레버리지 수요가 살아나고 있음을 시사합니다.\n현 국면은 수요 회복 초입 + 공급 공백 시작 구간으로, 중기적으로 가격 지지 요인이 우세합니다."}</div>
+                  <div style={{ fontSize: 12, color: "#c8cdd6", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"2022년 금리 급등으로 붕괴된 거래량은 2023년 하반기부터 점진적 회복세를 보이고 있습니다.\n공급 측면에서는 2022~2023년 인허가·착공 급감으로 인해 2025~2027년 입주 물량 부족이 예상됩니다.\n주담대 잔액은 2024년 하반기 재차 증가 전환되어 레버리지 수요가 살아나고 있음을 시사합니다.\n현 국면은 수요 회복 초입 + 공급 공백 시작 구간으로, 중기적으로 가격 지지 요인이 우세합니다."}</div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ ...S, fontSize: 10, color: "#555" }}>
+                  <div style={{ ...S, fontSize: 10, color: "#9ca3af" }}>
                     마지막 업데이트: 2025년 2월 (출처: 국토교통부, 한국은행)
                   </div>
                   <div style={{ display: "flex", gap: 4 }}>
@@ -834,7 +834,7 @@ export default function RealEstateClient() {
                         borderRadius: 10, padding: "14px 16px"
                       }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>{card.title}</div>
-                        <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.75 }}>{card.desc}</div>
+                        <div style={{ fontSize: 12, color: "#c8cdd6", lineHeight: 1.75 }}>{card.desc}</div>
                       </div>
                     ))}
                   </div>
@@ -844,7 +844,7 @@ export default function RealEstateClient() {
                     padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10
                   }}>
                     <div style={{ fontSize: 12, color: "#f59e0b", fontWeight: 700, whiteSpace: "nowrap", marginTop: 1 }}>종합 해석</div>
-                    <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.8 }}>
+                    <div style={{ fontSize: 12, color: "#c8cdd6", lineHeight: 1.8 }}>
                       <b style={{ color: "#ffffff" }}>매수 신호:</b> 거래량 증가 + 인허가·착공 감소 + 주담대 증가 동시 발생 시 공급 부족 국면 진입 가능성 높음.&nbsp;
                       <b style={{ color: "#ffffff" }}>매도/관망 신호:</b> 거래량 감소 + 준공 급증 + 주담대 둔화 시 단기 조정 구간 가능성. 세 지표를 함께 보며 시장 사이클 위치를 판단하세요.
                     </div>
@@ -923,7 +923,7 @@ export default function RealEstateClient() {
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
                 <div style={{ background: "#0d0d0d", border: "1px solid #2a2a2a", borderLeft: "3px solid #f59e0b", borderRadius: 10, padding: "16px 20px" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>금리·정책 사이클과 서울 부동산 시장</div>
-                  <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"2021~2022년 급격한 금리 인상과 DSR 규제 강화가 맞물리며 서울 아파트 시장은 역대급 거래 절벽을 경험했습니다.\n현재는 인하 사이클로 전환되었으나, 스트레스 DSR 2단계 시행으로 실질 대출 한도는 금리 인하 효과를 상쇄 중입니다.\n역사적으로 금리 인하 후 6~12개월 내 거래량 반등이 나타난 점에 주목해야 합니다.\n2025년 추가 인하 여부와 스트레스 DSR 3단계 도입 시기가 시장 방향성의 핵심 변수입니다."}</div>
+                  <div style={{ fontSize: 12, color: "#c8cdd6", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"2021~2022년 급격한 금리 인상과 DSR 규제 강화가 맞물리며 서울 아파트 시장은 역대급 거래 절벽을 경험했습니다.\n현재는 인하 사이클로 전환되었으나, 스트레스 DSR 2단계 시행으로 실질 대출 한도는 금리 인하 효과를 상쇄 중입니다.\n역사적으로 금리 인하 후 6~12개월 내 거래량 반등이 나타난 점에 주목해야 합니다.\n2025년 추가 인하 여부와 스트레스 DSR 3단계 도입 시기가 시장 방향성의 핵심 변수입니다."}</div>
                 </div>
 
                 {/* 상단 요약 카드 */}
@@ -938,9 +938,9 @@ export default function RealEstateClient() {
                       borderLeft: `3px solid ${card.color}`,
                       borderRadius: 10, padding: "14px 16px"
                     }}>
-                      <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{card.label}</div>
+                      <div style={{ fontSize: 11, color: "#b0b8c8", marginBottom: 4 }}>{card.label}</div>
                       <div style={{ fontSize: 20, fontWeight: 700, color: card.color, marginBottom: 2 }}>{card.value}</div>
-                      <div style={{ fontSize: 11, color: "#666" }}>{card.sub}</div>
+                      <div style={{ fontSize: 11, color: "#a0a8b4" }}>{card.sub}</div>
                     </div>
                   ))}
                 </div>
@@ -957,7 +957,7 @@ export default function RealEstateClient() {
                     ].map(l => (
                       <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                         <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color }} />
-                        <span style={{ fontSize: 10, color: "#888" }}>{l.label}</span>
+                        <span style={{ fontSize: 10, color: "#b0b8c8" }}>{l.label}</span>
                       </div>
                     ))}
                   </div>
@@ -970,7 +970,7 @@ export default function RealEstateClient() {
                           width: 8, height: 8, borderRadius: "50%",
                           background: item.color, flexShrink: 0
                         }} />
-                        <div style={{ minWidth: 60, fontSize: 11, color: "#666", paddingTop: 2 }}>{item.date}</div>
+                        <div style={{ minWidth: 60, fontSize: 11, color: "#a0a8b4", paddingTop: 2 }}>{item.date}</div>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: "#e8e8e8" }}>{item.label}</span>
@@ -979,7 +979,7 @@ export default function RealEstateClient() {
                               background: `${item.color}22`, padding: "1px 6px", borderRadius: 4
                             }}>{item.value}</span>
                           </div>
-                          <div style={{ fontSize: 11, color: "#888", lineHeight: 1.5 }}>{item.desc}</div>
+                          <div style={{ fontSize: 11, color: "#b0b8c8", lineHeight: 1.5 }}>{item.desc}</div>
                         </div>
                       </div>
                     ))}
@@ -992,7 +992,7 @@ export default function RealEstateClient() {
                   padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10
                 }}>
                   <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, whiteSpace: "nowrap", marginTop: 1 }}>투자 시사점</div>
-                  <div style={{ fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+                  <div style={{ fontSize: 12, color: "#c8cdd6", lineHeight: 1.8 }}>
                     <b style={{ color: "#fff" }}>금리 인하 사이클:</b> 현재 인하 기조 진행 중으로 대출 이자 부담 감소 → 매수 심리 회복 기대.
                     <b style={{ color: "#fff" }}> 스트레스 DSR:</b> 금리 인하에도 불구 DSR 규제로 실질 대출 한도는 제한적.
                     <b style={{ color: "#fff" }}> 핵심 관전 포인트:</b> 2025년 추가 금리 인하 여부 + 스트레스 DSR 3단계 시행 시기가 시장 방향성 결정.
@@ -1004,11 +1004,11 @@ export default function RealEstateClient() {
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
                 <div style={{ background: "#0d0d0d", border: "1px solid #2a2a2a", borderLeft: "3px solid #f59e0b", borderRadius: 10, padding: "16px 20px" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>2025~2027년 서울 입주 물량 집중과 권역별 영향</div>
-                  <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"2025년 서울 입주 물량은 약 1.4만 세대로 전년 대비 증가하며, 강남·서초 재건축 대단지 이주 수요가 인근 전세 시장을 자극할 전망입니다.\n2026~2027년에는 압구정·반포·잠실 라인의 대규모 입주가 예정되어 강남권 일시적 공급 과잉 가능성이 있습니다.\n반면 마포·용산·성동 등 공급이 제한된 권역은 전세 수급 타이트 상태가 지속될 것으로 판단됩니다.\n입주 물량이 많은 해에 해당 권역 갭투자보다는 입주 후 안정화 시점을 노리는 전략이 유효합니다."}</div>
+                  <div style={{ fontSize: 12, color: "#c8cdd6", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"2025년 서울 입주 물량은 약 1.4만 세대로 전년 대비 증가하며, 강남·서초 재건축 대단지 이주 수요가 인근 전세 시장을 자극할 전망입니다.\n2026~2027년에는 압구정·반포·잠실 라인의 대규모 입주가 예정되어 강남권 일시적 공급 과잉 가능성이 있습니다.\n반면 마포·용산·성동 등 공급이 제한된 권역은 전세 수급 타이트 상태가 지속될 것으로 판단됩니다.\n입주 물량이 많은 해에 해당 권역 갭투자보다는 입주 후 안정화 시점을 노리는 전략이 유효합니다."}</div>
                 </div>
 
                 {/* 상단 안내 */}
-                <div style={{ fontSize: 11, color: "#555" }}>
+                <div style={{ fontSize: 11, color: "#9ca3af" }}>
                   마지막 업데이트: 2025년 3월 (출처: 부동산114, 각 조합)　*예정 물량은 변동될 수 있습니다.
                 </div>
 
@@ -1028,9 +1028,9 @@ export default function RealEstateClient() {
                         <div style={{ fontSize: 18, fontWeight: 700, color: "#e8e8e8", marginBottom: 4 }}>
                           {d.total.toLocaleString()}세대
                         </div>
-                        <div style={{ fontSize: 10, color: "#666" }}>재건축 {d.재건축.toLocaleString()}</div>
-                        <div style={{ fontSize: 10, color: "#666" }}>재개발 {d.재개발.toLocaleString()}</div>
-                        <div style={{ fontSize: 10, color: "#666" }}>일반 {d.일반.toLocaleString()}</div>
+                        <div style={{ fontSize: 10, color: "#a0a8b4" }}>재건축 {d.재건축.toLocaleString()}</div>
+                        <div style={{ fontSize: 10, color: "#a0a8b4" }}>재개발 {d.재개발.toLocaleString()}</div>
+                        <div style={{ fontSize: 10, color: "#a0a8b4" }}>일반 {d.일반.toLocaleString()}</div>
                       </div>
                     );
                   })}
@@ -1048,7 +1048,7 @@ export default function RealEstateClient() {
                         labelStyle={{ color: "#e8e8e8" }}
                         formatter={(value: number | undefined, name: string | undefined) => [`${(value ?? 0).toLocaleString()}세대`, name ?? ""]}
                       />
-                      <Legend wrapperStyle={{ fontSize: 11, color: "#888" }} />
+                      <Legend wrapperStyle={{ fontSize: 11, color: "#b0b8c8" }} />
                       <Bar dataKey="재건축" stackId="a" fill="#f59e0b" />
                       <Bar dataKey="재개발" stackId="a" fill="#3b82f6" />
                       <Bar dataKey="일반" stackId="a" fill="#6b7280" radius={[4, 4, 0, 0]} />
@@ -1064,7 +1064,7 @@ export default function RealEstateClient() {
                       <thead>
                         <tr style={{ borderBottom: "1px solid #333" }}>
                           {["연도", "분기", "자치구", "단지명", "세대수", "유형"].map(h => (
-                            <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#666", fontSize: 11, fontWeight: 600 }}>{h}</th>
+                            <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#a0a8b4", fontSize: 11, fontWeight: 600 }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1075,7 +1075,7 @@ export default function RealEstateClient() {
                           return (
                             <tr key={i} style={{ borderBottom: "1px solid #1e1e1e", opacity: isPast ? 0.5 : 1 }}>
                               <td style={{ padding: "8px 12px", color: isCurrent ? "#f59e0b" : "#888" }}>{d.year}</td>
-                              <td style={{ padding: "8px 12px", color: "#888" }}>{d.q}</td>
+                              <td style={{ padding: "8px 12px", color: "#b0b8c8" }}>{d.q}</td>
                               <td style={{ padding: "8px 12px", color: "#ccc" }}>{d.gu}</td>
                               <td style={{ padding: "8px 12px", color: "#e8e8e8" }}>{d.name}</td>
                               <td style={{ padding: "8px 12px", color: "#e8e8e8", fontWeight: 600 }}>{d.units.toLocaleString()}</td>
@@ -1100,7 +1100,7 @@ export default function RealEstateClient() {
                   padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10
                 }}>
                   <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, whiteSpace: "nowrap", marginTop: 1 }}>투자 시사점</div>
-                  <div style={{ fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+                  <div style={{ fontSize: 12, color: "#c8cdd6", lineHeight: 1.8 }}>
                     <b style={{ color: "#fff" }}>2025~2026년 공급 집중:</b> 압구정·반포·잠실 재건축 대단지 입주로 강남권 일시적 공급 과잉 가능성.&nbsp;
                     <b style={{ color: "#fff" }}>이문·장위 재개발:</b> 동북권 대규모 입주로 해당 권역 전세가 하방 압력.&nbsp;
                     <b style={{ color: "#fff" }}>관심 구역:</b> 입주 물량 적은 마포·용산·성동구는 상대적으로 공급 부족 지속 예상.
@@ -1112,11 +1112,11 @@ export default function RealEstateClient() {
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
                 <div style={{ background: "#0d0d0d", border: "1px solid #2a2a2a", borderLeft: "3px solid #f59e0b", borderRadius: 10, padding: "16px 20px" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>서울 정비사업 현황과 중장기 투자 시사점</div>
-                  <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"현재 관리처분인가 이상 단계에 진입한 10개 구역, 약 2.3만 세대가 향후 3~5년 내 이주·입주 사이클에 진입합니다.\n압구정 2·3구역, 반포, 잠실 등 강남 핵심 재건축 단지는 이주 개시 시 인근 전세 수요를 급격히 끌어올리는 경향이 있습니다.\n초기 단계(안전진단~조합설립) 단지는 사업 지연 리스크가 크므로 분담금 및 사업성 분석이 선행되어야 합니다.\n재건축 투자 적기는 통상 사업시행인가~관리처분인가 구간으로, 불확실성과 수익성의 균형점입니다."}</div>
+                  <div style={{ fontSize: 12, color: "#c8cdd6", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"현재 관리처분인가 이상 단계에 진입한 10개 구역, 약 2.3만 세대가 향후 3~5년 내 이주·입주 사이클에 진입합니다.\n압구정 2·3구역, 반포, 잠실 등 강남 핵심 재건축 단지는 이주 개시 시 인근 전세 수요를 급격히 끌어올리는 경향이 있습니다.\n초기 단계(안전진단~조합설립) 단지는 사업 지연 리스크가 크므로 분담금 및 사업성 분석이 선행되어야 합니다.\n재건축 투자 적기는 통상 사업시행인가~관리처분인가 구간으로, 불확실성과 수익성의 균형점입니다."}</div>
                 </div>
 
                 {/* 상단 안내 */}
-                <div style={{ fontSize: 11, color: "#555" }}>
+                <div style={{ fontSize: 11, color: "#9ca3af" }}>
                   마지막 업데이트: 2025년 3월 (출처: 서울시 정비사업 정보몽땅, 각 조합)　*단계 및 예정연도는 변동될 수 있습니다.
                 </div>
 
@@ -1147,7 +1147,7 @@ export default function RealEstateClient() {
                       { label: "관리처분 이상 단계", value: `${RECON_DATA.filter(d => ["관리처분인가","착공","준공"].includes(d.stage)).length}개`, color: "#fb923c" },
                     ].map(s => (
                       <div key={s.label} style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 12, color: "#888" }}>{s.label}</span>
+                        <span style={{ fontSize: 12, color: "#b0b8c8" }}>{s.label}</span>
                         <span style={{ fontSize: 16, fontWeight: 700, color: s.color }}>{s.value}</span>
                       </div>
                     ))}
@@ -1162,7 +1162,7 @@ export default function RealEstateClient() {
                       <thead>
                         <tr style={{ borderBottom: "1px solid #333" }}>
                           {["구역명", "자치구", "유형", "현재단계", "예정세대", "준공예정", "비고"].map(h => (
-                            <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#666", fontSize: 11, fontWeight: 600 }}>{h}</th>
+                            <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#a0a8b4", fontSize: 11, fontWeight: 600 }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1174,7 +1174,7 @@ export default function RealEstateClient() {
                           return (
                             <tr key={i} style={{ borderBottom: "1px solid #1e1e1e" }}>
                               <td style={{ padding: "9px 12px", color: "#e8e8e8", fontWeight: 600 }}>{d.name}</td>
-                              <td style={{ padding: "9px 12px", color: "#aaa" }}>{d.gu}</td>
+                              <td style={{ padding: "9px 12px", color: "#c8cdd6" }}>{d.gu}</td>
                               <td style={{ padding: "9px 12px" }}>
                                 <span style={{
                                   fontSize: 10, padding: "2px 6px", borderRadius: 4,
@@ -1190,7 +1190,7 @@ export default function RealEstateClient() {
                               </td>
                               <td style={{ padding: "9px 12px", color: "#e8e8e8", fontWeight: 600 }}>{d.units.toLocaleString()}</td>
                               <td style={{ padding: "9px 12px", color: d.estimatedYear.includes("+") ? "#666" : "#aaa" }}>{d.estimatedYear}</td>
-                              <td style={{ padding: "9px 12px", color: "#666", fontSize: 11 }}>{d.note}</td>
+                              <td style={{ padding: "9px 12px", color: "#a0a8b4", fontSize: 11 }}>{d.note}</td>
                             </tr>
                           );
                         })}
@@ -1205,7 +1205,7 @@ export default function RealEstateClient() {
                   padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10
                 }}>
                   <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, whiteSpace: "nowrap", marginTop: 1 }}>투자 시사점</div>
-                  <div style={{ fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+                  <div style={{ fontSize: 12, color: "#c8cdd6", lineHeight: 1.8 }}>
                     <b style={{ color: "#fff" }}>착공 단계 주목:</b> 착공 이상 단계 진입 단지는 이주 수요 발생으로 인근 전세가 상승 가능.&nbsp;
                     <b style={{ color: "#fff" }}>압구정·여의도 라인:</b> 관리처분~착공 구간 진입으로 2026~2027년 강남·여의도 이주 수요 집중 예상.&nbsp;
                     <b style={{ color: "#fff" }}>은마·여의도시범:</b> 초기 단계로 장기 투자 관점에서 접근, 사업 지연 리스크 고려 필요.
@@ -1217,11 +1217,11 @@ export default function RealEstateClient() {
               <div style={{ padding: "16px 14px", display: "flex", flexDirection: "column", gap: 20 }}>
                 <div style={{ background: "#0d0d0d", border: "1px solid #2a2a2a", borderLeft: "3px solid #f59e0b", borderRadius: 10, padding: "16px 20px" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>전세가율로 읽는 서울 권역별 투자 매력도</div>
-                  <div style={{ fontSize: 12, color: "#aaaaaa", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"전세가율은 매매가 대비 전세가 비율로, 높을수록 실투자금(갭)이 적어 갭투자가 용이하나 전세 보증금 미반환 리스크도 증가합니다.\n강남·서초·용산은 전세가율 44~46%로 실수요 중심의 안정적 시장이며, 가격 하방 경직성이 강합니다.\n도봉·노원·강북은 전세가율 65~68%로 갭 리스크가 높으나, 금리 인하 및 재건축 기대감으로 수요 전환 가능성이 있습니다.\n2024년 하반기 이후 서울 평균 전세가율이 상승 전환된 점은 전세 수요 증가 또는 매매가 선행 조정 신호로 해석됩니다."}</div>
+                  <div style={{ fontSize: 12, color: "#c8cdd6", lineHeight: 1.8, whiteSpace: "pre-line" }}>{"전세가율은 매매가 대비 전세가 비율로, 높을수록 실투자금(갭)이 적어 갭투자가 용이하나 전세 보증금 미반환 리스크도 증가합니다.\n강남·서초·용산은 전세가율 44~46%로 실수요 중심의 안정적 시장이며, 가격 하방 경직성이 강합니다.\n도봉·노원·강북은 전세가율 65~68%로 갭 리스크가 높으나, 금리 인하 및 재건축 기대감으로 수요 전환 가능성이 있습니다.\n2024년 하반기 이후 서울 평균 전세가율이 상승 전환된 점은 전세 수요 증가 또는 매매가 선행 조정 신호로 해석됩니다."}</div>
                 </div>
 
                 {/* 상단 안내 */}
-                <div style={{ fontSize: 11, color: "#555" }}>
+                <div style={{ fontSize: 11, color: "#9ca3af" }}>
                   마지막 업데이트: 2025년 2월 (출처: 한국부동산원 R-ONE)　*평균 매매가/전세가는 3.3㎡당 기준
                 </div>
 
@@ -1237,9 +1237,9 @@ export default function RealEstateClient() {
                       borderLeft: `3px solid ${card.color}`,
                       borderRadius: 10, padding: "14px 16px"
                     }}>
-                      <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{card.label}</div>
+                      <div style={{ fontSize: 11, color: "#b0b8c8", marginBottom: 4 }}>{card.label}</div>
                       <div style={{ fontSize: 22, fontWeight: 700, color: card.color, marginBottom: 2 }}>{card.value}</div>
-                      <div style={{ fontSize: 11, color: "#666" }}>{card.sub}</div>
+                      <div style={{ fontSize: 11, color: "#a0a8b4" }}>{card.sub}</div>
                     </div>
                   ))}
                 </div>
@@ -1247,7 +1247,7 @@ export default function RealEstateClient() {
                 {/* 전세가율 추이 차트 */}
                 <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "16px" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>서울 평균 전세가율 추이</div>
-                  <div style={{ fontSize: 11, color: "#666", marginBottom: 16 }}>전세가율 상승 = 매매가 하락 or 전세가 상승 신호</div>
+                  <div style={{ fontSize: 11, color: "#a0a8b4", marginBottom: 16 }}>전세가율 상승 = 매매가 하락 or 전세가 상승 신호</div>
                   <ResponsiveContainer width="100%" height={180}>
                     <LineChart data={JEONSE_TREND} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
                       <XAxis dataKey="month" tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} interval={2} />
@@ -1265,7 +1265,7 @@ export default function RealEstateClient() {
                 {/* 구별 전세가율 바 차트 */}
                 <div style={{ background: "#111", border: "1px solid #222", borderRadius: 10, padding: "16px" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>자치구별 전세가율</div>
-                  <div style={{ fontSize: 11, color: "#666", marginBottom: 16 }}>높을수록 갭 리스크 높음 / 낮을수록 매매가 대비 전세 저평가</div>
+                  <div style={{ fontSize: 11, color: "#a0a8b4", marginBottom: 16 }}>높을수록 갭 리스크 높음 / 낮을수록 매매가 대비 전세 저평가</div>
                   <ResponsiveContainer width="100%" height={520}>
                     <BarChart data={JEONSE_RATE_BY_GU} layout="vertical" margin={{ top: 10, right: 40, left: 60, bottom: 10 }}>
                       <XAxis type="number" domain={[40, 75]} tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} />
@@ -1293,7 +1293,7 @@ export default function RealEstateClient() {
                     ].map(l => (
                       <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                         <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color }} />
-                        <span style={{ fontSize: 10, color: "#888" }}>{l.label}</span>
+                        <span style={{ fontSize: 10, color: "#b0b8c8" }}>{l.label}</span>
                       </div>
                     ))}
                   </div>
@@ -1307,7 +1307,7 @@ export default function RealEstateClient() {
                       <thead>
                         <tr style={{ borderBottom: "1px solid #333" }}>
                           {["자치구", "전세가율", "평균 매매가", "평균 전세가", "갭 (억)", "갭 리스크"].map(h => (
-                            <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#666", fontSize: 11, fontWeight: 600 }}>{h}</th>
+                            <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#a0a8b4", fontSize: 11, fontWeight: 600 }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1319,8 +1319,8 @@ export default function RealEstateClient() {
                             <tr key={i} style={{ borderBottom: "1px solid #1e1e1e" }}>
                               <td style={{ padding: "8px 12px", color: "#e8e8e8", fontWeight: 600 }}>{d.gu}</td>
                               <td style={{ padding: "8px 12px", color: riskColor, fontWeight: 700 }}>{d.rate}%</td>
-                              <td style={{ padding: "8px 12px", color: "#aaa" }}>{d.avgPrice}억</td>
-                              <td style={{ padding: "8px 12px", color: "#aaa" }}>{d.avgJeonse}억</td>
+                              <td style={{ padding: "8px 12px", color: "#c8cdd6" }}>{d.avgPrice}억</td>
+                              <td style={{ padding: "8px 12px", color: "#c8cdd6" }}>{d.avgJeonse}억</td>
                               <td style={{ padding: "8px 12px", color: "#e8e8e8", fontWeight: 600 }}>{d.gap}억</td>
                               <td style={{ padding: "8px 12px" }}>
                                 <span style={{
@@ -1342,7 +1342,7 @@ export default function RealEstateClient() {
                   padding: "14px 16px", display: "flex", alignItems: "flex-start", gap: 10
                 }}>
                   <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, whiteSpace: "nowrap", marginTop: 1 }}>투자 시사점</div>
-                  <div style={{ fontSize: 12, color: "#aaa", lineHeight: 1.8 }}>
+                  <div style={{ fontSize: 12, color: "#c8cdd6", lineHeight: 1.8 }}>
                     <b style={{ color: "#fff" }}>전세가율 상승 구간 주목:</b> 도봉·노원·강북 등 전세가율 65% 이상 구역은 갭투자 리스크 높으나 매매 전환 대기 수요 풍부.&nbsp;
                     <b style={{ color: "#fff" }}>강남권 저전세가율:</b> 강남·서초·용산은 전세가율 50% 미만으로 실수요 중심 안정적 시장. 갭 크지만 가격 하방 압력 낮음.&nbsp;
                     <b style={{ color: "#fff" }}>전세가율 반등 신호:</b> 2024년 하반기부터 서울 평균 전세가율 상승 전환 — 전세 수요 증가 또는 매매가 조정 진행 중.
@@ -1359,7 +1359,7 @@ export default function RealEstateClient() {
               <div style={{ position: "relative", height: "60vh", minHeight: 400, flexShrink: 0 }}>
                 {loading ? (
                   <div style={{ width: "100%", height: "100%", background: "#0d0d0d", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ ...S, fontSize: 11, color: "#333" }}>LOADING...</span>
+                    <span style={{ ...S, fontSize: 11, color: "#9ca3af" }}>LOADING...</span>
                   </div>
                 ) : (
                   <SeoulMap
@@ -1385,10 +1385,10 @@ export default function RealEstateClient() {
                     display: "flex", alignItems: "center", gap: 8,
                   }}>
                     <span style={{ ...S, fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>{selectedDistrictName}</span>
-                    <span style={{ ...S, fontSize: 11, color: "#888" }}>{filteredTrades.length}건</span>
+                    <span style={{ ...S, fontSize: 11, color: "#b0b8c8" }}>{filteredTrades.length}건</span>
                     <button
                       onClick={() => setSelectedDistrict(null)}
-                      style={{ ...S, fontSize: 11, color: "#555", background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: 4 }}
+                      style={{ ...S, fontSize: 11, color: "#9ca3af", background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: 4 }}
                     >
                       X
                     </button>
@@ -1401,124 +1401,124 @@ export default function RealEstateClient() {
                   background: "rgba(0,0,0,0.75)", borderRadius: 6, padding: "8px 12px",
                   minWidth: 140,
                 }}>
-                  <div style={{ ...S, fontSize: 10, color: "#555", marginBottom: 6, letterSpacing: "1px", textTransform: "uppercase" }}>거래량 TOP 5</div>
+                  <div style={{ ...S, fontSize: 10, color: "#9ca3af", marginBottom: 6, letterSpacing: "1px", textTransform: "uppercase" }}>거래량 TOP 5</div>
                   {[...validDistricts].sort((a, b) => b.count - a.count).slice(0, 5).map((d, i) => (
                     <div key={d.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                       <span style={{ ...S, fontSize: 11, color: i === 0 ? "#f59e0b" : "#888" }}>{d.name}</span>
-                      <span style={{ ...S, fontSize: 11, color: "#aaa" }}>{d.count}건</span>
+                      <span style={{ ...S, fontSize: 11, color: "#c8cdd6" }}>{d.count}건</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* ── Section A: 거래 내역 ────────────────────── */}
-              <div style={{ borderTop: "1px solid #1e1e1e" }}>
-                {/* Header (sticky) */}
-                <div
-                  onClick={() => setTradesExpanded(v => !v)}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "10px 16px", borderBottom: "1px solid #1e1e1e",
-                    background: "#111", position: "sticky", top: 0, zIndex: 10, cursor: "pointer", userSelect: "none",
-                  }}
-                >
-                  <div style={{ ...S, fontSize: 12, fontWeight: 700, color: "#e0e0e0" }}>
-                    {selectedDistrictName ? `${selectedDistrictName} 거래 내역` : "서울 전체 실거래"}
-                    <span style={{ color: "#555", fontWeight: 400, marginLeft: 8, fontSize: 11 }}>
-                      {filteredTrades.length}건 · 금액 높은 순
-                    </span>
-                    {!selectedDistrictName && (() => {
-                      const totalPrev = Object.values(prevDistrictStatsMap).reduce((s, d) => s + d.count, 0);
-                      if (totalPrev > 0) {
-                        const pct = Math.round(((allTrades.length - totalPrev) / totalPrev) * 100);
-                        return (
-                          <span style={{ marginLeft: 8, fontSize: 11, color: pct >= 0 ? "#4ade80" : "#f87171" }}>
-                            {pct >= 0 ? "+" : ""}{pct}% 전월대비
-                          </span>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {selectedDistrictName && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setSelectedDistrict(null); }}
-                        style={{ ...S, fontSize: 11, color: "#555", background: "none", border: "1px solid #2a2a2a", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}
-                      >
-                        전체 보기
-                      </button>
-                    )}
-                    <span style={{ ...S, fontSize: 12, color: "#555" }}>{tradesExpanded ? "▲" : "▼"}</span>
-                  </div>
-                </div>
-
-                {/* Content */}
-                {tradesExpanded && (
-                  <div>
-                    {/* Table header */}
-                    <div style={{
-                      display: "grid", gridTemplateColumns: "1fr 2fr 80px 60px 60px 90px",
-                      padding: "6px 16px", borderBottom: "1px solid #1e1e1e",
-                      background: "#0d0d0d",
-                    }}>
-                      {["아파트명", "단지/동", "면적", "층", "날짜", "거래가"].map(h => (
-                        <div key={h} style={{ ...S, fontSize: 10, color: "#444", textTransform: "uppercase", letterSpacing: "0.5px" }}>{h}</div>
-                      ))}
+              {/* Monthly trade volume chart */}
+              {!loading && data && (() => {
+                const chartData = SEOUL_TRADE_DATA.slice(-23).concat([{
+                  month: `${new Date().getFullYear()}.${String(new Date().getMonth() + 1).padStart(2, "0")}`,
+                  trade: allTrades.length,
+                  rent: 0,
+                }]);
+                return (
+                  <div style={{ borderBottom: "1px solid #1e1e1e", padding: "12px 16px", background: "#0d0d0d" }}>
+                    <div style={{ ...S, fontSize: 11, fontWeight: 700, color: "#e0e0e0", marginBottom: 8 }}>
+                      서울 아파트 월별 거래량
+                      <span style={{ fontSize: 10, color: "#9ca3af", fontWeight: 400, marginLeft: 8 }}>최근 24개월</span>
                     </div>
-
-                    {/* Rows */}
-                    {[...filteredTrades]
-                      .sort((a, b) => b.price - a.price)
-                      .slice(0, visibleCount)
-                      .map((t, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            display: "grid", gridTemplateColumns: "1fr 2fr 80px 60px 60px 90px",
-                            padding: "8px 16px", borderBottom: "1px solid #141414",
-                            background: i % 2 === 0 ? "transparent" : "#0a0a0a",
-                          }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "#111")}
-                          onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "transparent" : "#0a0a0a")}
-                        >
-                          <div style={{ ...S, fontSize: 12, color: "#e0e0e0", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.aptName}</div>
-                          <div style={{ ...S, fontSize: 11, color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.district} {t.dong}</div>
-                          <div style={{ ...S, fontSize: 11, color: "#888" }}>{Math.round(t.area)}m²</div>
-                          <div style={{ ...S, fontSize: 11, color: "#888" }}>{t.floor}F</div>
-                          <div style={{ ...S, fontSize: 11, color: "#555" }}>{t.date}</div>
-                          <div style={{ ...S, fontSize: 13, color: "#f59e0b", fontWeight: 700, textAlign: "right" }}>{fmtPrice(t.price)}</div>
-                        </div>
-                      ))
-                    }
-
-                    {/* Load more */}
-                    {filteredTrades.length > visibleCount && (
-                      <div style={{ padding: "12px 16px", textAlign: "center" }}>
-                        <button
-                          onClick={() => setVisibleCount(v => v + 50)}
-                          style={{ ...S, fontSize: 12, color: "#555", background: "none", border: "1px solid #2a2a2a", borderRadius: 4, padding: "6px 20px", cursor: "pointer" }}
-                        >
-                          더 보기 ({filteredTrades.length - visibleCount}건 남음)
-                        </button>
-                      </div>
-                    )}
-
-                    {filteredTrades.length === 0 && !loading && (
-                      <div style={{ padding: "40px 16px", textAlign: "center", ...S, fontSize: 12, color: "#333" }}>
-                        거래 데이터가 없습니다
-                      </div>
-                    )}
+                    <ResponsiveContainer width="100%" height={120}>
+                      <LineChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
+                        <XAxis dataKey="month" tick={{ fill: "#9ca3af", fontSize: 9 }} tickLine={false} axisLine={false} interval={3} />
+                        <YAxis tick={{ fill: "#9ca3af", fontSize: 9 }} tickLine={false} axisLine={false}
+                          tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                        <Tooltip
+                          contentStyle={{ background: "#111", border: "1px solid #333", fontSize: 11 }}
+                          labelStyle={{ color: "#e0e0e0" }}
+                          formatter={(value: unknown) => [`${Number(value).toLocaleString()}건`, "거래량"]}
+                          labelFormatter={(d) => String(d)}
+                        />
+                        <Line type="monotone" dataKey="trade" stroke="#f59e0b" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "#f59e0b" }} />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
-                )}
-              </div>
+                );
+              })()}
 
-              {/* ── Section B: 부동산 뉴스 (district selected only) ── */}
+              {/* ── District News (when district selected) ────── */}
               {selectedDistrictName && (
                 <div style={{ borderTop: "1px solid #1e1e1e" }}>
-                  {/* Header (sticky) */}
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "10px 16px", background: "#111", borderBottom: "1px solid #1a1a1a",
+                    position: "sticky", top: 0, zIndex: 10,
+                  }}>
+                    <div style={{ ...S, fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>
+                      {selectedDistrictName} 부동산 뉴스
+                    </div>
+                    <button
+                      onClick={() => setSelectedDistrict(null)}
+                      style={{ ...S, fontSize: 11, color: "#9ca3af", background: "none", border: "1px solid #2a2a2a", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}
+                    >
+                      전체 보기
+                    </button>
+                  </div>
+                  {newsLoading ? (
+                    <div style={{ padding: "16px" }}>
+                      {[1, 2, 3, 4, 5].map(i => (
+                        <div key={i} style={{ padding: "12px 0", borderBottom: "1px solid #1a1a1a" }}>
+                          <div className="animate-pulse" style={{ height: 14, background: "#1a1a1a", borderRadius: 4, marginBottom: 6, width: "80%" }} />
+                          <div className="animate-pulse" style={{ height: 10, background: "#141414", borderRadius: 4, width: "40%" }} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : news.length === 0 ? (
+                    <div style={{ padding: "32px 16px", textAlign: "center", ...S, fontSize: 12, color: "#9ca3af" }}>
+                      뉴스를 불러올 수 없습니다
+                    </div>
+                  ) : (
+                    <div style={{ padding: "0 16px" }}>
+                      {news.map((item, i) => (
+                        <a
+                          key={i}
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ display: "block", padding: "12px 0", borderBottom: "1px solid #1a1a1a", textDecoration: "none" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#0d0d0d")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                        >
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", marginTop: 5, flexShrink: 0 }} />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ ...S, fontSize: 13, color: "#e0e0e0", lineHeight: 1.5, marginBottom: 4 }}>{item.title}</div>
+                              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                <span style={{ ...S, fontSize: 10, color: "#9ca3af" }}>{item.source}</span>
+                                <span style={{ ...S, fontSize: 10, color: "#9ca3af" }}>
+                                  {(() => {
+                                    const diff = Date.now() - new Date(item.publishedAt).getTime();
+                                    const h = Math.floor(diff / 3600000);
+                                    if (h < 1) return "방금";
+                                    if (h < 24) return `${h}시간 전`;
+                                    return `${Math.floor(h / 24)}일 전`;
+                                  })()}
+                                </span>
+                              </div>
+                            </div>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" style={{ flexShrink: 0, marginTop: 4 }}>
+                              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+                            </svg>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Seoul full trades (when NO district selected) ── */}
+              {!selectedDistrictName && (
+                <div style={{ borderTop: "1px solid #1e1e1e" }}>
                   <div
-                    onClick={() => setNewsExpanded(v => !v)}
+                    onClick={() => setTradesExpanded(v => !v)}
                     style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
                       padding: "10px 16px", borderBottom: "1px solid #1e1e1e",
@@ -1526,45 +1526,75 @@ export default function RealEstateClient() {
                     }}
                   >
                     <div style={{ ...S, fontSize: 12, fontWeight: 700, color: "#e0e0e0" }}>
-                      {selectedDistrictName} 부동산 뉴스
+                      서울 전체 실거래
+                      <span style={{ color: "#9ca3af", fontWeight: 400, marginLeft: 8, fontSize: 11 }}>
+                        {allTrades.length}건 · 금액 높은 순
+                      </span>
+                      {(() => {
+                        const totalPrev = Object.values(prevDistrictStatsMap).reduce((s, d) => s + d.count, 0);
+                        if (totalPrev > 0) {
+                          const pct = Math.round(((allTrades.length - totalPrev) / totalPrev) * 100);
+                          return (
+                            <span style={{ marginLeft: 8, fontSize: 11, color: pct >= 0 ? "#4ade80" : "#f87171" }}>
+                              {pct >= 0 ? "+" : ""}{pct}% 전월대비
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
-                    <span style={{ ...S, fontSize: 12, color: "#555" }}>{newsExpanded ? "▲" : "▼"}</span>
+                    <span style={{ ...S, fontSize: 12, color: "#9ca3af" }}>{tradesExpanded ? "▲" : "▼"}</span>
                   </div>
 
-                  {/* Content */}
-                  {newsExpanded && (
-                    <div style={{ padding: "0" }}>
-                      {newsLoading ? (
-                        <div style={{ padding: "12px 16px" }}>
-                          {[0, 1, 2].map(i => (
-                            <div key={i} className="animate-pulse" style={{ height: 14, background: "#1a1a1a", borderRadius: 4, marginBottom: 10 }} />
-                          ))}
-                        </div>
-                      ) : news.length > 0 ? (
-                        news.map((n, i) => (
-                          <a
+                  {tradesExpanded && (
+                    <div>
+                      <div style={{
+                        display: "grid", gridTemplateColumns: "2fr 1.5fr 70px 50px 80px 100px",
+                        padding: "6px 16px", borderBottom: "1px solid #1e1e1e", background: "#0d0d0d",
+                      }}>
+                        {["아파트명", "단지/동", "평수", "층", "날짜", "거래가"].map(h => (
+                          <div key={h} style={{ ...S, fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px" }}>{h}</div>
+                        ))}
+                      </div>
+
+                      {[...allTrades]
+                        .sort((a, b) => b.price - a.price)
+                        .slice(0, visibleCount)
+                        .map((t, i) => (
+                          <div
                             key={i}
-                            href={n.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
                             style={{
-                              display: "block", padding: "10px 16px",
-                              borderBottom: i < news.length - 1 ? "1px solid #1e1e1e" : "none",
-                              textDecoration: "none",
+                              display: "grid", gridTemplateColumns: "2fr 1.5fr 70px 50px 80px 100px",
+                              padding: "8px 16px", borderBottom: "1px solid #141414",
+                              background: i % 2 === 0 ? "transparent" : "#0a0a0a",
                             }}
                             onMouseEnter={e => (e.currentTarget.style.background = "#111")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                            onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "transparent" : "#0a0a0a")}
                           >
-                            <div style={{ ...S, fontSize: 12, color: "#d1d5db", lineHeight: 1.5, marginBottom: 4 }}>{n.title}</div>
-                            <div style={{ display: "flex", gap: 8 }}>
-                              <span style={{ ...S, fontSize: 10, color: "#555" }}>{n.source}</span>
-                              <span style={{ ...S, fontSize: 10, color: "#444" }}>{n.publishedAt?.slice(0, 10)}</span>
-                            </div>
-                          </a>
+                            <div style={{ ...S, fontSize: 12, color: "#e0e0e0", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.aptName}</div>
+                            <div style={{ ...S, fontSize: 12, color: "#b0b8c8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.district} {t.dong}</div>
+                            <div style={{ ...S, fontSize: 11, color: "#c8cdd6" }}>{Math.round(t.area / 3.305785)}평</div>
+                            <div style={{ ...S, fontSize: 12, color: "#c8cdd6" }}>{t.floor}F</div>
+                            <div style={{ ...S, fontSize: 12, color: "#c8cdd6" }}>{t.date.slice(5).replace("-", "/")}</div>
+                            <div style={{ ...S, fontSize: 13, color: "#f59e0b", fontWeight: 700, textAlign: "right" }}>{fmtPrice(t.price)}</div>
+                          </div>
                         ))
-                      ) : (
-                        <div style={{ padding: "24px 16px", textAlign: "center", ...S, fontSize: 11, color: "#444" }}>
-                          뉴스가 없습니다
+                      }
+
+                      {allTrades.length > visibleCount && (
+                        <div style={{ padding: "12px 16px", textAlign: "center" }}>
+                          <button
+                            onClick={() => setVisibleCount(v => v + 50)}
+                            style={{ ...S, fontSize: 12, color: "#9ca3af", background: "none", border: "1px solid #2a2a2a", borderRadius: 4, padding: "6px 20px", cursor: "pointer" }}
+                          >
+                            더 보기 ({allTrades.length - visibleCount}건 남음)
+                          </button>
+                        </div>
+                      )}
+
+                      {allTrades.length === 0 && !loading && (
+                        <div style={{ padding: "40px 16px", textAlign: "center", ...S, fontSize: 12, color: "#9ca3af" }}>
+                          거래 데이터가 없습니다
                         </div>
                       )}
                     </div>
