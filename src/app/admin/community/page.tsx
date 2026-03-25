@@ -1,48 +1,32 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useLang, LangToggle } from "@/lib/LangContext";
-import { supabase } from "@/lib/supabaseClient";
-import HeaderAuth from "@/components/HeaderAuth";
-
-const CARD =
-  "rounded-[12px] border border-card-border bg-card-bg p-4 shadow-[0_1px_2px_rgba(0,0,0,0.3)]";
-const INPUT =
-  "w-full rounded border border-card-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-accent focus:outline-none";
-
-const SESSION_KEY = "pb_admin_session";
-
-interface AdminSession {
-  token: string;
-  expiresAt: string;
-}
+import { useAuth } from "@/context/AuthContext";
+import AppHeader from "@/components/AppHeader";
 
 interface Post {
   id: string;
-  author_id: string | null;
-  author_email: string | null;
   title: string;
-  content: string;
-  image_urls: string[];
-  hidden: boolean;
+  author_email: string | null;
+  category: string;
   created_at: string;
+  is_hidden: boolean;
+  is_pinned: boolean;
 }
 
-function getSession(): AdminSession | null {
-  if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
-  const session = JSON.parse(raw) as AdminSession;
-  if (new Date(session.expiresAt) <= new Date()) {
-    localStorage.removeItem(SESSION_KEY);
-    return null;
-  }
-  return session;
-}
+const CAT_LABEL: Record<string, string> = {
+  stock_discussion: "종목토론",
+  macro: "매크로",
+  free: "자유",
+};
+
+const AUTH_KEY = "alphalab_admin_auth";
 
 export default function AdminCommunityPage() {
-  const { t } = useLang();
-  const [session, setSession] = useState<AdminSession | null>(null);
+  const { session } = useAuth();
+
+  const [authed, setAuthed] = useState(false);
+  const [storedPin, setStoredPin] = useState("");
   const [pin, setPin] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
@@ -51,53 +35,15 @@ export default function AdminCommunityPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    setSession(getSession());
-  }, []);
-
-  const fetchAllPosts = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Admin sees ALL posts (including hidden) via service role or direct query
-      // Since we're client-side, we use the anon key which only sees hidden=false.
-      // For full admin view, we'll fetch all and also request hidden ones.
-      // Workaround: fetch both hidden and non-hidden separately
-      const { data: visible } = await supabase
-        .from("community_posts")
-        .select("*")
-        .eq("hidden", false)
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      const { data: hiddenPosts } = await supabase
-        .from("community_posts")
-        .select("*")
-        .eq("hidden", true)
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      const all = [
-        ...((hiddenPosts as Post[]) || []),
-        ...((visible as Post[]) || []),
-      ].sort(
-        (a, b) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-
-      setPosts(all);
-    } catch {
-      /* supabase not configured */
-    } finally {
-      setLoading(false);
+    const saved = localStorage.getItem(AUTH_KEY);
+    if (saved) {
+      setStoredPin(saved);
+      setAuthed(true);
     }
   }, []);
 
-  useEffect(() => {
-    if (session) {
-      fetchAllPosts();
-    }
-  }, [session, fetchAllPosts]);
-
-  const handleLogin = async () => {
+  const handleAuth = async () => {
+    if (!pin.trim()) return;
     setAuthLoading(true);
     setAuthError(null);
     try {
@@ -108,303 +54,172 @@ export default function AdminCommunityPage() {
       });
       const json = await res.json();
       if (json.ok) {
-        const s: AdminSession = {
-          token: json.token,
-          expiresAt: json.expiresAt,
-        };
-        localStorage.setItem(SESSION_KEY, JSON.stringify(s));
-        setSession(s);
+        localStorage.setItem(AUTH_KEY, pin);
+        setStoredPin(pin);
+        setAuthed(true);
         setPin("");
       } else {
-        setAuthError(json.error || "Authentication failed");
+        setAuthError(json.error || "인증 실패");
       }
     } catch {
-      setAuthError("Network error");
+      setAuthError("네트워크 오류");
     } finally {
       setAuthLoading(false);
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem(SESSION_KEY);
-    setSession(null);
+    localStorage.removeItem(AUTH_KEY);
+    setAuthed(false);
+    setStoredPin("");
+    setPosts([]);
   };
 
-  const handleToggleHide = async (post: Post) => {
+  const fetchPosts = useCallback(async () => {
+    if (!session?.access_token) return;
+    setLoading(true);
     try {
-      const { error } = await supabase
-        .from("community_posts")
-        .update({ hidden: !post.hidden })
-        .eq("id", post.id);
-
-      if (!error) {
-        setPosts((prev) =>
-          prev.map((p) =>
-            p.id === post.id ? { ...p, hidden: !post.hidden } : p
-          )
-        );
-      }
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const handleDelete = async (postId: string) => {
-    // Use the admin delete API route (verifies PIN server-side)
-    const storedPin = prompt("Enter admin PIN to confirm deletion:");
-    if (!storedPin) return;
-
-    try {
-      const res = await fetch("/api/admin/community/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: storedPin, postId }),
+      const res = await fetch("/api/admin/stats", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
       const json = await res.json();
-      if (json.ok) {
-        setPosts((prev) => prev.filter((p) => p.id !== postId));
-      }
-    } catch {
-      /* ignore */
-    }
+      if (json.ok) setPosts(json.recentPosts || []);
+    } catch { /* */ }
+    setLoading(false);
+  }, [session]);
+
+  useEffect(() => {
+    if (authed && session) fetchPosts();
+  }, [authed, session, fetchPosts]);
+
+  const handleDelete = async (postId: string) => {
+    if (!confirm("정말 삭제하시겠습니까?")) return;
+    if (!session?.access_token) return;
+    try {
+      const res = await fetch("/api/admin/posts", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ postId, pin: storedPin }),
+      });
+      const json = await res.json();
+      if (json.ok) setPosts(prev => prev.filter(p => p.id !== postId));
+    } catch { /* */ }
   };
 
+  if (!authed) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8, padding: 32, width: 320 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b", marginBottom: 16, fontFamily: "monospace" }}>관리자 인증</div>
+          <input type="password" placeholder="PIN 입력" value={pin} onChange={e => setPin(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleAuth()}
+            style={{ width: "100%", background: "#0a0a0a", border: "1px solid #2a2a2a", borderRadius: 4, padding: "8px 12px", color: "#e0e0e0", fontSize: 13, outline: "none", marginBottom: 12 }} />
+          {authError && <div style={{ fontSize: 11, color: "#ef4444", marginBottom: 8 }}>{authError}</div>}
+          <button onClick={handleAuth} disabled={authLoading}
+            style={{ width: "100%", background: "#f59e0b", color: "#000", border: "none", borderRadius: 4, padding: "8px 0", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            {authLoading ? "..." : "로그인"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-card-border bg-card-bg">
-        <div className="mx-auto flex max-w-[1400px] items-center justify-between px-4 py-2.5">
-          <div className="flex items-center gap-6">
-            <div>
-              <h1 className="text-sm font-bold tracking-tight">
-                Alphalab
-              </h1>
-              <p className="text-[10px] text-muted">{t("subtitle")}</p>
-            </div>
-            <nav className="flex items-center gap-1">
-              <a
-                href="/"
-                className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground"
-              >
-                {t("dashboard")}
-              </a>
-              <a
-                href="/portfolio"
-                className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground"
-              >
-                {t("portfolio")}
-              </a>
-              <a
-                href="/flow"
-                className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground"
-              >
-                {t("flow")}
-              </a>
-              <a
-                href="/ideas"
-                className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground"
-              >
-                {t("ideas")}
-              </a>
-              <a
-                href="/ai-trading"
-                className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground"
-              >
-                {t("aiTrading")}
-              </a>
-              <a
-                href="/prompts"
-                className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground"
-              >
-                {t("prompts")}
-              </a>
-              <a
-                href="/predictions"
-                className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground"
-              >
-                {t("predictions")}
-              </a>
-              <a
-                href="/community"
-                className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground"
-              >
-                {t("community")}
-              </a>
-              <a
-                href="/admin"
-                className="rounded px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-card-border/30 hover:text-foreground"
-              >
-                Admin
-              </a>
-              <span className="rounded bg-accent/15 px-2 py-0.5 text-[11px] font-medium text-accent">
-                {t("adminCommunity")}
-              </span>
-            </nav>
+    <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#e0e0e0" }}>
+      <AppHeader active="community" />
+      <main style={{ maxWidth: 960, margin: "0 auto", padding: "24px 16px" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+          <div>
+            <h1 style={{ fontSize: 15, fontWeight: 700, color: "#f59e0b", fontFamily: "'IBM Plex Mono', monospace" }}>
+              커뮤니티 관리
+            </h1>
+            <span style={{ fontSize: 11, color: "#6b7280", fontFamily: "monospace" }}>
+              {posts.length}개 게시글
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <LangToggle />
-            <HeaderAuth />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={fetchPosts} disabled={loading}
+              style={{ fontSize: 11, color: "#9ca3af", background: "transparent", border: "1px solid #2a2a2a", borderRadius: 4, padding: "5px 12px", cursor: "pointer", fontFamily: "monospace", opacity: loading ? 0.5 : 1 }}>
+              {loading ? "..." : "새로고침"}
+            </button>
+            <button onClick={handleLogout}
+              style={{ fontSize: 11, color: "#ef4444", background: "transparent", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 4, padding: "5px 12px", cursor: "pointer", fontFamily: "monospace" }}>
+              로그아웃
+            </button>
           </div>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-[900px] px-4 py-4 space-y-3">
-        {!session ? (
-          /* ── PIN Login Gate ── */
-          <div className={`${CARD} mx-auto max-w-sm`}>
-            <div className="mb-3 flex items-center gap-2">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                Admin Login
-              </h2>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-[9px] font-semibold uppercase tracking-wider text-muted">
-                  PIN
-                </label>
-                <input
-                  type="password"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-                  placeholder="Enter admin PIN"
-                  className={INPUT}
-                />
-              </div>
-              {authError && (
-                <div className="rounded border border-loss/30 bg-loss/10 px-3 py-2 text-[10px] text-loss">
-                  {authError}
-                </div>
-              )}
-              <button
-                onClick={handleLogin}
-                disabled={!pin || authLoading}
-                className="w-full rounded bg-accent px-4 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-              >
-                {authLoading ? "Verifying..." : "Login"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          /* ── Admin Dashboard ── */
-          <>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-gain" />
-                <span className="text-[10px] text-gain font-medium">
-                  Authenticated
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={fetchAllPosts}
-                  disabled={loading}
-                  className="rounded border border-card-border px-3 py-1 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-40"
-                >
-                  {loading ? "Loading..." : "Refresh"}
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="rounded border border-card-border px-3 py-1 text-xs text-muted transition-colors hover:text-foreground"
-                >
-                  Logout
-                </button>
-              </div>
-            </div>
-
-            {/* Posts table */}
-            <div className={CARD}>
-              <div className="mb-3 flex items-center gap-2">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                  {t("adminCommunity")} ({posts.length})
-                </h2>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-card-border">
-                      <th className="pb-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted">
-                        {t("postTitle")}
-                      </th>
-                      <th className="pb-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted">
-                        Author
-                      </th>
-                      <th className="pb-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted">
-                        Status
-                      </th>
-                      <th className="pb-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-muted">
-                        Date
-                      </th>
-                      <th className="pb-1.5 text-right text-[10px] font-medium uppercase tracking-wider text-muted">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {posts.map((post) => (
-                      <tr
-                        key={post.id}
-                        className={`border-b border-card-border/40 hover:bg-card-border/20 ${
-                          post.hidden ? "opacity-50" : ""
-                        }`}
-                      >
-                        <td className="py-1.5 max-w-[250px] truncate">
-                          {post.title}
-                        </td>
-                        <td className="py-1.5 text-muted">
-                          {post.author_email?.split("@")[0] || "anon"}
-                        </td>
-                        <td className="py-1.5">
-                          {post.hidden ? (
-                            <span className="rounded bg-loss/20 px-1.5 py-px text-[9px] font-medium text-loss">
-                              {t("hidden")}
-                            </span>
-                          ) : (
-                            <span className="rounded bg-gain/20 px-1.5 py-px text-[9px] font-medium text-gain">
-                              Visible
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-1.5 text-muted tabular-nums">
-                          {new Date(post.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="py-1.5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handleToggleHide(post)}
-                              className="rounded border border-card-border px-2 py-0.5 text-[10px] text-muted transition-colors hover:text-foreground"
-                            >
-                              {post.hidden ? t("unhide") : t("hide")}
-                            </button>
-                            <button
-                              onClick={() => handleDelete(post.id)}
-                              className="rounded border border-loss/30 px-2 py-0.5 text-[10px] text-loss transition-colors hover:bg-loss/10"
-                            >
-                              {t("delete")}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {posts.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={5}
-                          className="py-8 text-center text-[10px] text-muted"
-                        >
-                          {t("noPosts")}
-                        </td>
-                      </tr>
+        {/* Posts table */}
+        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8, overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "'IBM Plex Mono', monospace" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid #1f2937" }}>
+                {["제목", "작성자", "카테고리", "날짜", "상태", "액션"].map(h => (
+                  <th key={h} style={{
+                    padding: "10px 12px", textAlign: h === "액션" ? "right" : "left",
+                    fontSize: 10, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em",
+                  }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {posts.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: "40px 12px", textAlign: "center", color: "#4b5563", fontSize: 11 }}>
+                    {loading ? "로딩 중..." : "게시글이 없습니다"}
+                  </td>
+                </tr>
+              ) : posts.map(post => (
+                <tr key={post.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <td style={{ padding: "10px 12px", color: "#d1d5db", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {post.title.length > 30 ? post.title.slice(0, 30) + "..." : post.title}
+                  </td>
+                  <td style={{ padding: "10px 12px", color: "#9ca3af" }}>
+                    {post.author_email?.split("@")[0] || "-"}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <span style={{
+                      fontSize: 10, padding: "2px 6px", borderRadius: 3,
+                      background: "rgba(59,130,246,0.15)", color: "#60a5fa",
+                    }}>
+                      {CAT_LABEL[post.category] || post.category}
+                    </span>
+                  </td>
+                  <td style={{ padding: "10px 12px", color: "#6b7280", fontVariantNumeric: "tabular-nums" }}>
+                    {new Date(post.created_at).toLocaleDateString("ko-KR", { month: "2-digit", day: "2-digit" })}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    {post.is_hidden ? (
+                      <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "rgba(239,68,68,0.15)", color: "#f87171" }}>숨김</span>
+                    ) : post.is_pinned ? (
+                      <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "rgba(245,158,11,0.15)", color: "#f59e0b" }}>고정</span>
+                    ) : (
+                      <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: "rgba(34,197,94,0.15)", color: "#4ade80" }}>공개</span>
                     )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </>
-        )}
+                  </td>
+                  <td style={{ padding: "10px 12px", textAlign: "right" }}>
+                    <button onClick={() => handleDelete(post.id)}
+                      style={{
+                        fontSize: 10, color: "#ef4444", background: "transparent",
+                        border: "1px solid rgba(239,68,68,0.3)", borderRadius: 3,
+                        padding: "3px 8px", cursor: "pointer", fontFamily: "monospace",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(239,68,68,0.1)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      삭제
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </main>
     </div>
   );
