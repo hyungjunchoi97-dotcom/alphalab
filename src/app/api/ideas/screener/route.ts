@@ -322,7 +322,7 @@ interface StockData {
   near52wHigh: boolean;
 }
 
-async function fetchStockData(stock: StockDef): Promise<StockData | null> {
+async function fetchStockData(stock: StockDef, krxPriceMap?: Map<string, { price: number; changeRate: number }>): Promise<StockData | null> {
   try {
     const symbol = stock.market === "KR"
       ? await getYahooSymbol(stock.ticker, stock.symbol)
@@ -352,11 +352,18 @@ async function fetchStockData(stock: StockDef): Promise<StockData | null> {
     if (closes.length < 22) return null;
 
     const lastClose = closes[closes.length - 1];
-    const price = (meta.regularMarketPrice && Math.abs(meta.regularMarketPrice / lastClose - 1) < 0.3)
+    let price = (meta.regularMarketPrice && Math.abs(meta.regularMarketPrice / lastClose - 1) < 0.3)
       ? meta.regularMarketPrice
       : lastClose;
     const prevClose = meta.chartPreviousClose ?? closes[closes.length - 2];
-    const chg1d = ((price - prevClose) / prevClose) * 100;
+    let chg1d = ((price - prevClose) / prevClose) * 100;
+
+    // Override with KRX data for accurate KR prices
+    const krxData = krxPriceMap?.get(stock.ticker);
+    if (krxData && stock.market === "KR") {
+      price = krxData.price;
+      chg1d = krxData.changeRate;
+    }
     const price5d = closes[Math.max(0, closes.length - 6)];
     const chg5d = ((price - price5d) / price5d) * 100;
     const price20d = closes[Math.max(0, closes.length - 21)];
@@ -594,10 +601,28 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ...cache.data, source: "cache" });
     }
 
+    // Fetch KRX price data for accurate KR stock prices
+    const krxPriceMap = new Map<string, { price: number; changeRate: number }>();
+    try {
+      const krxRes = await fetchWithTimeout(
+        `${process.env.NEXT_PUBLIC_APP_URL || "https://alphalab-kappa.vercel.app"}/api/krx/movers`,
+        {}, 10000
+      );
+      if (krxRes.ok) {
+        const krxJson = await krxRes.json();
+        const allItems = [...(krxJson.topValue || []), ...(krxJson.topGainers || []), ...(krxJson.topLosers || [])];
+        for (const item of allItems) {
+          if (!krxPriceMap.has(item.code)) {
+            krxPriceMap.set(item.code, { price: item.price, changeRate: item.changeRate });
+          }
+        }
+      }
+    } catch { /* KRX fetch failed, continue with Yahoo prices */ }
+
     // Fetch chart data for all stocks in parallel
     const allStocks = [...KR_STOCKS, ...US_STOCKS];
     const results = await Promise.allSettled(
-      allStocks.map(s => fetchStockData(s))
+      allStocks.map(s => fetchStockData(s, krxPriceMap))
     );
 
     const stocks: StockData[] = results
