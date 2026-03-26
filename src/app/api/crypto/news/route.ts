@@ -19,58 +19,50 @@ interface NewsItem {
 }
 
 let cache: CacheEntry | null = null;
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 const translationCache = new Map<number, string>();
 
-async function translateTitles(items: NewsItem[]): Promise<void> {
-  const toTranslate = items.slice(0, 5).filter(item => !translationCache.has(item.id));
-  if (toTranslate.length === 0) {
-    // Apply cached translations
-    for (const item of items.slice(0, 5)) {
-      item.titleKr = translationCache.get(item.id);
+async function translateTitles(items: NewsItem[], count: number): Promise<void> {
+  const target = items.slice(0, count);
+  const toTranslate = target.filter(item => !translationCache.has(item.id));
+
+  if (toTranslate.length > 0) {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (apiKey) {
+      const titlesText = toTranslate.map((item, i) => `${i + 1}. ${item.title}`).join("\n");
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 1000,
+            messages: [{
+              role: "user",
+              content: `다음 크립토 뉴스 제목들을 한국어로 자연스럽게 번역해줘. 번호와 번역된 제목만 출력:\n${titlesText}`,
+            }],
+          }),
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          const text: string = json.content?.[0]?.text ?? "";
+          const lines = text.split("\n").filter(l => l.trim());
+          for (let i = 0; i < toTranslate.length && i < lines.length; i++) {
+            const kr = lines[i].replace(/^\d+\.\s*/, "").trim();
+            if (kr) translationCache.set(toTranslate[i].id, kr);
+          }
+        }
+      } catch { /* continue without translation */ }
     }
-    return;
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return;
-
-  const titlesText = toTranslate.map((item, i) => `${i + 1}. ${item.title}`).join("\n");
-
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 500,
-        messages: [{
-          role: "user",
-          content: `다음 크립토 뉴스 제목들을 한국어로 자연스럽게 번역해줘. 번호와 번역된 제목만 출력:\n${titlesText}`,
-        }],
-      }),
-    });
-
-    if (res.ok) {
-      const json = await res.json();
-      const text: string = json.content?.[0]?.text ?? "";
-      const lines = text.split("\n").filter(l => l.trim());
-
-      for (let i = 0; i < toTranslate.length && i < lines.length; i++) {
-        const kr = lines[i].replace(/^\d+\.\s*/, "").trim();
-        if (kr) {
-          translationCache.set(toTranslate[i].id, kr);
-        }
-      }
-    }
-  } catch { /* translation failed, continue without */ }
-
-  // Apply all translations (cached + new)
-  for (const item of items.slice(0, 5)) {
+  // Apply cached translations
+  for (const item of target) {
     item.titleKr = translationCache.get(item.id);
   }
 }
@@ -86,7 +78,7 @@ export async function GET() {
       return NextResponse.json({ ok: true, news: [] });
     }
 
-    const url = `https://cryptopanic.com/api/developer/v2/posts/?auth_token=${apiKey}&public=true&kind=news&filter=hot&currencies=BTC,ETH&limit=20`;
+    const url = `https://cryptopanic.com/api/developer/v2/posts/?auth_token=${apiKey}&public=true&kind=news&limit=50`;
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
 
     if (!res.ok) {
@@ -113,13 +105,13 @@ export async function GET() {
       },
     }));
 
-    // Translate top 5 titles to Korean
-    await translateTitles(news);
+    // Translate top 10 titles to Korean
+    await translateTitles(news, 10);
 
     cache = { data: news, cachedAt: Date.now() };
 
     return NextResponse.json({ ok: true, news }, {
-      headers: { "Cache-Control": "s-maxage=900, stale-while-revalidate=1800" },
+      headers: { "Cache-Control": "s-maxage=600, stale-while-revalidate=1200" },
     });
   } catch {
     if (cache) return NextResponse.json({ ok: true, news: cache.data, source: "stale" });

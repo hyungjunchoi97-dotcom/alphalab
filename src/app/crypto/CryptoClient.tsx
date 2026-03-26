@@ -573,7 +573,17 @@ export default function CryptoClient() {
           )}
 
           {/* ══════════ Section: Crypto Hot News ══════════ */}
-          <SectionTitle>크립토 핫 뉴스</SectionTitle>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <SectionTitle>크립토 핫 뉴스</SectionTitle>
+            <a
+              href="/crypto/news"
+              style={{ ...S, fontSize: 11, color: "#6b7280", textDecoration: "none", transition: "color 0.15s" }}
+              onMouseEnter={(e) => e.currentTarget.style.color = "#f59e0b"}
+              onMouseLeave={(e) => e.currentTarget.style.color = "#6b7280"}
+            >
+              뉴스 전체보기 &rarr;
+            </a>
+          </div>
           <div style={{ background: "#111", border: "1px solid #2a3441", borderRadius: 8, marginBottom: 24, maxHeight: 600, overflowY: "auto" }}>
             {newsLoading ? (
               Array.from({ length: 6 }).map((_, i) => (
