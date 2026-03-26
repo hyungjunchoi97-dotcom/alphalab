@@ -22,48 +22,49 @@ let cache: CacheEntry | null = null;
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 const translationCache = new Map<number, string>();
 
-async function translateTitles(items: NewsItem[], count: number): Promise<void> {
-  const target = items.slice(0, count);
-  const toTranslate = target.filter(item => !translationCache.has(item.id));
+async function translateTitles(items: NewsItem[]): Promise<void> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return;
 
-  if (toTranslate.length > 0) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (apiKey) {
-      const titlesText = toTranslate.map((item, i) => `${i + 1}. ${item.title}`).join("\n");
-      try {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-haiku-4-5-20251001",
-            max_tokens: 1000,
-            messages: [{
-              role: "user",
-              content: `다음 크립토 뉴스 제목들을 한국어로 자연스럽게 번역해줘. 번호와 번역된 제목만 출력:\n${titlesText}`,
-            }],
-          }),
-        });
+  const target = items.slice(0, 5);
 
-        if (res.ok) {
-          const json = await res.json();
-          const text: string = json.content?.[0]?.text ?? "";
-          const lines = text.split("\n").filter(l => l.trim());
-          for (let i = 0; i < toTranslate.length && i < lines.length; i++) {
-            const kr = lines[i].replace(/^\d+\.\s*/, "").trim();
-            if (kr) translationCache.set(toTranslate[i].id, kr);
-          }
-        }
-      } catch { /* continue without translation */ }
-    }
-  }
-
-  // Apply cached translations
   for (const item of target) {
-    item.titleKr = translationCache.get(item.id);
+    // Skip if already cached
+    if (translationCache.has(item.id)) {
+      item.titleKr = translationCache.get(item.id);
+      continue;
+    }
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 200,
+          messages: [{
+            role: "user",
+            content: `다음 영어 제목을 한국어로 번역해줘. 번역된 제목 텍스트만 출력하고 다른 내용은 출력하지 마:\n${item.title}`,
+          }],
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const kr = (json.content?.[0]?.text ?? "").trim();
+        if (kr) {
+          translationCache.set(item.id, kr);
+          item.titleKr = kr;
+          console.log("Translated:", item.title, "->", item.titleKr);
+        }
+      }
+    } catch {
+      // Translation failed for this item, continue
+    }
   }
 }
 
@@ -106,7 +107,7 @@ export async function GET() {
     }));
 
     // Translate top 10 titles to Korean
-    await translateTitles(news, 10);
+    await translateTitles(news);
 
     cache = { data: news, cachedAt: Date.now() };
 
