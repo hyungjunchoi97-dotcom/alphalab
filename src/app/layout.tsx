@@ -87,6 +87,12 @@ export const metadata: Metadata = {
       "naver-site-verification": "276edcf0046e393815d75b118e52aa61548ab19c",
     },
   },
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+  },
 };
 
 export default function RootLayout({

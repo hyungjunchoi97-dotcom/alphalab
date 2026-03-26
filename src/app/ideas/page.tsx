@@ -19,7 +19,6 @@ interface FomoItem {
   ticker: string;
   name: string;
   nameKr?: string;
-  price: number;
   chgPct: number;
   tag: string;
   volumeRatio: number;
@@ -141,7 +140,6 @@ function FomoTable({ items, selected, onSelect, lang }: { items: FomoItem[]; sel
         <tr className="border-b border-card-border">
           <th className={TH}>Ticker</th>
           <th className={TH}>Name</th>
-          <th className={`${TH} text-right`}>Price</th>
           <th className={`${TH} text-right`}>Chg%</th>
           <th className={`${TH} text-right`}>{lang === "kr" ? "거래량비" : "Vol Ratio"}</th>
           <th className={TH}>Tag</th>
@@ -160,7 +158,6 @@ function FomoTable({ items, selected, onSelect, lang }: { items: FomoItem[]; sel
             >
               <td className={`${TD} pl-2 text-accent`}>{item.ticker}</td>
               <td className={TD}>{lang === "kr" && item.nameKr ? item.nameKr : item.name}</td>
-              <td className={`${TD} text-right tabular-nums`}>{item.price.toLocaleString()}</td>
               <td className={`${TD} text-right tabular-nums`}><ChgPct v={item.chgPct} /></td>
               <td className={`${TD} text-right tabular-nums font-medium ${item.volumeRatio >= 2 ? "text-yellow-400" : "text-muted"}`}>
                 {item.volumeRatio.toFixed(1)}x
@@ -898,8 +895,7 @@ export default function IdeasPage() {
                           <span className="ml-2 text-xs text-muted">{lang === "kr" && selected.nameKr ? selected.nameKr : selected.name}</span>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-medium tabular-nums">{selected.price.toLocaleString()}</p>
-                          <p className="text-[10px] tabular-nums"><ChgPct v={selected.chgPct} /></p>
+                          <p className="text-sm font-medium tabular-nums"><ChgPct v={selected.chgPct} /></p>
                         </div>
                       </div>
                       {/* Analyst Consensus (KR) */}
@@ -910,10 +906,8 @@ export default function IdeasPage() {
                       )}
                       {analystData && !analystLoading && analystData.analystCount > 0 && (() => {
                         const a = analystData;
-                        const currentPrice = selected.price;
                         const fmtTarget = (v: number) => v >= 1000 ? v.toLocaleString() : v.toFixed(0);
-                        const upsidePct = (target: number) => currentPrice > 0 && target > 0
-                          ? ((target - currentPrice) / currentPrice * 100) : null;
+                        const upsidePct = (_target: number) => null as number | null;
                         const consensusUpside = upsidePct(a.targetConsensus);
                         const highUpside = upsidePct(a.targetHigh);
                         const lowUpside = upsidePct(a.targetLow);

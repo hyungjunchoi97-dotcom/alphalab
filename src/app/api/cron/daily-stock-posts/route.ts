@@ -11,7 +11,6 @@ interface FomoItem {
   ticker: string;
   name: string;
   nameKr: string;
-  price: number;
   chgPct: number;
   tag: string;
   volumeRatio: number;
@@ -29,7 +28,6 @@ function buildPrompt(item: FomoItem): string {
 
 [종목 데이터]
 - 종목명: ${item.nameKr} (${item.ticker})
-- 현재가: ${item.price}원
 - 등락률: ${item.chgPct}%
 - 거래량 비율: 평균 대비 ${item.volumeRatio.toFixed(1)}배
 - 시그널: ${item.tag}

@@ -462,7 +462,6 @@ interface FomoItem {
   ticker: string;
   name: string;
   nameKr?: string;
-  price: number;
   chgPct: number;
   tag: string;
   volumeRatio: number;
@@ -473,7 +472,6 @@ interface FomoItem {
 interface ValueItem {
   ticker: string;
   name: string;
-  price: number;
   chgPct: number;
   tag: string;
   per: number | null;
@@ -486,7 +484,6 @@ interface ValueItem {
 interface High52Item {
   ticker: string;
   name: string;
-  price: number;
   chgPct: number;
   tag: string;
   fiftyTwoWeekHigh: number;
@@ -516,7 +513,6 @@ function screenFomo(stocks: StockData[]): FomoItem[] {
         ticker: s.ticker,
         name: s.name,
         nameKr: s.nameKr,
-        price: s.price,
         chgPct: s.chgPct,
         tag,
         volumeRatio: s.volumeRatio,
@@ -559,7 +555,6 @@ function screenValue(stocks: StockData[], fundMap: Map<string, Fundamentals>): V
     return {
       ticker: s.ticker,
       name: s.name,
-      price: s.price,
       chgPct: s.chgPct,
       tag,
       per: s.f?.per ?? null,
@@ -581,7 +576,6 @@ function screenHigh52(stocks: StockData[]): High52Item[] {
     .map(s => ({
       ticker: s.ticker,
       name: s.name,
-      price: s.price,
       chgPct: s.chgPct,
       tag: "52W HIGH",
       fiftyTwoWeekHigh: s.fiftyTwoWeekHigh,
