@@ -327,7 +327,7 @@ async function fetchStockData(stock: StockDef): Promise<StockData | null> {
     const symbol = stock.market === "KR"
       ? await getYahooSymbol(stock.ticker, stock.symbol)
       : stock.symbol;
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=3mo&interval=1d`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=3mo&interval=1d&events=div,splits&includeAdjustedClose=false`;
     const res = await fetchWithTimeout(url, {
       headers: { "User-Agent": "Mozilla/5.0" },
     }, 8000);
@@ -351,7 +351,10 @@ async function fetchStockData(stock: StockDef): Promise<StockData | null> {
 
     if (closes.length < 22) return null;
 
-    const price = meta.regularMarketPrice ?? closes[closes.length - 1];
+    const lastClose = closes[closes.length - 1];
+    const price = (meta.regularMarketPrice && Math.abs(meta.regularMarketPrice / lastClose - 1) < 0.3)
+      ? meta.regularMarketPrice
+      : lastClose;
     const prevClose = meta.chartPreviousClose ?? closes[closes.length - 2];
     const chg1d = ((price - prevClose) / prevClose) * 100;
     const price5d = closes[Math.max(0, closes.length - 6)];
