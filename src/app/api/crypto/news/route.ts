@@ -19,17 +19,22 @@ interface NewsItem {
 
 let cache: CacheEntry | null = null;
 const CACHE_TTL = 10 * 60 * 1000;
-const translationCache = new Map<number, string>();
+// title text -> Korean translation (keyed by title, not id, to avoid stale id mappings)
+const translationCache = new Map<string, string>();
 
 async function translateTitles(items: NewsItem[]): Promise<void> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return;
 
-  const target = items.slice(0, 5);
+  const count = Math.min(5, items.length);
 
-  for (const item of target) {
-    if (translationCache.has(item.id)) {
-      item.titleKr = translationCache.get(item.id);
+  for (let i = 0; i < count; i++) {
+    const item = items[i];
+
+    // Check cache by title text (not id)
+    const cached = translationCache.get(item.title);
+    if (cached) {
+      item.titleKr = cached;
       continue;
     }
 
@@ -54,12 +59,17 @@ async function translateTitles(items: NewsItem[]): Promise<void> {
       if (res.ok) {
         const json = await res.json();
         const kr = (json.content?.[0]?.text ?? "").trim();
-        if (kr) {
-          translationCache.set(item.id, kr);
+        // Verify translation is unique and not empty
+        if (kr && kr !== item.title) {
+          translationCache.set(item.title, kr);
           item.titleKr = kr;
+          console.log(`[crypto-news] translated [${i}]: "${item.title}" -> "${kr}"`);
         }
       }
-    } catch { /* continue */ }
+    } catch { /* continue with next item */ }
+
+    // Small delay between API calls
+    if (i < count - 1) await new Promise(r => setTimeout(r, 200));
   }
 }
 
@@ -108,8 +118,8 @@ export async function GET(req: NextRequest) {
 
     // Apply cached translations to items that have them
     for (const item of cache.data) {
-      if (translationCache.has(item.id)) {
-        item.titleKr = translationCache.get(item.id);
+      if (translationCache.has(item.title)) {
+        item.titleKr = translationCache.get(item.title);
       }
     }
 

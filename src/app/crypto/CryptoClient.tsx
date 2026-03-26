@@ -801,6 +801,7 @@ function NewsTab() {
                 display: "block", padding: "14px 16px",
                 borderBottom: i < news.length - 1 ? "1px solid #1f2937" : "none",
                 textDecoration: "none", transition: "background 0.15s",
+                cursor: "pointer",
               }}
               onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.03)"}
               onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
