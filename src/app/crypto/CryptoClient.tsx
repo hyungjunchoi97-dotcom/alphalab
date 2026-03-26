@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -45,16 +45,6 @@ interface OnchainData {
   };
 }
 
-interface CryptoNewsItem {
-  id: number;
-  title: string;
-  titleKr?: string;
-  url: string;
-  source: string;
-  publishedAt: string;
-  currencies: string[];
-}
-
 // ── Style ────────────────────────────────────────────────────
 
 const S: React.CSSProperties = { fontFamily: "'IBM Plex Mono', monospace" };
@@ -91,14 +81,15 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 // ── Main ─────────────────────────────────────────────────────
 
+type CryptoTab = "supply" | "news";
+
 export default function CryptoClient() {
+  const [activeTab, setActiveTab] = useState<CryptoTab>("supply");
   const [supply, setSupply] = useState<SupplyData | null>(null);
   const [supplyLoading, setSupplyLoading] = useState(true);
   const [expandedSegment, setExpandedSegment] = useState<string | null>(null);
   const [onchain, setOnchain] = useState<OnchainData | null>(null);
   const [onchainLoading, setOnchainLoading] = useState(true);
-  const [cryptoNews, setCryptoNews] = useState<CryptoNewsItem[]>([]);
-  const [newsLoading, setNewsLoading] = useState(true);
 
   // Fetch supply
   useEffect(() => {
@@ -111,15 +102,6 @@ export default function CryptoClient() {
 
   useEffect(() => {
     fetch("/api/crypto/onchain").then(r => r.json()).then(j => { if (j.ok) setOnchain(j); }).catch(() => {}).finally(() => setOnchainLoading(false));
-  }, []);
-
-  useEffect(() => {
-    const fetchNews = () => {
-      fetch("/api/crypto/news").then(r => r.json()).then(j => { if (j.ok) setCryptoNews(j.news ?? []); }).catch(() => {}).finally(() => setNewsLoading(false));
-    };
-    fetchNews();
-    const newsInterval = setInterval(fetchNews, 15 * 60 * 1000);
-    return () => clearInterval(newsInterval);
   }, []);
 
   const d = supply;
@@ -147,6 +129,36 @@ export default function CryptoClient() {
       <style dangerouslySetInnerHTML={{ __html: `@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap');` }} />
       <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#f0f0f0" }}>
         <AppHeader active="crypto" />
+
+        {/* Tab bar */}
+        <div style={{ borderBottom: "1px solid #1f2937", background: "#0d1117" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 16px", display: "flex", gap: 0 }}>
+            {([
+              { key: "supply" as CryptoTab, label: "비트코인 공급" },
+              { key: "news" as CryptoTab, label: "뉴스" },
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  ...S, fontSize: 12, fontWeight: 600, padding: "10px 16px",
+                  background: "transparent", border: "none", cursor: "pointer",
+                  color: activeTab === tab.key ? "#f59e0b" : "#6b7280",
+                  borderBottom: activeTab === tab.key ? "2px solid #f59e0b" : "2px solid transparent",
+                  transition: "all 0.15s",
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* News tab */}
+        {activeTab === "news" && <NewsTab />}
+
+        {/* Supply tab */}
+        {activeTab === "supply" && (
         <main style={{ padding: "12px 16px", maxWidth: 1200, margin: "0 auto" }}>
 
           <h1 style={{ ...S, fontSize: 18, fontWeight: 700, color: "#ffffff", marginBottom: 16 }}>
@@ -571,61 +583,8 @@ export default function CryptoClient() {
             </div>
           )}
 
-          {/* ══════════ Section: Crypto Hot News ══════════ */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <SectionTitle>크립토 핫 뉴스</SectionTitle>
-            <a
-              href="/crypto/news"
-              style={{ ...S, fontSize: 11, color: "#6b7280", textDecoration: "none", transition: "color 0.15s" }}
-              onMouseEnter={(e) => e.currentTarget.style.color = "#f59e0b"}
-              onMouseLeave={(e) => e.currentTarget.style.color = "#6b7280"}
-            >
-              뉴스 전체보기 &rarr;
-            </a>
-          </div>
-          <div style={{ background: "#111", border: "1px solid #2a3441", borderRadius: 8, marginBottom: 24 }}>
-            {newsLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} style={{ padding: "10px 16px", borderBottom: "1px solid #1f2937" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <div style={{ height: 10, width: 50, background: "#1a1a1a", borderRadius: 3 }} />
-                    <div style={{ height: 10, width: 20, background: "#1a1a1a", borderRadius: 3 }} />
-                  </div>
-                  <Skel h={14} />
-                </div>
-              ))
-            ) : cryptoNews.length > 0 ? (
-              cryptoNews.slice(0, 5).map((n, i) => (
-                <a
-                  key={n.id}
-                  href={n.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: "block", padding: "10px 16px",
-                    borderBottom: i < 4 ? "1px solid #1f2937" : "none",
-                    textDecoration: "none", transition: "background 0.15s",
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
-                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                    {n.source ? (
-                      <span style={{ ...S, fontSize: 10, fontWeight: 600, color: "#f59e0b", background: "rgba(245,158,11,0.1)", padding: "1px 6px", borderRadius: 3 }}>
-                        {n.source}
-                      </span>
-                    ) : <span />}
-                    <span style={{ ...S, fontSize: 10, color: "#4b5563", flexShrink: 0 }}>{timeAgo(n.publishedAt)}</span>
-                  </div>
-                  <div style={{ ...S, fontSize: 13, color: "#e0e0e0", lineHeight: 1.5 }}>{n.title}</div>
-                </a>
-              ))
-            ) : (
-              <div style={{ padding: "24px 16px", textAlign: "center", ...S, fontSize: 12, color: "#9ca3af" }}>뉴스 데이터 없음</div>
-            )}
-          </div>
-
         </main>
+        )}
       </div>
     </>
   );
@@ -735,6 +694,155 @@ function HolderTable({ title, loading, rows, btcPrice, total, showRank, note }: 
           </div>
           {note && <div style={{ ...S, fontSize: 12, color: "#9ca3af", marginTop: 6 }}>{note}</div>}
         </>
+      )}
+    </div>
+  );
+}
+
+// ── NewsTab ─────────────────────────────────────────────────
+
+interface NewsItem {
+  id: number;
+  title: string;
+  titleKr?: string;
+  url: string;
+  source: string;
+  publishedAt: string;
+  currencies: string[];
+}
+
+const NEWS_PAGE_SIZE = 20;
+
+function NewsTab() {
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef(0);
+
+  const fetchNews = useCallback(async (offset: number, append: boolean) => {
+    if (append) setLoadingMore(true);
+    else setLoading(true);
+
+    try {
+      const res = await fetch(`/api/crypto/news?offset=${offset}&limit=${NEWS_PAGE_SIZE}`);
+      const json = await res.json();
+      if (json.ok) {
+        const items: NewsItem[] = json.news ?? [];
+        if (append) {
+          setNews(prev => {
+            const ids = new Set(prev.map(n => n.id));
+            return [...prev, ...items.filter(n => !ids.has(n.id))];
+          });
+        } else {
+          setNews(items);
+        }
+        setHasMore(json.hasMore ?? false);
+        offsetRef.current = offset + items.length;
+      }
+    } catch { /* */ }
+    finally { setLoading(false); setLoadingMore(false); }
+  }, []);
+
+  useEffect(() => {
+    fetchNews(0, false);
+    const iv = setInterval(() => { offsetRef.current = 0; fetchNews(0, false); }, 10 * 60 * 1000);
+    return () => clearInterval(iv);
+  }, [fetchNews]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+          fetchNews(offsetRef.current, true);
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading, fetchNews]);
+
+  return (
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px" }}>
+      <h2 style={{ ...S, fontSize: 15, fontWeight: 700, color: "#f59e0b", marginBottom: 16 }}>
+        크립토 핫 뉴스
+      </h2>
+
+      {loading ? (
+        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8 }}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} style={{ padding: "14px 16px", borderBottom: "1px solid #1f2937" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <div style={{ height: 10, width: 60, background: "#1a1a1a", borderRadius: 3 }} />
+                <div style={{ height: 10, width: 24, background: "#1a1a1a", borderRadius: 3 }} />
+              </div>
+              <div style={{ height: 14, width: "85%", background: "#1a1a1a", borderRadius: 3, marginBottom: 6 }} />
+              <div style={{ height: 12, width: "60%", background: "#151515", borderRadius: 3 }} />
+            </div>
+          ))}
+        </div>
+      ) : news.length === 0 ? (
+        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8, padding: "40px 16px", textAlign: "center", ...S, fontSize: 12, color: "#6b7280" }}>
+          뉴스 데이터 없음
+        </div>
+      ) : (
+        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8 }}>
+          {news.map((n, i) => (
+            <a
+              key={n.id}
+              href={n.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "block", padding: "14px 16px",
+                borderBottom: i < news.length - 1 ? "1px solid #1f2937" : "none",
+                textDecoration: "none", transition: "background 0.15s",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.03)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+            >
+              {/* Source + time */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                {n.source ? (
+                  <span style={{ ...S, fontSize: 10, fontWeight: 600, color: "#f59e0b", background: "rgba(245,158,11,0.1)", padding: "2px 7px", borderRadius: 3 }}>
+                    {n.source}
+                  </span>
+                ) : <span />}
+                <span style={{ ...S, fontSize: 10, color: "#4b5563", flexShrink: 0 }}>{timeAgo(n.publishedAt)}</span>
+              </div>
+
+              {/* English title */}
+              <div style={{ ...S, fontSize: 14, fontWeight: 600, color: "#ffffff", lineHeight: 1.6 }}>
+                {n.title}
+              </div>
+
+              {/* Korean translation */}
+              {n.titleKr && (
+                <div style={{ ...S, fontSize: 13, fontWeight: 500, color: "#e8e8e8", lineHeight: 1.5, marginTop: 4 }}>
+                  {n.titleKr}
+                </div>
+              )}
+            </a>
+          ))}
+
+          <div ref={sentinelRef} style={{ height: 1 }} />
+
+          {loadingMore && (
+            <div style={{ padding: "16px", textAlign: "center", ...S, fontSize: 11, color: "#6b7280" }}>
+              로딩 중...
+            </div>
+          )}
+
+          {!hasMore && news.length > 0 && (
+            <div style={{ padding: "16px", textAlign: "center", ...S, fontSize: 11, color: "#4b5563", borderTop: "1px solid #1f2937" }}>
+              모든 뉴스를 불러왔습니다
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
