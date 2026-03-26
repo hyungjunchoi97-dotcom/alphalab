@@ -19,25 +19,12 @@ interface NewsItem {
 
 let cache: CacheEntry | null = null;
 const CACHE_TTL = 10 * 60 * 1000;
-// title text -> Korean translation (keyed by title, not id, to avoid stale id mappings)
-const translationCache = new Map<string, string>();
 
-async function translateTitles(items: NewsItem[]): Promise<void> {
+async function translateTop5(items: NewsItem[]): Promise<void> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return;
 
-  const count = Math.min(5, items.length);
-
-  for (let i = 0; i < count; i++) {
-    const item = items[i];
-
-    // Check cache by title text (not id)
-    const cached = translationCache.get(item.title);
-    if (cached) {
-      item.titleKr = cached;
-      continue;
-    }
-
+  for (let i = 0; i < 5 && i < items.length; i++) {
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -48,28 +35,26 @@ async function translateTitles(items: NewsItem[]): Promise<void> {
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 200,
+          max_tokens: 100,
           messages: [{
             role: "user",
-            content: `다음 영어 제목을 한국어로 번역해줘. 번역된 제목 텍스트만 출력하고 다른 내용은 출력하지 마:\n${item.title}`,
+            content: `이 영어 제목을 한국어로 번역해줘. 번역문만 출력:\n${items[i].title}`,
           }],
         }),
       });
 
       if (res.ok) {
-        const json = await res.json();
-        const kr = (json.content?.[0]?.text ?? "").trim();
-        // Verify translation is unique and not empty
-        if (kr && kr !== item.title) {
-          translationCache.set(item.title, kr);
-          item.titleKr = kr;
-          console.log(`[crypto-news] translated [${i}]: "${item.title}" -> "${kr}"`);
+        const data = await res.json();
+        const kr = (data.content?.[0]?.text ?? "").trim();
+        if (kr && kr !== items[i].title && kr.length > 0) {
+          items[i].titleKr = kr;
         }
       }
-    } catch { /* continue with next item */ }
+    } catch {
+      // skip this item
+    }
 
-    // Small delay between API calls
-    if (i < count - 1) await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 300));
   }
 }
 
@@ -110,17 +95,10 @@ export async function GET(req: NextRequest) {
         currencies: (item.currencies ?? []).map((c: { code: string }) => c.code),
       }));
 
-      // Translate top 5 of the full dataset
-      await translateTitles(allNews);
+      // Translate top 5 only (no caching - fresh each time)
+      await translateTop5(allNews);
 
       cache = { data: allNews, cachedAt: Date.now() };
-    }
-
-    // Apply cached translations to items that have them
-    for (const item of cache.data) {
-      if (translationCache.has(item.title)) {
-        item.titleKr = translationCache.get(item.title);
-      }
     }
 
     const slice = cache.data.slice(offset, offset + limit);
