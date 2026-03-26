@@ -45,7 +45,16 @@ interface OnchainData {
   };
 }
 
-interface BtcNewsItem { title: string; url: string; source: string; publishedAt: string }
+interface CryptoNewsItem {
+  id: number;
+  title: string;
+  titleKr?: string;
+  url: string;
+  source: string;
+  publishedAt: string;
+  currencies: string[];
+  votes: { positive: number; negative: number; important: number };
+}
 
 // ── Style ────────────────────────────────────────────────────
 
@@ -89,7 +98,7 @@ export default function CryptoClient() {
   const [expandedSegment, setExpandedSegment] = useState<string | null>(null);
   const [onchain, setOnchain] = useState<OnchainData | null>(null);
   const [onchainLoading, setOnchainLoading] = useState(true);
-  const [btcNews, setBtcNews] = useState<BtcNewsItem[]>([]);
+  const [cryptoNews, setCryptoNews] = useState<CryptoNewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
 
   // Fetch supply
@@ -106,7 +115,12 @@ export default function CryptoClient() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/crypto/news").then(r => r.json()).then(j => { if (j.ok) setBtcNews(j.news ?? []); }).catch(() => {}).finally(() => setNewsLoading(false));
+    const fetchNews = () => {
+      fetch("/api/crypto/news").then(r => r.json()).then(j => { if (j.ok) setCryptoNews(j.news ?? []); }).catch(() => {}).finally(() => setNewsLoading(false));
+    };
+    fetchNews();
+    const newsInterval = setInterval(fetchNews, 15 * 60 * 1000);
+    return () => clearInterval(newsInterval);
   }, []);
 
   const d = supply;
@@ -558,36 +572,73 @@ export default function CryptoClient() {
             </div>
           )}
 
-          {/* ══════════ Section: Bitcoin News ══════════ */}
-          <SectionTitle>비트코인 뉴스</SectionTitle>
-          <div style={{ background: "#111", border: "1px solid #2a3441", borderRadius: 8, padding: "4px 0", marginBottom: 24 }}>
+          {/* ══════════ Section: Crypto Hot News ══════════ */}
+          <SectionTitle>크립토 핫 뉴스</SectionTitle>
+          <div style={{ background: "#111", border: "1px solid #2a3441", borderRadius: 8, marginBottom: 24, maxHeight: 600, overflowY: "auto" }}>
             {newsLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} style={{ padding: "10px 16px", borderBottom: "1px solid #1f2937" }}><Skel h={14} /></div>
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} style={{ padding: "12px 16px", borderBottom: "1px solid #1f2937" }}>
+                  <Skel h={12} />
+                  <div style={{ marginTop: 6 }}><Skel h={14} /></div>
+                  <div style={{ marginTop: 6 }}><Skel h={10} /></div>
+                </div>
               ))
-            ) : btcNews.length > 0 ? (
-              btcNews.map((n, i) => (
+            ) : cryptoNews.length > 0 ? (
+              cryptoNews.map((n, i) => (
                 <a
-                  key={i}
+                  key={n.id}
                   href={n.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
-                    display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 16px",
-                    borderBottom: i < btcNews.length - 1 ? "1px solid #1f2937" : "none",
-                    textDecoration: "none",
+                    display: "block", padding: "12px 16px",
+                    borderBottom: i < cryptoNews.length - 1 ? "1px solid #1f2937" : "none",
+                    textDecoration: "none", transition: "background 0.15s",
                   }}
-                  onMouseEnter={(e) => { const t = e.currentTarget.querySelector("span"); if (t) (t as HTMLElement).style.color = "#f59e0b"; }}
-                  onMouseLeave={(e) => { const t = e.currentTarget.querySelector("span"); if (t) (t as HTMLElement).style.color = "#e0e0e0"; }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                 >
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", flexShrink: 0, marginTop: 5 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ ...S, fontSize: 13, color: "#e0e0e0", lineHeight: 1.5, display: "block", transition: "color 0.15s" }}>{n.title}</span>
-                    <div style={{ display: "flex", gap: 8, marginTop: 3 }}>
-                      {n.source && <span style={{ ...S, fontSize: 11, color: "#9ca3af" }}>{n.source}</span>}
-                      <span style={{ ...S, fontSize: 11, color: "#9ca3af" }}>{timeAgo(n.publishedAt)}</span>
-                    </div>
+                  {/* Top row: source + currencies + time */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
+                    {n.source && (
+                      <span style={{ ...S, fontSize: 10, fontWeight: 600, color: "#f59e0b", background: "rgba(245,158,11,0.1)", padding: "1px 6px", borderRadius: 3 }}>
+                        {n.source}
+                      </span>
+                    )}
+                    {n.currencies.map(c => (
+                      <span key={c} style={{
+                        ...S, fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3,
+                        background: c === "BTC" ? "rgba(247,147,26,0.15)" : c === "ETH" ? "rgba(98,126,234,0.15)" : "rgba(255,255,255,0.08)",
+                        color: c === "BTC" ? "#f7931a" : c === "ETH" ? "#627eea" : "#9ca3af",
+                      }}>
+                        {c}
+                      </span>
+                    ))}
+                    <span style={{ ...S, fontSize: 10, color: "#6b7280", marginLeft: "auto", flexShrink: 0 }}>{timeAgo(n.publishedAt)}</span>
                   </div>
+
+                  {/* Title */}
+                  <div style={{ ...S, fontSize: 13, color: "#e0e0e0", lineHeight: 1.5 }}>{n.title}</div>
+
+                  {/* Korean translation (top 5 only) */}
+                  {n.titleKr && (
+                    <div style={{ ...S, fontSize: 11, color: "#9ca3af", lineHeight: 1.4, marginTop: 2 }}>{n.titleKr}</div>
+                  )}
+
+                  {/* Votes */}
+                  {(n.votes.positive > 0 || n.votes.important > 0) && (
+                    <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                      {n.votes.positive > 0 && (
+                        <span style={{ ...S, fontSize: 10, color: "#4ade80" }}>+{n.votes.positive}</span>
+                      )}
+                      {n.votes.negative > 0 && (
+                        <span style={{ ...S, fontSize: 10, color: "#f87171" }}>-{n.votes.negative}</span>
+                      )}
+                      {n.votes.important > 0 && (
+                        <span style={{ ...S, fontSize: 10, color: "#f59e0b" }}>important {n.votes.important}</span>
+                      )}
+                    </div>
+                  )}
                 </a>
               ))
             ) : (
