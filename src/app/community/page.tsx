@@ -598,6 +598,17 @@ export default function CommunityPage() {
                     {t("newPost")}
                   </button>
                 </div>
+
+                {/* Community stats */}
+                <div className="mt-4 border-t border-card-border pt-3 space-y-2">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted px-2">
+                    {lang === "kr" ? "커뮤니티" : "Community"}
+                  </h3>
+                  <div className="flex items-center gap-2 px-2">
+                    <span className="text-[11px] text-muted">{lang === "kr" ? "게시글" : "Posts"}</span>
+                    <span className="ml-auto text-[11px] font-medium text-foreground tabular-nums">{posts.length}</span>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -632,7 +643,7 @@ export default function CommunityPage() {
           </aside>
 
           {/* Center: feed */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             {/* Mobile category + new post */}
             <div className="flex flex-wrap items-center gap-2 lg:hidden">
               {MAIN_CATEGORIES.map((cat) => (
@@ -651,12 +662,6 @@ export default function CommunityPage() {
                   {t(MAIN_CAT_LABEL[cat])}
                 </button>
               ))}
-              <button
-                onClick={openEditor}
-                className="ml-auto rounded-lg bg-accent px-3 py-1 text-[11px] font-semibold text-white"
-              >
-                {t("newPost")}
-              </button>
             </div>
 
             {/* Mobile subcategory tabs */}
@@ -678,28 +683,66 @@ export default function CommunityPage() {
               </div>
             )}
 
-            {/* Sort tabs */}
-            <div className="flex gap-px rounded-lg bg-card-border p-0.5 w-fit">
-              {(["hot", "new", "top", "rising"] as SortMode[]).map((s) => (
+            {/* Create Post bar (Reddit-style) */}
+            <div
+              onClick={openEditor}
+              className="flex items-center gap-3 rounded-lg border border-card-border bg-card-bg px-3 py-2 cursor-pointer hover:border-foreground/20 transition-colors"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1a1a1a]">
+                <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
+                </svg>
+              </div>
+              <div className="flex-1 rounded-full border border-card-border bg-background px-4 py-1.5 text-xs text-muted">
+                {lang === "kr" ? "AlphaLab에 글 작성하기..." : "Create a post..."}
+              </div>
+              <svg className="h-5 w-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v13.5A1.5 1.5 0 003.75 21z" />
+              </svg>
+            </div>
+
+            {/* Sort tabs (Reddit-style with icons) */}
+            <div className="flex items-center gap-1 rounded-lg border border-card-border bg-card-bg px-2 py-1">
+              {([
+                { key: "hot" as SortMode, label: "Hot", icon: "M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" },
+                { key: "new" as SortMode, label: "New", icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" },
+                { key: "top" as SortMode, label: "Top", icon: "M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" },
+                { key: "rising" as SortMode, label: "Rising", icon: "M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" },
+              ]).map((s) => (
                 <button
-                  key={s}
-                  onClick={() => setSortMode(s)}
-                  className={`rounded-md px-3 py-1.5 text-[11px] font-medium capitalize transition-colors ${
-                    sortMode === s
-                      ? "bg-card-bg text-foreground shadow-sm"
-                      : "text-muted hover:text-foreground"
+                  key={s.key}
+                  onClick={() => setSortMode(s.key)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                    sortMode === s.key
+                      ? "bg-foreground/10 text-foreground"
+                      : "text-muted hover:bg-foreground/5 hover:text-foreground"
                   }`}
                 >
-                  {s}
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={s.icon} />
+                  </svg>
+                  {s.label}
                 </button>
               ))}
+              <span className="ml-auto text-[10px] text-muted tabular-nums">
+                {posts.length} {lang === "kr" ? "게시글" : "posts"}
+              </span>
             </div>
 
             {/* Posts */}
             {loading ? (
-              <div className="py-12 text-center text-xs text-muted">Loading...</div>
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="animate-pulse rounded-lg border border-card-border bg-card-bg p-3">
+                    <div className="flex gap-3">
+                      <div className="w-8 space-y-2"><div className="h-4 rounded bg-foreground/5" /><div className="h-3 rounded bg-foreground/5 mx-auto w-5" /></div>
+                      <div className="flex-1 space-y-2"><div className="h-3 rounded bg-foreground/5 w-1/3" /><div className="h-4 rounded bg-foreground/5 w-2/3" /><div className="h-3 rounded bg-foreground/5 w-full" /></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : sorted.length === 0 ? (
-              <div className="rounded-xl border border-card-border bg-card-bg p-8 text-center">
+              <div className="rounded-lg border border-card-border bg-card-bg p-8 text-center">
                 <p className="text-sm text-muted">{t("noPosts")}</p>
                 <p className="mt-1 text-[10px] text-muted/60">{t("writeFirst")}</p>
               </div>
@@ -778,83 +821,96 @@ function PostCard({
   return (
     <div
       onClick={onClick}
-      className="flex cursor-pointer rounded-xl border border-card-border bg-card-bg transition-colors hover:border-foreground/15"
+      className="flex cursor-pointer rounded-md border border-card-border bg-card-bg transition-colors hover:border-foreground/20"
     >
       {/* Vote column */}
-      <div className="flex flex-col items-center gap-0.5 px-2 py-3 border-r border-card-border/50">
+      <div className="flex w-10 shrink-0 flex-col items-center gap-0 rounded-l-md bg-foreground/[0.02] py-2">
         <button
           onClick={(e) => onLike(e, post.id)}
-          className={`rounded p-1 transition-colors ${liked ? "text-accent" : "text-muted hover:text-accent"}`}
+          className={`rounded p-0.5 transition-colors ${liked ? "text-accent" : "text-muted hover:text-accent"}`}
         >
           <svg className="h-5 w-5" fill={liked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
           </svg>
         </button>
-        <span className={`text-xs font-bold tabular-nums ${liked ? "text-accent" : "text-muted"}`}>
+        <span className={`text-[11px] font-bold tabular-nums leading-none ${liked ? "text-accent" : "text-muted"}`}>
           {post.likes}
         </span>
       </div>
 
       {/* Content */}
-      <div className="flex-1 px-2 sm:px-3 py-2 sm:py-3 min-w-0">
-        {/* Meta */}
-        <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted">
-          <span className={`rounded px-1.5 py-px text-[9px] font-semibold ${CAT_BADGE_COLOR[post.category] || CAT_BADGE_COLOR[mapCategory(post.category)] || "bg-muted/20 text-muted"}`}>
+      <div className="flex-1 py-1.5 px-2 sm:px-3 min-w-0">
+        {/* Meta row */}
+        <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted leading-none">
+          <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${CAT_BADGE_COLOR[post.category] || CAT_BADGE_COLOR[mapCategory(post.category)] || "bg-muted/20 text-muted"}`}>
             {getCatDisplayLabel(post.category, t)}
           </span>
           {post.subcategory && (
-            <span className={`rounded px-1.5 py-px text-[9px] font-medium ${SUB_BADGE_COLOR[post.subcategory] || "bg-muted/10 text-muted"}`}>
+            <span className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${SUB_BADGE_COLOR[post.subcategory] || "bg-muted/10 text-muted"}`}>
               {getSubDisplayLabel(post.subcategory, t)}
             </span>
           )}
           {post.symbol && (
-            <span className="rounded bg-accent/10 px-1.5 py-px text-[9px] font-medium text-accent">
+            <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[9px] font-medium text-accent">
               {post.symbol}
             </span>
           )}
+          <span className="text-muted/70">&middot;</span>
           <span>{post.author_nickname || post.author_email?.split("@")[0] || "anon"}</span>
-          <span>&middot;</span>
+          <span className="text-muted/70">&middot;</span>
           <span>{timeAgo(post.created_at)}</span>
         </div>
 
         {/* Title */}
-        <h3 className="mt-1.5 text-xs sm:text-[13px] font-semibold leading-snug">{post.title}</h3>
+        <h3 className="mt-1 text-sm font-semibold leading-snug text-foreground">{post.title}</h3>
 
         {/* Preview text */}
         {post.content && (
-          <p className="mt-1 text-[11px] text-muted line-clamp-2 leading-relaxed">
-            {post.content.length > 150 ? post.content.slice(0, 150) + "..." : post.content}
+          <p className="mt-0.5 text-[11px] text-muted/80 line-clamp-2 leading-relaxed">
+            {post.content.length > 200 ? post.content.slice(0, 200) + "..." : post.content}
           </p>
         )}
 
         {/* Image thumbnail */}
         {post.image_url && (
-          <div className="mt-2">
+          <div className="mt-1.5">
             <img
               src={post.image_url}
               alt=""
-              className="max-h-[120px] rounded-lg border border-card-border object-cover"
+              className="max-h-[100px] rounded border border-card-border object-cover"
             />
           </div>
         )}
 
-        {/* Actions */}
-        <div className="mt-2 flex items-center gap-3 text-[10px] text-muted">
-          <span className="flex items-center gap-1">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        {/* Action bar (Reddit-style) */}
+        <div className="mt-1.5 -ml-1 flex items-center gap-0 text-[11px] text-muted">
+          <button className="flex items-center gap-1 rounded-full px-2 py-1 hover:bg-foreground/5 transition-colors">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />
             </svg>
-            {post.commentCount} {t("commComment")}
-          </span>
+            {post.commentCount}
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              navigator.clipboard.writeText(`${window.location.origin}/community/${post.id}`);
+            }}
+            className="flex items-center gap-1 rounded-full px-2 py-1 hover:bg-foreground/5 transition-colors"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+            </svg>
+            Share
+          </button>
           {isAdmin && onDelete && (
             <button
               onClick={(e) => onDelete(e, post.id)}
-              className="ml-auto flex items-center gap-1 text-red-500 hover:text-red-400 transition-colors"
+              className="flex items-center gap-1 rounded-full px-2 py-1 text-red-500/70 hover:bg-red-500/10 hover:text-red-400 transition-colors"
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
               </svg>
-              삭제
             </button>
           )}
         </div>

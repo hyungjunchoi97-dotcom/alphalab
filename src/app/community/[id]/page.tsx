@@ -205,7 +205,9 @@ export default function PostDetailPage() {
     finally { setCommentSubmitting(false); }
   };
 
-  const canDelete = session?.user?.email === post?.author_email || session?.user?.email === ADMIN_EMAIL;
+  const isAdmin = session?.user?.email === ADMIN_EMAIL;
+  const canDelete = isAdmin || (session?.user?.email != null && session?.user?.email === post?.author_email);
+  console.log("canDelete debug:", { userEmail: session?.user?.email, authorEmail: post?.author_email, isAdmin, canDelete });
 
   const handleDeletePost = async () => {
     if (!session || !post) return;
