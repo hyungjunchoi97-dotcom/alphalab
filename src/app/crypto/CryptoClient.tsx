@@ -53,7 +53,6 @@ interface CryptoNewsItem {
   source: string;
   publishedAt: string;
   currencies: string[];
-  votes: { positive: number; negative: number; important: number };
 }
 
 // ── Style ────────────────────────────────────────────────────
@@ -584,71 +583,41 @@ export default function CryptoClient() {
               뉴스 전체보기 &rarr;
             </a>
           </div>
-          <div style={{ background: "#111", border: "1px solid #2a3441", borderRadius: 8, marginBottom: 24, maxHeight: 600, overflowY: "auto" }}>
+          <div style={{ background: "#111", border: "1px solid #2a3441", borderRadius: 8, marginBottom: 24 }}>
             {newsLoading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} style={{ padding: "12px 16px", borderBottom: "1px solid #1f2937" }}>
-                  <Skel h={12} />
-                  <div style={{ marginTop: 6 }}><Skel h={14} /></div>
-                  <div style={{ marginTop: 6 }}><Skel h={10} /></div>
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} style={{ padding: "10px 16px", borderBottom: "1px solid #1f2937" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <div style={{ height: 10, width: 50, background: "#1a1a1a", borderRadius: 3 }} />
+                    <div style={{ height: 10, width: 20, background: "#1a1a1a", borderRadius: 3 }} />
+                  </div>
+                  <Skel h={14} />
                 </div>
               ))
             ) : cryptoNews.length > 0 ? (
-              cryptoNews.map((n, i) => (
+              cryptoNews.slice(0, 5).map((n, i) => (
                 <a
                   key={n.id}
                   href={n.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
-                    display: "block", padding: "12px 16px",
-                    borderBottom: i < cryptoNews.length - 1 ? "1px solid #1f2937" : "none",
+                    display: "block", padding: "10px 16px",
+                    borderBottom: i < 4 ? "1px solid #1f2937" : "none",
                     textDecoration: "none", transition: "background 0.15s",
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
                   onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                 >
-                  {/* Top row: source + currencies + time */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-                    {n.source && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                    {n.source ? (
                       <span style={{ ...S, fontSize: 10, fontWeight: 600, color: "#f59e0b", background: "rgba(245,158,11,0.1)", padding: "1px 6px", borderRadius: 3 }}>
                         {n.source}
                       </span>
-                    )}
-                    {n.currencies.map(c => (
-                      <span key={c} style={{
-                        ...S, fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 3,
-                        background: c === "BTC" ? "rgba(247,147,26,0.15)" : c === "ETH" ? "rgba(98,126,234,0.15)" : "rgba(255,255,255,0.08)",
-                        color: c === "BTC" ? "#f7931a" : c === "ETH" ? "#627eea" : "#9ca3af",
-                      }}>
-                        {c}
-                      </span>
-                    ))}
-                    <span style={{ ...S, fontSize: 10, color: "#6b7280", marginLeft: "auto", flexShrink: 0 }}>{timeAgo(n.publishedAt)}</span>
+                    ) : <span />}
+                    <span style={{ ...S, fontSize: 10, color: "#4b5563", flexShrink: 0 }}>{timeAgo(n.publishedAt)}</span>
                   </div>
-
-                  {/* Title */}
                   <div style={{ ...S, fontSize: 13, color: "#e0e0e0", lineHeight: 1.5 }}>{n.title}</div>
-
-                  {/* Korean translation (top 5 only) */}
-                  {n.titleKr && (
-                    <div style={{ ...S, fontSize: 11, color: "#9ca3af", lineHeight: 1.4, marginTop: 2 }}>{n.titleKr}</div>
-                  )}
-
-                  {/* Votes */}
-                  {(n.votes.positive > 0 || n.votes.important > 0) && (
-                    <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                      {n.votes.positive > 0 && (
-                        <span style={{ ...S, fontSize: 10, color: "#4ade80" }}>+{n.votes.positive}</span>
-                      )}
-                      {n.votes.negative > 0 && (
-                        <span style={{ ...S, fontSize: 10, color: "#f87171" }}>-{n.votes.negative}</span>
-                      )}
-                      {n.votes.important > 0 && (
-                        <span style={{ ...S, fontSize: 10, color: "#f59e0b" }}>important {n.votes.important}</span>
-                      )}
-                    </div>
-                  )}
                 </a>
               ))
             ) : (

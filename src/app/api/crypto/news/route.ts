@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -15,11 +15,10 @@ interface NewsItem {
   source: string;
   publishedAt: string;
   currencies: string[];
-  votes: { positive: number; negative: number; important: number };
 }
 
 let cache: CacheEntry | null = null;
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const CACHE_TTL = 10 * 60 * 1000;
 const translationCache = new Map<number, string>();
 
 async function translateTitles(items: NewsItem[]): Promise<void> {
@@ -29,7 +28,6 @@ async function translateTitles(items: NewsItem[]): Promise<void> {
   const target = items.slice(0, 5);
 
   for (const item of target) {
-    // Skip if already cached
     if (translationCache.has(item.id)) {
       item.titleKr = translationCache.get(item.id);
       continue;
@@ -59,63 +57,72 @@ async function translateTitles(items: NewsItem[]): Promise<void> {
         if (kr) {
           translationCache.set(item.id, kr);
           item.titleKr = kr;
-          console.log("Translated:", item.title, "->", item.titleKr);
         }
       }
-    } catch {
-      // Translation failed for this item, continue
-    }
+    } catch { /* continue */ }
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    if (cache && Date.now() - cache.cachedAt < CACHE_TTL) {
-      return NextResponse.json({ ok: true, news: cache.data });
+    const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get("offset") ?? "0", 10) || 0);
+    const limit = Math.min(50, Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") ?? "20", 10) || 20));
+
+    // Fetch full dataset if cache is stale
+    if (!cache || Date.now() - cache.cachedAt >= CACHE_TTL) {
+      const apiKey = process.env.CRYPTOPANIC_API_KEY;
+      if (!apiKey) {
+        return NextResponse.json({ ok: true, news: [], hasMore: false });
+      }
+
+      const url = `https://cryptopanic.com/api/developer/v2/posts/?auth_token=${apiKey}&public=true&kind=news&limit=50`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+
+      if (!res.ok) {
+        if (cache) {
+          const slice = cache.data.slice(offset, offset + limit);
+          return NextResponse.json({ ok: true, news: slice, hasMore: offset + limit < cache.data.length, source: "stale" });
+        }
+        return NextResponse.json({ ok: true, news: [], hasMore: false });
+      }
+
+      const json = await res.json();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const results: any[] = json.results ?? [];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const allNews: NewsItem[] = results.map((item: any) => ({
+        id: item.id,
+        title: item.title ?? "",
+        url: item.url ?? "",
+        source: item.source?.title ?? item.domain ?? "",
+        publishedAt: item.published_at ?? new Date().toISOString(),
+        currencies: (item.currencies ?? []).map((c: { code: string }) => c.code),
+      }));
+
+      // Translate top 5 of the full dataset
+      await translateTitles(allNews);
+
+      cache = { data: allNews, cachedAt: Date.now() };
     }
 
-    const apiKey = process.env.CRYPTOPANIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ ok: true, news: [] });
+    // Apply cached translations to items that have them
+    for (const item of cache.data) {
+      if (translationCache.has(item.id)) {
+        item.titleKr = translationCache.get(item.id);
+      }
     }
 
-    const url = `https://cryptopanic.com/api/developer/v2/posts/?auth_token=${apiKey}&public=true&kind=news&limit=50`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const slice = cache.data.slice(offset, offset + limit);
+    const hasMore = offset + limit < cache.data.length;
 
-    if (!res.ok) {
-      if (cache) return NextResponse.json({ ok: true, news: cache.data, source: "stale" });
-      return NextResponse.json({ ok: true, news: [] });
-    }
-
-    const json = await res.json();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const results: any[] = json.results ?? [];
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const news: NewsItem[] = results.map((item: any) => ({
-      id: item.id,
-      title: item.title ?? "",
-      url: item.url ?? "",
-      source: item.source?.title ?? item.domain ?? "",
-      publishedAt: item.published_at ?? new Date().toISOString(),
-      currencies: (item.currencies ?? []).map((c: { code: string }) => c.code),
-      votes: {
-        positive: item.votes?.positive ?? 0,
-        negative: item.votes?.negative ?? 0,
-        important: item.votes?.important ?? 0,
-      },
-    }));
-
-    // Translate top 10 titles to Korean
-    await translateTitles(news);
-
-    cache = { data: news, cachedAt: Date.now() };
-
-    return NextResponse.json({ ok: true, news }, {
+    return NextResponse.json({ ok: true, news: slice, hasMore }, {
       headers: { "Cache-Control": "s-maxage=600, stale-while-revalidate=1200" },
     });
   } catch {
-    if (cache) return NextResponse.json({ ok: true, news: cache.data, source: "stale" });
-    return NextResponse.json({ ok: true, news: [] });
+    if (cache) {
+      return NextResponse.json({ ok: true, news: cache.data.slice(0, 20), hasMore: false, source: "stale" });
+    }
+    return NextResponse.json({ ok: true, news: [], hasMore: false });
   }
 }
