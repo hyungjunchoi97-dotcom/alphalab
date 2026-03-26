@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim()).filter(Boolean);
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "hyungjunchoi97@gmail.com").split(",").map(e => e.trim()).filter(Boolean);
 
 function isAdmin(email: string | undefined) {
   return !!email && ADMIN_EMAILS.includes(email.trim());

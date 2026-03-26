@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 export const runtime = "nodejs";
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "").split(",").map(e => e.trim()).filter(Boolean);
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "hyungjunchoi97@gmail.com").split(",").map(e => e.trim()).filter(Boolean);
 
 export async function DELETE(
   req: NextRequest,
