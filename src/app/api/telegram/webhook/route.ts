@@ -70,12 +70,16 @@ export async function POST(req: NextRequest) {
     console.log("[telegram webhook] received:", JSON.stringify(body));
 
     const message = body?.message;
-    const chatId = message?.chat?.id as number | undefined;
+    const chatId = Number(message?.chat?.id);
+    if (!chatId || isNaN(chatId)) return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
+
     const text = (message?.text ?? "").trim();
     const command = text.split(" ")[0].toLowerCase();
     const username = message?.from?.username ?? message?.from?.first_name ?? "";
 
-    if (!chatId || !text) return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
+    console.log("[telegram webhook] chatId:", chatId, "text:", text);
+
+    if (!text) return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
 
     // Match commands (/start) or button text ("전체 구독")
     const cmd = command; // first word, lowercased
