@@ -24,6 +24,10 @@ export const CHANNELS: ChannelConfig[] = [
   { username: "easobi", title: "easobi" },
   { username: "apt2me", title: "apt2me" },
   { username: "itcenstorwa", title: "itcenstorwa" },
+  { username: "dntjd0903", title: "dntjd0903" },
+  { username: "report_figure_by_offset", title: "Report Figure" },
+  { username: "yieldnspread", title: "Yield N Spread" },
+  { username: "Barbarian_Global_Tech", title: "Barbarian Global Tech" },
 ];
 
 interface CacheEntry {

@@ -62,6 +62,10 @@ const CHANNEL_COLORS: Record<string, string> = {
   hedgehara: "#22d3ee",
   aetherjapanresearch: "#34d399",
   daegurr: "#a78bfa",
+  dntjd0903: "#f43f5e",
+  report_figure_by_offset: "#06b6d4",
+  yieldnspread: "#84cc16",
+  Barbarian_Global_Tech: "#fb923c",
 };
 
 function renderTextWithLinks(text: string): React.ReactNode[] {
