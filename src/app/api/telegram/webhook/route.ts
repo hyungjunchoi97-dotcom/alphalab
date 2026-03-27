@@ -7,8 +7,11 @@ export const runtime = "nodejs";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
 
 async function reply(chatId: number, text: string, replyMarkup?: object) {
-  if (!BOT_TOKEN) return;
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+  if (!BOT_TOKEN) {
+    console.log("[reply] no BOT_TOKEN");
+    return;
+  }
+  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -18,6 +21,8 @@ async function reply(chatId: number, text: string, replyMarkup?: object) {
       ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
     }),
   });
+  const result = await res.json();
+  console.log("[reply result]", JSON.stringify(result));
 }
 
 const KEYBOARD = {
