@@ -98,7 +98,7 @@ thealphalabs.net/crypto`,
 ];
 
 export default function NewsletterPage() {
-  const { user, session, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading, openAuthModal } = useAuth();
 
   const [eligibility, setEligibility] = useState<EligibilityData | null>(null);
   const [eligLoading, setEligLoading] = useState(false);
@@ -173,7 +173,7 @@ export default function NewsletterPage() {
                 AlphaLab 계정으로 로그인한 후 텔레그램과 연결하세요.
               </p>
               <button
-                onClick={() => window.dispatchEvent(new CustomEvent("open-auth-modal"))}
+                onClick={() => openAuthModal()}
                 style={{
                   ...S, fontSize: 13, fontWeight: 700, padding: "10px 24px",
                   borderRadius: 6, border: "none", cursor: "pointer",
