@@ -24,18 +24,16 @@ export async function buildStockAlert(): Promise<string> {
     const res = await fetch(`${APP_URL}/api/ideas/screener`, { signal: AbortSignal.timeout(30000) });
     const json = await res.json();
     const items = (json.fomoKr ?? [])
-      .filter((i: { tag: string }) => i.tag === "VOLUME SPIKE")
       .sort((a: { volumeRatio: number }, b: { volumeRatio: number }) => b.volumeRatio - a.volumeRatio)
-      .slice(0, 3);
+      .slice(0, 5);
 
     if (items.length === 0) return "";
 
-    let msg = `AlphaLab 주식 알림 - ${today()}\n\n거래량 급증 종목 TOP 3\n`;
+    let msg = `AlphaLab 주식 알림 - ${today()}\n\n거래량 급증 종목 TOP 5\n`;
 
-    items.forEach((item: { nameKr?: string; name: string; ticker: string; volumeRatio: number; chgPct: number; tag: string }, i: number) => {
+    items.forEach((item: { nameKr?: string; name: string; ticker: string; volumeRatio: number; tag: string }, i: number) => {
       msg += `\n${i + 1}. ${item.nameKr || item.name} (${item.ticker})`;
       msg += `\n   거래량: 평균 대비 ${item.volumeRatio.toFixed(1)}배`;
-      msg += `\n   등락률: ${item.chgPct >= 0 ? "+" : ""}${item.chgPct.toFixed(1)}%`;
       msg += `\n   시그널: ${item.tag}\n`;
     });
 
