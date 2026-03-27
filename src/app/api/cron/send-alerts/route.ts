@@ -79,13 +79,11 @@ export async function GET(req: NextRequest) {
       }
 
       // Realestate - per user district preference
-      const { data: realestateSubs } = await supabaseAdmin
+      const { data: realestateSubs, error: realestateError } = await supabaseAdmin
         .from("telegram_realestate_watch")
-        .select("chat_id, district")
-        .not("chat_id", "is", null)
-        .not("district", "is", null);
-
-      console.log("[realestate] subs:", realestateSubs?.length);
+        .select("chat_id, district");
+      console.log("[realestate] query result:", JSON.stringify(realestateSubs), "error checking...");
+      console.log("[realestate] subs:", realestateSubs?.length, "error:", realestateError?.message);
       const districtCache: Record<string, string> = {};
       let reSent = 0, reFailed = 0;
       for (const sub of realestateSubs ?? []) {
