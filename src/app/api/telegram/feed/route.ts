@@ -28,6 +28,7 @@ export const CHANNELS: ChannelConfig[] = [
   { username: "survival_DoPB", title: "Survival DoPB" },
   { username: "yieldnspread", title: "Yield N Spread" },
   { username: "Barbarian_Global_Tech", title: "Barbarian Global Tech" },
+  { username: "WalterBloomberg", title: "Walter Bloomberg" },
 ];
 
 interface CacheEntry {
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
     if (channelParam && before) {
       const ch = CHANNELS.find((c) => c.username === channelParam);
       const title = ch?.title || channelParam;
-      const result = await scrapeChannelPage(channelParam, title, 15, before);
+      const result = await scrapeChannelPage(channelParam, title, 80, before);
       return NextResponse.json({
         ok: true,
         messages: result.messages,
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
       ? CHANNELS.filter((c) => c.username === channelParam)
       : CHANNELS;
 
-    const allMessages = await scrapeChannels(targets, 15);
+    const allMessages = await scrapeChannels(targets, 80);
 
     cache.set(cacheKey, { data: allMessages, cachedAt: Date.now() });
 

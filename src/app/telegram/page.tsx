@@ -133,7 +133,7 @@ function SkeletonMessage() {
   );
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 15;
 
 export default function TelegramPage() {
   const { lang } = useLang();
@@ -171,9 +171,10 @@ export default function TelegramPage() {
             ids[m.channel] = m.id;
           }
         }
-        // Assume more pages exist initially
+        // Check if channel has enough messages to likely have more
         for (const ch of (json.channels || [])) {
-          more[ch.username] = true;
+          const chMsgCount = msgs.filter((m: TelegramMessage) => m.channel === ch.username).length;
+          more[ch.username] = chMsgCount >= 80;
         }
         setOldestIds(ids);
         setHasMoreMap(more);
@@ -195,7 +196,7 @@ export default function TelegramPage() {
       const json = await res.json();
       if (json.ok) {
         const older: TelegramMessage[] = json.messages || [];
-        if (older.length === 0 || older.length < 15) {
+        if (older.length === 0 || older.length < 80) {
           setHasMoreMap((prev) => ({ ...prev, [channel]: false }));
         }
         if (older.length > 0) {
@@ -241,7 +242,7 @@ export default function TelegramPage() {
       for (const r of results) {
         if (r.status !== "fulfilled") continue;
         const { channel: ch, messages: msgs, count } = r.value;
-        if (count === 0 || count < 15) {
+        if (count === 0 || count < 80) {
           newMoreMap[ch] = false;
         }
         if (msgs.length > 0) {

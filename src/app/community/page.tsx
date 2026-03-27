@@ -476,7 +476,7 @@ export default function CommunityPage() {
   const [subcategory, setSubcategory] = useState<Subcategory>("all");
   const [sortMode, setSortMode] = useState<SortMode>("hot");
   const [showEditor, setShowEditor] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [viewTab, setViewTab] = useState<"all" | "popular" | "bot">("all");
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
   const fetchPosts = useCallback(async () => {
@@ -531,269 +531,263 @@ export default function CommunityPage() {
     requireAuth(() => router.push("/community/write"));
   };
 
-  const sorted = sortPosts(posts, sortMode);
+  // Filter by view tab
+  let filtered = sortPosts(posts, sortMode);
+  if (viewTab === "popular") filtered = filtered.filter(p => p.likes >= 3);
+  if (viewTab === "bot") filtered = filtered.filter(p => (p as Post & { is_bot?: boolean }).is_bot);
+
+  const isAdmin = session?.user?.email === "hyungjunchoi97@gmail.com";
+
+  const handleDelete = (e: React.MouseEvent, postId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!confirm("이 글을 삭제하시겠습니까?")) return;
+    fetch(`/api/community/posts/${postId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    })
+      .then((r) => r.json())
+      .then((json) => { if (json.ok) setPosts((prev) => prev.filter((p) => p.id !== postId)); });
+  };
+
+  const catLabel = (cat: string) => {
+    const mapped = mapCategory(cat);
+    if (mapped === "stock_discussion") return "종목";
+    if (mapped === "macro") return "매크로";
+    if (mapped === "free") return "자유";
+    return cat;
+  };
+
+  const catColor = (cat: string) => {
+    const mapped = mapCategory(cat);
+    if (mapped === "stock_discussion") return "#60a5fa";
+    if (mapped === "macro") return "#22d3ee";
+    if (mapped === "free") return "#9ca3af";
+    return "#9ca3af";
+  };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen" style={{ background: "#0a0a0a", color: "#e0e0e0" }}>
       <AppHeader active="community" />
 
-      <main className="w-full px-2 sm:px-4 py-3 sm:py-5">
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[auto_1fr]">
-          {/* Left sidebar: categories */}
-          <aside className={`hidden lg:flex flex-col transition-all duration-200 ${sidebarOpen ? "w-[200px]" : "w-[32px]"} shrink-0`}>
-            {/* 토글 버튼 */}
-            <button
-              onClick={() => setSidebarOpen(v => !v)}
-              className="flex items-center justify-center w-7 h-7 rounded hover:bg-card-border/50 text-muted hover:text-foreground transition-colors mb-2 ml-auto"
-              title={sidebarOpen ? "접기" : "펼치기"}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d={sidebarOpen ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} />
-              </svg>
-            </button>
+      <main style={{ maxWidth: 900, margin: "0 auto", padding: "16px 12px" }}>
 
-            {/* 카테고리 내용 - 펼쳐졌을 때만 표시 */}
-            {sidebarOpen && (
-              <div className="space-y-1">
-                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted px-2">
-                  {lang === "kr" ? "카테고리" : "Categories"}
-                </h3>
-                {MAIN_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => {
-                      setCategory(cat);
-                      setSubcategory("all");
-                    }}
-                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs transition-colors ${
-                      category === cat
-                        ? "bg-accent/10 text-accent font-medium"
-                        : "text-muted hover:text-foreground hover:bg-card-border/30"
-                    }`}
-                  >
-                    <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d={CAT_SIDEBAR_ICON[cat] || CAT_SIDEBAR_ICON.all} />
-                    </svg>
-                    {t(MAIN_CAT_LABEL[cat])}
-                  </button>
-                ))}
-
-                {category === "stock_discussion" && (
-                  <div className="ml-6 mt-1 space-y-0.5 border-l border-card-border pl-2">
-                    {SUBCATEGORIES.map((sub) => (
-                      <button
-                        key={sub}
-                        onClick={() => setSubcategory(sub)}
-                        className={`block w-full rounded px-2 py-1.5 text-left text-[11px] transition-colors ${
-                          subcategory === sub
-                            ? "text-accent font-medium"
-                            : "text-muted hover:text-foreground"
-                        }`}
-                      >
-                        {t(SUB_LABEL[sub])}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div className="mt-4 border-t border-card-border pt-3">
-                  <button
-                    onClick={openEditor}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    {t("newPost")}
-                  </button>
-                </div>
-
-                {/* Community stats */}
-                <div className="mt-4 border-t border-card-border pt-3 space-y-2">
-                  <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted px-2">
-                    {lang === "kr" ? "커뮤니티" : "Community"}
-                  </h3>
-                  <div className="flex items-center gap-2 px-2">
-                    <span className="text-[11px] text-muted">{lang === "kr" ? "게시글" : "Posts"}</span>
-                    <span className="ml-auto text-[11px] font-medium text-foreground tabular-nums">{posts.length}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 접혔을 때 아이콘만 표시 */}
-            {!sidebarOpen && (
-              <div className="flex flex-col items-center gap-3 mt-1">
-                {MAIN_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => { setCategory(cat); setSubcategory("all"); setSidebarOpen(true); }}
-                    className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${
-                      category === cat ? "bg-accent/10 text-accent" : "text-muted hover:text-foreground"
-                    }`}
-                    title={t(MAIN_CAT_LABEL[cat])}
-                  >
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d={CAT_SIDEBAR_ICON[cat] || CAT_SIDEBAR_ICON.all} />
-                    </svg>
-                  </button>
-                ))}
-                <button
-                  onClick={() => { openEditor(); setSidebarOpen(true); }}
-                  className="flex items-center justify-center w-7 h-7 rounded-lg bg-accent/10 text-accent hover:opacity-90 transition-colors mt-2"
-                  title={t("newPost")}
-                >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
-              </div>
-            )}
-          </aside>
-
-          {/* Center: feed */}
-          <div className="space-y-2">
-            {/* Mobile category + new post */}
-            <div className="flex flex-wrap items-center gap-2 lg:hidden">
-              {MAIN_CATEGORIES.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => {
-                    setCategory(cat);
-                    setSubcategory("all");
-                  }}
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
-                    category === cat
-                      ? "bg-accent text-white"
-                      : "bg-card-bg border border-card-border text-muted"
-                  }`}
-                >
-                  {t(MAIN_CAT_LABEL[cat])}
-                </button>
-              ))}
-            </div>
-
-            {/* Mobile subcategory tabs */}
-            {category === "stock_discussion" && (
-              <div className="flex gap-1 overflow-x-auto pb-1 lg:hidden">
-                {SUBCATEGORIES.map((sub) => (
-                  <button
-                    key={sub}
-                    onClick={() => setSubcategory(sub)}
-                    className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium transition-all ${
-                      subcategory === sub
-                        ? "bg-blue-500/20 text-blue-400"
-                        : "bg-card-bg border border-card-border text-muted"
-                    }`}
-                  >
-                    {t(SUB_LABEL[sub])}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Create Post bar (Reddit-style) */}
-            <div
-              onClick={openEditor}
-              className="flex items-center gap-3 rounded-lg border border-card-border bg-card-bg px-3 py-2 cursor-pointer hover:border-foreground/20 transition-colors"
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1a1a1a]">
-                <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
-                </svg>
-              </div>
-              <div className="flex-1 rounded-full border border-card-border bg-background px-4 py-1.5 text-xs text-muted">
-                {lang === "kr" ? "AlphaLab에 글 작성하기..." : "Create a post..."}
-              </div>
-              <svg className="h-5 w-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v13.5A1.5 1.5 0 003.75 21z" />
-              </svg>
-            </div>
-
-            {/* Sort tabs (Reddit-style with icons) */}
-            <div className="flex items-center gap-1 rounded-lg border border-card-border bg-card-bg px-2 py-1">
-              {([
-                { key: "hot" as SortMode, label: "Hot", icon: "M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" },
-                { key: "new" as SortMode, label: "New", icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" },
-                { key: "top" as SortMode, label: "Top", icon: "M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" },
-                { key: "rising" as SortMode, label: "Rising", icon: "M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" },
-              ]).map((s) => (
-                <button
-                  key={s.key}
-                  onClick={() => setSortMode(s.key)}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors ${
-                    sortMode === s.key
-                      ? "bg-foreground/10 text-foreground"
-                      : "text-muted hover:bg-foreground/5 hover:text-foreground"
-                  }`}
-                >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={s.icon} />
-                  </svg>
-                  {s.label}
-                </button>
-              ))}
-              <span className="ml-auto text-[10px] text-muted tabular-nums">
-                {posts.length} {lang === "kr" ? "게시글" : "posts"}
-              </span>
-            </div>
-
-            {/* Posts */}
-            {loading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="animate-pulse rounded-lg border border-card-border bg-card-bg p-3">
-                    <div className="flex gap-3">
-                      <div className="w-8 space-y-2"><div className="h-4 rounded bg-foreground/5" /><div className="h-3 rounded bg-foreground/5 mx-auto w-5" /></div>
-                      <div className="flex-1 space-y-2"><div className="h-3 rounded bg-foreground/5 w-1/3" /><div className="h-4 rounded bg-foreground/5 w-2/3" /><div className="h-3 rounded bg-foreground/5 w-full" /></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : sorted.length === 0 ? (
-              <div className="rounded-lg border border-card-border bg-card-bg p-8 text-center">
-                <p className="text-sm text-muted">{t("noPosts")}</p>
-                <p className="mt-1 text-[10px] text-muted/60">{t("writeFirst")}</p>
-              </div>
-            ) : (
-              sorted.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  liked={likedPosts.has(post.id)}
-                  onLike={handleLike}
-                  onClick={() => router.push(`/community/${post.id}`)}
-                  t={t}
-                  isAdmin={session?.user?.email === "hyungjunchoi97@gmail.com"}
-                  onDelete={(e, postId) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    if (!confirm("이 글을 삭제하시겠습니까?")) return;
-                    fetch(`/api/community/posts/${postId}`, {
-                      method: "DELETE",
-                      headers: { Authorization: `Bearer ${session?.access_token}` },
-                    })
-                      .then((r) => r.json())
-                      .then((json) => { if (json.ok) setPosts((prev) => prev.filter((p) => p.id !== postId)); });
-                  }}
-                />
-              ))
-            )}
+        {/* Board header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div>
+            <h1 style={{ fontSize: 16, fontWeight: 700, color: "#ffffff" }}>AlphaLab 커뮤니티</h1>
+            <p style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>
+              투자자 커뮤니티 | 총 {posts.length}개 게시글
+            </p>
           </div>
-
+          <button
+            onClick={openEditor}
+            className="hidden sm:flex"
+            style={{
+              fontSize: 12, fontWeight: 600, padding: "6px 16px",
+              background: "#f59e0b", color: "#000", border: "none",
+              borderRadius: 4, cursor: "pointer",
+            }}
+          >
+            글쓰기
+          </button>
         </div>
 
-        <button
-          onClick={openEditor}
-          className="fixed bottom-5 right-5 z-30 flex items-center justify-center w-12 h-12 rounded-full bg-accent shadow-lg lg:hidden"
-          aria-label="새 글 작성"
-        >
-          <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
-        <ShareButton title="AlphaLab 커뮤니티" description="투자자 커뮤니티 - 종목토론, 매크로, 자유게시판" />
+        {/* Category tabs (horizontal) */}
+        <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #1f2937", marginBottom: 0 }}>
+          {MAIN_CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => { setCategory(cat); setSubcategory("all"); }}
+              style={{
+                fontSize: 12, fontWeight: category === cat ? 600 : 400,
+                padding: "8px 14px", background: "transparent", border: "none",
+                borderBottom: category === cat ? "2px solid #f59e0b" : "2px solid transparent",
+                color: category === cat ? "#f59e0b" : "#6b7280",
+                cursor: "pointer", transition: "all 0.15s",
+              }}
+            >
+              {t(MAIN_CAT_LABEL[cat])}
+            </button>
+          ))}
+        </div>
+
+        {/* Subcategory tabs */}
+        {category === "stock_discussion" && (
+          <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #111", background: "#0d0d0d" }}>
+            {SUBCATEGORIES.map((sub) => (
+              <button
+                key={sub}
+                onClick={() => setSubcategory(sub)}
+                style={{
+                  fontSize: 11, padding: "6px 12px", background: "transparent", border: "none",
+                  color: subcategory === sub ? "#60a5fa" : "#555",
+                  fontWeight: subcategory === sub ? 600 : 400,
+                  cursor: "pointer",
+                }}
+              >
+                {t(SUB_LABEL[sub])}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* View tabs + sort */}
+        <div style={{ display: "flex", alignItems: "center", gap: 0, borderBottom: "1px solid #1a1a1a", background: "#0d0d0d" }}>
+          {([
+            { key: "all" as const, label: "전체글" },
+            { key: "popular" as const, label: "개념글" },
+            { key: "bot" as const, label: "AI 분석" },
+          ]).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setViewTab(tab.key)}
+              style={{
+                fontSize: 11, fontWeight: viewTab === tab.key ? 600 : 400,
+                padding: "7px 12px", background: "transparent", border: "none",
+                color: viewTab === tab.key ? "#e0e0e0" : "#555",
+                borderBottom: viewTab === tab.key ? "1px solid #e0e0e0" : "1px solid transparent",
+                cursor: "pointer",
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 2, padding: "0 8px" }}>
+            {(["new", "hot", "top"] as SortMode[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => setSortMode(s)}
+                style={{
+                  fontSize: 10, padding: "3px 8px", background: "transparent", border: "none",
+                  color: sortMode === s ? "#f59e0b" : "#555", cursor: "pointer",
+                  fontWeight: sortMode === s ? 600 : 400,
+                }}
+              >
+                {s === "new" ? "최신" : s === "hot" ? "인기" : "추천"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Table header */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "50px 60px 1fr 80px 60px 40px 40px",
+          padding: "6px 4px", borderBottom: "1px solid #1f2937",
+          fontSize: 10, color: "#555", fontWeight: 600,
+        }}>
+          <span>번호</span>
+          <span>말머리</span>
+          <span>제목</span>
+          <span>글쓴이</span>
+          <span>작성일</span>
+          <span style={{ textAlign: "center" }}>추천</span>
+          <span style={{ textAlign: "center" }}>댓글</span>
+        </div>
+
+        {/* Post rows */}
+        {loading ? (
+          Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "50px 60px 1fr 80px 60px 40px 40px", padding: "8px 4px", borderBottom: "1px solid #111" }}>
+              <div style={{ height: 12, width: 24, background: "#111", borderRadius: 2 }} />
+              <div style={{ height: 12, width: 36, background: "#111", borderRadius: 2 }} />
+              <div style={{ height: 12, width: "70%", background: "#111", borderRadius: 2 }} />
+              <div style={{ height: 12, width: 48, background: "#111", borderRadius: 2 }} />
+              <div style={{ height: 12, width: 32, background: "#111", borderRadius: 2 }} />
+              <div style={{ height: 12, width: 16, background: "#111", borderRadius: 2, margin: "0 auto" }} />
+              <div style={{ height: 12, width: 16, background: "#111", borderRadius: 2, margin: "0 auto" }} />
+            </div>
+          ))
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: "40px 0", textAlign: "center", fontSize: 12, color: "#555" }}>
+            {t("noPosts")}
+          </div>
+        ) : (
+          filtered.map((post, idx) => (
+            <div
+              key={post.id}
+              onClick={() => router.push(`/community/${post.id}`)}
+              style={{
+                display: "grid", gridTemplateColumns: "50px 60px 1fr 80px 60px 40px 40px",
+                padding: "8px 4px", borderBottom: "1px solid #111",
+                cursor: "pointer", transition: "background 0.1s", alignItems: "center",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "#111"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+            >
+              {/* 번호 */}
+              <span style={{ fontSize: 11, color: "#555", fontVariantNumeric: "tabular-nums" }}>
+                {filtered.length - idx}
+              </span>
+
+              {/* 말머리 */}
+              <span style={{ fontSize: 10, fontWeight: 600, color: catColor(post.category) }}>
+                {catLabel(post.category)}
+              </span>
+
+              {/* 제목 + 댓글수 + 삭제 */}
+              <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{
+                  fontSize: 13, color: "#e0e0e0", overflow: "hidden",
+                  textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>
+                  {post.title}
+                </span>
+                {post.commentCount > 0 && (
+                  <span style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, flexShrink: 0 }}>
+                    [{post.commentCount}]
+                  </span>
+                )}
+                {isAdmin && (
+                  <button
+                    onClick={(e) => handleDelete(e, post.id)}
+                    style={{
+                      fontSize: 9, color: "#ef4444", background: "transparent",
+                      border: "none", cursor: "pointer", marginLeft: 4, flexShrink: 0, padding: "0 2px",
+                    }}
+                  >
+                    X
+                  </button>
+                )}
+              </div>
+
+              {/* 글쓴이 */}
+              <span style={{ fontSize: 11, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {post.author_nickname || post.author_email?.split("@")[0] || "anon"}
+              </span>
+
+              {/* 작성일 */}
+              <span style={{ fontSize: 11, color: "#555" }}>
+                {timeAgo(post.created_at)}
+              </span>
+
+              {/* 추천 */}
+              <span style={{ fontSize: 11, color: post.likes > 0 ? "#f59e0b" : "#333", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+                {post.likes}
+              </span>
+
+              {/* 댓글 */}
+              <span style={{ fontSize: 11, color: post.commentCount > 0 ? "#60a5fa" : "#333", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+                {post.commentCount}
+              </span>
+            </div>
+          ))
+        )}
       </main>
+
+      {/* Mobile write FAB */}
+      <button
+        onClick={openEditor}
+        className="fixed bottom-5 right-5 z-30 flex items-center justify-center w-12 h-12 rounded-full shadow-lg sm:hidden"
+        style={{ background: "#f59e0b" }}
+        aria-label="글쓰기"
+      >
+        <svg className="h-5 w-5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+
+      <ShareButton title="AlphaLab 커뮤니티" description="투자자 커뮤니티 - 종목토론, 매크로, 자유게시판" />
 
       {showEditor && (
         <EditorOverlay
@@ -808,122 +802,3 @@ export default function CommunityPage() {
   );
 }
 
-// ── Post Card ──────────────────────────────────────────────────
-
-function PostCard({
-  post,
-  liked,
-  onLike,
-  onClick,
-  t,
-  isAdmin,
-  onDelete,
-}: {
-  post: Post;
-  liked: boolean;
-  onLike: (e: React.MouseEvent, id: string) => void;
-  onClick: () => void;
-  t: (key: MessageKey) => string;
-  isAdmin?: boolean;
-  onDelete?: (e: React.MouseEvent, id: string) => void;
-}) {
-  return (
-    <div
-      onClick={onClick}
-      className="flex cursor-pointer rounded-md border border-card-border bg-card-bg transition-colors hover:border-foreground/20"
-    >
-      {/* Vote column */}
-      <div className="flex w-10 shrink-0 flex-col items-center gap-0 rounded-l-md bg-foreground/[0.02] py-2">
-        <button
-          onClick={(e) => onLike(e, post.id)}
-          className={`rounded p-0.5 transition-colors ${liked ? "text-accent" : "text-muted hover:text-accent"}`}
-        >
-          <svg className="h-5 w-5" fill={liked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-          </svg>
-        </button>
-        <span className={`text-[11px] font-bold tabular-nums leading-none ${liked ? "text-accent" : "text-muted"}`}>
-          {post.likes}
-        </span>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 py-2 px-2 sm:px-3 min-w-0 min-h-[90px]">
-        {/* Meta row */}
-        <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted leading-none">
-          <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${CAT_BADGE_COLOR[post.category] || CAT_BADGE_COLOR[mapCategory(post.category)] || "bg-muted/20 text-muted"}`}>
-            {getCatDisplayLabel(post.category, t)}
-          </span>
-          {post.subcategory && (
-            <span className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${SUB_BADGE_COLOR[post.subcategory] || "bg-muted/10 text-muted"}`}>
-              {getSubDisplayLabel(post.subcategory, t)}
-            </span>
-          )}
-          {post.symbol && (
-            <span className="rounded bg-accent/10 px-1.5 py-0.5 text-[9px] font-medium text-accent">
-              {post.symbol}
-            </span>
-          )}
-          <span className="text-muted/70">&middot;</span>
-          <span>{post.author_nickname || post.author_email?.split("@")[0] || "anon"}</span>
-          <span className="text-muted/70">&middot;</span>
-          <span>{timeAgo(post.created_at)}</span>
-        </div>
-
-        {/* Title */}
-        <h3 className="mt-1 text-sm font-semibold leading-snug text-foreground">{post.title}</h3>
-
-        {/* Preview text */}
-        {post.content && (
-          <p className="mt-0.5 text-xs text-muted/80 line-clamp-4 leading-relaxed">
-            {post.content.length > 200 ? post.content.slice(0, 200) + "..." : post.content}
-          </p>
-        )}
-
-        {/* Image thumbnail */}
-        {post.image_url && (
-          <div className="mt-1.5">
-            <img
-              src={post.image_url}
-              alt=""
-              className="max-h-[100px] rounded border border-card-border object-cover"
-            />
-          </div>
-        )}
-
-        {/* Action bar (Reddit-style) */}
-        <div className="mt-1.5 -ml-1 flex items-center gap-0 text-[11px] text-muted">
-          <button className="flex items-center gap-1 rounded-full px-2 py-1 hover:bg-foreground/5 transition-colors">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />
-            </svg>
-            {post.commentCount}
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              navigator.clipboard.writeText(`${window.location.origin}/community/${post.id}`);
-            }}
-            className="flex items-center gap-1 rounded-full px-2 py-1 hover:bg-foreground/5 transition-colors"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-            </svg>
-            Share
-          </button>
-          {isAdmin && onDelete && (
-            <button
-              onClick={(e) => onDelete(e, post.id)}
-              className="flex items-center gap-1 rounded-full px-2 py-1 text-red-500/70 hover:bg-red-500/10 hover:text-red-400 transition-colors"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}

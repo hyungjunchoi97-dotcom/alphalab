@@ -67,6 +67,7 @@ const CHANNEL_COLORS: Record<string, string> = {
   survival_DoPB: "#e879f9",
   yieldnspread: "#84cc16",
   Barbarian_Global_Tech: "#fb923c",
+  WalterBloomberg: "#ef4444",
 };
 
 function renderTextWithLinks(text: string): React.ReactNode[] {
