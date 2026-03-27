@@ -11,17 +11,18 @@ import type { MessageKey } from "@/lib/i18n";
 
 // ── Constants ──────────────────────────────────────────────────
 
-type MainCategory = "all" | "stock_discussion" | "macro" | "free";
+type MainCategory = "all" | "stock_discussion" | "macro" | "free" | "ai";
 type Subcategory = "all" | "domestic" | "overseas" | "crypto" | "commodity" | "bond";
 type SortMode = "hot" | "new" | "top" | "rising";
 
-const MAIN_CATEGORIES: MainCategory[] = ["all", "stock_discussion", "macro", "free"];
+const MAIN_CATEGORIES: MainCategory[] = ["all", "stock_discussion", "macro", "free", "ai"];
 
 const MAIN_CAT_LABEL: Record<MainCategory, MessageKey> = {
   all: "catAll",
   stock_discussion: "catStockDiscussion",
   macro: "catMacroNew",
   free: "catFreeNew",
+  ai: "catAi",
 };
 
 const SUBCATEGORIES: Subcategory[] = ["all", "domestic", "overseas", "crypto", "commodity", "bond"];
@@ -42,6 +43,7 @@ const CAT_BADGE_COLOR: Record<string, string> = {
   stock_discussion: "bg-blue-500/20 text-blue-400",
   macro: "bg-cyan-500/20 text-cyan-400",
   free: "bg-gray-500/20 text-gray-400",
+  ai: "bg-emerald-500/20 text-emerald-400",
   // legacy
   stock: "bg-blue-500/20 text-blue-400",
   crypto: "bg-orange-500/20 text-orange-400",
@@ -66,6 +68,7 @@ const CAT_SIDEBAR_ICON: Record<string, string> = {
   stock_discussion: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6",
   macro: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
   free: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
+  ai: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z",
 };
 
 const DRAFT_KEY = "community_write_draft";
@@ -480,7 +483,11 @@ export default function CommunityPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (category !== "all") params.set("category", category);
+      if (category === "ai") {
+        params.set("is_bot", "true");
+      } else if (category !== "all") {
+        params.set("category", category);
+      }
       if (category === "stock_discussion" && subcategory !== "all") {
         params.set("subcategory", subcategory);
       }
@@ -866,8 +873,8 @@ function PostCard({
 
         {/* Preview text */}
         {post.content && (
-          <p className="mt-0.5 text-[11px] text-muted/80 line-clamp-2 leading-relaxed">
-            {post.content.length > 200 ? post.content.slice(0, 200) + "..." : post.content}
+          <p className="mt-0.5 text-xs text-muted/80 line-clamp-6 leading-relaxed">
+            {post.content.length > 400 ? post.content.slice(0, 400) + "..." : post.content}
           </p>
         )}
 

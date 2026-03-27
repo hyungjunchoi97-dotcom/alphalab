@@ -9,6 +9,7 @@ export async function GET(req: NextRequest) {
   try {
     const category = req.nextUrl.searchParams.get("category");
     const subcategory = req.nextUrl.searchParams.get("subcategory");
+    const isBot = req.nextUrl.searchParams.get("is_bot");
 
     let query = supabaseAdmin
       .from("posts")
@@ -16,7 +17,9 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(50);
 
-    if (category && category !== "all") {
+    if (isBot === "true") {
+      query = query.eq("is_bot", true);
+    } else if (category && category !== "all") {
       query = query.eq("category", category);
     }
     if (subcategory && subcategory !== "all") {
