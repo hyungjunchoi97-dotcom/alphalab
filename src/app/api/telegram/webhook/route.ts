@@ -8,6 +8,8 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
 const CACHE_HEADERS = { "Cache-Control": "no-store, no-cache, must-revalidate" };
 
 async function reply(chatId: string, text: string, replyMarkup?: object) {
+  console.log("[reply] sending to chatId:", chatId, typeof chatId);
+  console.log("[reply] BOT_TOKEN exists:", !!BOT_TOKEN, "length:", BOT_TOKEN.length);
   if (!BOT_TOKEN) {
     console.log("[reply] no BOT_TOKEN");
     return;
@@ -72,7 +74,10 @@ export async function POST(req: NextRequest) {
 
     const message = body?.message;
     // Keep chat_id as string to avoid JS number precision loss for large IDs
-    const chatId = String(message?.chat?.id ?? "");
+    const rawChatId = message?.chat?.id;
+    console.log("[debug] rawChatId type:", typeof rawChatId, "value:", rawChatId);
+    const chatId = String(rawChatId ?? "");
+    console.log("[debug] chatId string:", chatId);
     if (!chatId) return NextResponse.json({ ok: true }, { headers: CACHE_HEADERS });
 
     const text = (message?.text ?? "").trim();
