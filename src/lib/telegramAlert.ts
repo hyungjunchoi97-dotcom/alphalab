@@ -35,10 +35,10 @@ export async function buildStockAlert(): Promise<string> {
       .sort((a: { volumeRatio: number }, b: { volumeRatio: number }) => b.volumeRatio - a.volumeRatio)
       .slice(0, 5);
 
-    let msg = `AlphaLab 주식 알림 - ${today()}\n\n`;
+    let msg = `📈 AlphaLab 주식 알림 - ${today()}\n\n`;
 
     if (krItems.length > 0) {
-      msg += `한국 거래량 급증 TOP 5\n`;
+      msg += `🇰🇷 한국 거래량 급증 TOP 5\n`;
       krItems.forEach((item: { nameKr?: string; name: string; ticker: string; volumeRatio: number; tag: string }, i: number) => {
         msg += `${i + 1}. ${item.nameKr || item.name} (${item.ticker}) | ${item.volumeRatio.toFixed(1)}배 | ${item.tag}\n`;
       });
@@ -46,7 +46,7 @@ export async function buildStockAlert(): Promise<string> {
 
     const usNews = (usNewsJson?.news ?? []).slice(0, 3) as { headline: string; url: string }[];
     if (usNews.length > 0) {
-      msg += `\n미국 시장 주요 뉴스\n`;
+      msg += `\n🇺🇸 미국 시장 주요 뉴스\n`;
       usNews.forEach((n, i) => {
         if (n.url && n.url !== "#") {
           msg += `${i + 1}. <a href="${n.url}">${n.headline}</a>\n`;
@@ -58,7 +58,7 @@ export async function buildStockAlert(): Promise<string> {
 
     const krNews = (krNewsJson?.news ?? []).slice(0, 3) as { headline: string; url: string }[];
     if (krNews.length > 0) {
-      msg += `\n한국 시장 주요 뉴스\n`;
+      msg += `\n🇰🇷 한국 시장 주요 뉴스\n`;
       krNews.forEach((n, i) => {
         if (n.url && n.url !== "#") {
           msg += `${i + 1}. <a href="${n.url}">${n.headline}</a>\n`;
@@ -100,22 +100,25 @@ export async function buildMacroAlert(): Promise<string> {
     const fgLabel = fgScore != null
       ? (fgScore >= 75 ? "Extreme Greed" : fgScore >= 55 ? "Greed" : fgScore >= 45 ? "Neutral" : fgScore >= 25 ? "Fear" : "Extreme Fear")
       : null;
+    const fgEmoji = fgScore != null
+      ? (fgScore >= 75 ? "🤑" : fgScore >= 55 ? "😊" : fgScore >= 45 ? "😐" : fgScore >= 25 ? "😨" : "😱")
+      : "";
 
     const fmt = (v?: number) => v != null ? v.toLocaleString(undefined, { maximumFractionDigits: 1 }) : "-";
     const fmtPct = (v?: number) => v != null ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "";
 
-    let msg = `AlphaLab 매크로 브리핑 - ${today()}\n\n`;
-    if (fgScore != null) msg += `Fear &amp; Greed: ${fgScore} (${fgLabel})\n`;
-    if (sp500) msg += `S&amp;P500: ${fmt(sp500.value)} (${fmtPct(sp500.changePct)})\n`;
-    if (kospi) msg += `KOSPI: ${fmt(kospi.value)} (${fmtPct(kospi.changePct)})\n`;
-    if (wti) msg += `WTI 유가: $${fmt(wti.value)} (${fmtPct(wti.changePct)})\n`;
-    if (gold) msg += `금: $${fmt(gold.value)} (${fmtPct(gold.changePct)})\n`;
-    if (usdkrw) msg += `원달러 환율: ${fmt(usdkrw.value)}원 (${fmtPct(usdkrw.changePct)})\n`;
-    if (btc) msg += `비트코인: $${fmt(btc.value)} (${fmtPct(btc.changePct)})\n`;
+    let msg = `📊 AlphaLab 매크로 브리핑 - ${today()}\n\n`;
+    if (fgScore != null) msg += `${fgEmoji} Fear &amp; Greed: ${fgScore} (${fgLabel})\n`;
+    if (sp500) msg += `🇺🇸 S&amp;P500: ${fmt(sp500.value)} (${fmtPct(sp500.changePct)})\n`;
+    if (kospi) msg += `🇰🇷 KOSPI: ${fmt(kospi.value)} (${fmtPct(kospi.changePct)})\n`;
+    if (wti) msg += `🛢 WTI 유가: $${fmt(wti.value)} (${fmtPct(wti.changePct)})\n`;
+    if (gold) msg += `🥇 금: $${fmt(gold.value)} (${fmtPct(gold.changePct)})\n`;
+    if (usdkrw) msg += `💵 원달러 환율: ${fmt(usdkrw.value)}원 (${fmtPct(usdkrw.changePct)})\n`;
+    if (btc) msg += `₿ 비트코인: $${fmt(btc.value)} (${fmtPct(btc.changePct)})\n`;
 
     const news = (newsJson?.news ?? []).slice(0, 3) as { headline: string; url: string }[];
     if (news.length > 0) {
-      msg += `\n주요 뉴스\n`;
+      msg += `\n📰 주요 뉴스\n`;
       news.forEach((n, i) => {
         if (n.url && n.url !== "#") {
           msg += `${i + 1}. <a href="${n.url}">${n.headline}</a>\n`;
@@ -149,13 +152,13 @@ export async function buildCryptoAlert(): Promise<string> {
     const fmt = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 0 });
     const fmtPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
 
-    let msg = `AlphaLab 크립토 브리핑 - ${today()}\n\n`;
-    if (btc) msg += `비트코인: $${fmt(btc.value)} (${fmtPct(btc.changePct)})\n`;
-    if (eth) msg += `이더리움: $${fmt(eth.value)} (${fmtPct(eth.changePct)})\n`;
+    let msg = `🪙 AlphaLab 크립토 브리핑 - ${today()}\n\n`;
+    if (btc) msg += `₿ 비트코인: $${fmt(btc.value)} (${fmtPct(btc.changePct)})\n`;
+    if (eth) msg += `Ξ 이더리움: $${fmt(eth.value)} (${fmtPct(eth.changePct)})\n`;
 
     const news = (newsJson?.news ?? []).slice(0, 3) as { title: string; titleKr?: string; url?: string; link?: string }[];
     if (news.length > 0) {
-      msg += `\n주요 뉴스\n`;
+      msg += `\n📰 주요 뉴스\n`;
       news.forEach((n: { title: string; titleKr?: string; url?: string; link?: string }, i: number) => {
         const title = n.titleKr || n.title;
         const url = n.url || n.link;
@@ -189,13 +192,13 @@ export async function buildRealestateAlert(): Promise<string> {
     const dealYmd = seoulJson.dealYmd ?? "";
     const ym = dealYmd ? `${dealYmd.slice(0, 4)}.${dealYmd.slice(4, 6)}` : "";
 
-    let msg = `AlphaLab 부동산 브리핑 - ${today()}\n`;
+    let msg = `🏠 AlphaLab 부동산 브리핑 - ${today()}\n`;
     msg += `(${ym} 기준)\n`;
 
     // 1. 최고가 거래 TOP 5
     const topTrades = (seoulJson.recentTrades ?? []).slice(0, 5);
     if (topTrades.length > 0) {
-      msg += `\n최고가 거래 TOP 5\n`;
+      msg += `\n🏆 최고가 거래 TOP 5\n`;
       topTrades.forEach((t: { aptName: string; district: string; dong: string; area: number; floor: number; priceInBillion: number }, i: number) => {
         msg += `${i + 1}. ${t.aptName} (${t.district} ${t.dong}) ${t.priceInBillion}억 | ${Math.round(t.area)}㎡\n`;
       });
@@ -208,7 +211,7 @@ export async function buildRealestateAlert(): Promise<string> {
       .sort((a, b) => (b.change ?? 0) - (a.change ?? 0))
       .slice(0, 3);
     if (rising.length > 0) {
-      msg += `\n전월 대비 상승 구\n`;
+      msg += `\n📈 전월 대비 상승 구\n`;
       rising.forEach((d) => {
         msg += `${d.name}: ${d.avgPriceInBillion}억 (+${d.change}%)\n`;
       });
@@ -219,7 +222,7 @@ export async function buildRealestateAlert(): Promise<string> {
       .sort((a, b) => b.count - a.count)
       .slice(0, 3);
     if (active.length > 0) {
-      msg += `\n거래량 TOP 3\n`;
+      msg += `\n🔥 거래량 TOP 3\n`;
       active.forEach((d) => {
         msg += `${d.name}: ${d.count}건 | 평균 ${d.avgPriceInBillion}억\n`;
       });
@@ -228,7 +231,7 @@ export async function buildRealestateAlert(): Promise<string> {
     // 4. 부동산 뉴스
     const news = (newsJson?.news ?? []).slice(0, 3) as { title: string; url: string }[];
     if (news.length > 0) {
-      msg += `\n주요 뉴스\n`;
+      msg += `\n📰 주요 뉴스\n`;
       news.forEach((n: { title: string; url: string }, i: number) => {
         if (n.url) {
           msg += `${i + 1}. <a href="${n.url}">${n.title}</a>\n`;
