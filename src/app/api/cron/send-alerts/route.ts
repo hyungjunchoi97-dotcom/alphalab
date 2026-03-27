@@ -78,26 +78,20 @@ export async function GET(req: NextRequest) {
         results.push({ type: "crypto", sent: 0, failed: 0, error: "No crypto data" });
       }
 
-      // Realestate - per user district preference
-      const { data: realestateSubs, error: realestateError } = await supabaseAdmin
-        .from("telegram_realestate_watch")
-        .select("chat_id, district");
-      console.log("[realestate] query result:", JSON.stringify(realestateSubs), "error checking...");
-      console.log("[realestate] subs:", realestateSubs?.length, "error:", realestateError?.message);
-      const districtCache: Record<string, string> = {};
-      let reSent = 0, reFailed = 0;
-      for (const sub of realestateSubs ?? []) {
-        const district = sub.district;
-        if (!districtCache[district]) {
-          districtCache[district] = await buildRealestateAlert(district);
+      // Realestate
+      const realestateMsg = await buildRealestateAlert();
+      if (realestateMsg) {
+        const { data: realestateSubs } = await supabaseAdmin
+          .from("telegram_subscribers")
+          .select("chat_id")
+          .eq("is_active", true)
+          .eq("alerts_realestate", true);
+
+        let reSent = 0, reFailed = 0;
+        for (const sub of realestateSubs ?? []) {
+          const ok = await sendMessage(String(sub.chat_id), realestateMsg, "HTML");
+          if (ok) reSent++; else reFailed++;
         }
-        const msg = districtCache[district];
-        console.log("[realestate] msg for", district, ":", msg?.length, "chars");
-        if (!msg) continue;
-        const ok = await sendMessage(String(sub.chat_id), msg, "HTML");
-        if (ok) reSent++; else reFailed++;
-      }
-      if (reSent > 0 || reFailed > 0) {
         results.push({ type: "realestate", sent: reSent, failed: reFailed });
       }
     }

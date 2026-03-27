@@ -117,37 +117,67 @@ export async function buildCryptoAlert(): Promise<string> {
   }
 }
 
-export async function buildRealestateAlert(district: string): Promise<string> {
+export async function buildRealestateAlert(): Promise<string> {
   try {
-    console.log("[realestate alert] fetching for district:", district);
-    const res = await fetch(`${APP_URL}/api/realestate/seoul`, { signal: AbortSignal.timeout(55000) });
-    const json = await res.json();
-    console.log("[realestate alert] districtStatsMap keys:", Object.keys(json.districtStatsMap ?? {}).slice(0, 3));
-    if (!json.ok) return "";
+    const [seoulRes, newsRes] = await Promise.allSettled([
+      fetch(`${APP_URL}/api/realestate/seoul`, { signal: AbortSignal.timeout(55000) }),
+      fetch(`${APP_URL}/api/realestate/news?district=서울&limit=3`, { signal: AbortSignal.timeout(10000) }),
+    ]);
 
-    const districtData = json.districtStatsMap?.[district];
-    if (!districtData) {
-      console.log("[realestate alert] district not found:", district, "available:", Object.keys(json.districtStatsMap ?? {}));
-      return "";
-    }
+    const seoulJson = seoulRes.status === "fulfilled" ? await seoulRes.value.json() : null;
+    const newsJson = newsRes.status === "fulfilled" ? await newsRes.value.json() : null;
 
-    const topDeals = (districtData.topDeals ?? []).slice(0, 5);
-    if (topDeals.length === 0) return "";
+    if (!seoulJson?.ok) return "";
 
-    const avgBillion = districtData.avgPrice ? (Math.round(districtData.avgPrice / 1000) / 10) : 0;
+    const dealYmd = seoulJson.dealYmd ?? "";
+    const ym = dealYmd ? `${dealYmd.slice(0, 4)}.${dealYmd.slice(4, 6)}` : "";
 
     let msg = `AlphaLab 부동산 브리핑 - ${today()}\n`;
-    msg += `\n서울 ${district} 최근 거래\n`;
-    msg += `평균가: ${avgBillion}억 | 거래 ${districtData.count}건\n`;
+    msg += `(${ym} 기준)\n`;
 
-    topDeals.forEach((deal: { name: string; dong: string; area: number; floor: number; price: number; date: string }, i: number) => {
-      const billion = Math.round(deal.price / 1000) / 10;
-      msg += `\n${i + 1}. ${deal.name} (${deal.dong})`;
-      msg += `\n   ${billion}억 | ${deal.area}㎡ | ${deal.floor}층`;
-      msg += `\n   거래일: ${deal.date}`;
-    });
+    // 1. 최고가 거래 TOP 5
+    const topTrades = (seoulJson.recentTrades ?? []).slice(0, 5);
+    if (topTrades.length > 0) {
+      msg += `\n최고가 거래 TOP 5\n`;
+      topTrades.forEach((t: { aptName: string; district: string; dong: string; area: number; floor: number; priceInBillion: number }, i: number) => {
+        msg += `${i + 1}. ${t.aptName} (${t.district} ${t.dong}) ${t.priceInBillion}억 | ${Math.round(t.area)}㎡\n`;
+      });
+    }
 
-    msg += `\n\nthealphalabs.net/realestate`;
+    // 2. 구별 평균가 변동 TOP 3 (상승)
+    const districts = (seoulJson.districts ?? []) as { name: string; avgPriceInBillion: number; change: number | null; count: number }[];
+    const rising = districts
+      .filter((d) => d.change !== null && d.change > 0)
+      .sort((a, b) => (b.change ?? 0) - (a.change ?? 0))
+      .slice(0, 3);
+    if (rising.length > 0) {
+      msg += `\n전월 대비 상승 구\n`;
+      rising.forEach((d) => {
+        msg += `${d.name}: ${d.avgPriceInBillion}억 (+${d.change}%)\n`;
+      });
+    }
+
+    // 3. 거래량 급증 구 TOP 3
+    const active = [...districts]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+    if (active.length > 0) {
+      msg += `\n거래량 TOP 3\n`;
+      active.forEach((d) => {
+        msg += `${d.name}: ${d.count}건 | 평균 ${d.avgPriceInBillion}억\n`;
+      });
+    }
+
+    // 4. 부동산 뉴스
+    const news = (newsJson?.news ?? []).slice(0, 3) as { title: string }[];
+    if (news.length > 0) {
+      msg += `\n주요 뉴스\n`;
+      news.forEach((n, i) => {
+        msg += `${i + 1}. ${n.title}\n`;
+      });
+    }
+
+    msg += `\nthealphalabs.net/realestate`;
     return msg;
   } catch {
     return "";
