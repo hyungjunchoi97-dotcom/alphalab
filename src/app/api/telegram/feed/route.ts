@@ -12,7 +12,6 @@ export const CHANNELS: ChannelConfig[] = [
   { username: "corevalue", title: "Core Value" },
   { username: "slowstockT", title: "슬로우스탁" },
   { username: "pef_news", title: "PEF News" },
-  { username: "decoded_narratives", title: "Decoded Narratives" },
   { username: "bzcftel", title: "BZCF" },
   { username: "NittanyLionLand", title: "NittanyLionLand" },
   { username: "hedgehara", title: "Hedgehara" },
