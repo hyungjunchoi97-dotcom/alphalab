@@ -10,6 +10,7 @@ interface Message {
   text: string;
   date: number;
   link: string;
+  imageUrl?: string;
 }
 
 function timeAgo(ts: number): string {
@@ -72,6 +73,16 @@ function HeadlineCard({ msg }: { msg: Message }) {
       }}>
         {msg.text}
       </p>
+
+      {msg.imageUrl && (
+        <img
+          src={msg.imageUrl}
+          alt=""
+          loading="lazy"
+          style={{ maxWidth: "100%", borderRadius: 6, marginTop: 8, border: "1px solid #1a1a1a", cursor: "zoom-in" }}
+          onClick={() => window.open(msg.imageUrl, "_blank")}
+        />
+      )}
 
       {showKr && translated && (
         <p style={{

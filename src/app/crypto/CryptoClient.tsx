@@ -81,7 +81,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 // ── Main ─────────────────────────────────────────────────────
 
-type CryptoTab = "supply" | "news";
+type CryptoTab = "supply" | "news" | "telegram";
 
 export default function CryptoClient() {
   const [activeTab, setActiveTab] = useState<CryptoTab>("supply");
@@ -136,6 +136,7 @@ export default function CryptoClient() {
             {([
               { key: "supply" as CryptoTab, label: "비트코인 공급" },
               { key: "news" as CryptoTab, label: "뉴스" },
+              { key: "telegram" as CryptoTab, label: "텔레그램" },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -156,6 +157,9 @@ export default function CryptoClient() {
 
         {/* News tab */}
         {activeTab === "news" && <NewsTab />}
+
+        {/* Telegram tab */}
+        {activeTab === "telegram" && <WellsCryptoFeed />}
 
         {/* Supply tab */}
         {activeTab === "supply" && (
@@ -841,6 +845,206 @@ function NewsTab() {
           {!hasMore && news.length > 0 && (
             <div style={{ padding: "16px", textAlign: "center", ...S, fontSize: 11, color: "#4b5563", borderTop: "1px solid #1f2937" }}>
               모든 뉴스를 불러왔습니다
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Wells Crypto Telegram Feed ──────────────────────────────
+
+interface TgMsg {
+  id: number;
+  channel: string;
+  channelTitle: string;
+  text: string;
+  date: number;
+  link: string;
+  imageUrl?: string;
+}
+
+function tgTimeAgo(ts: number): string {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 60) return `${diff}s`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  return `${Math.floor(diff / 86400)}d`;
+}
+
+async function translateToKo(text: string): Promise<string> {
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ko&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    return json[0].map((i: [string]) => i[0]).join("");
+  } catch {
+    return "번역 실패";
+  }
+}
+
+function TgCard({ msg }: { msg: TgMsg }) {
+  const [expanded, setExpanded] = useState(false);
+  const [translated, setTranslated] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
+  const [showKr, setShowKr] = useState(false);
+
+  const lines = msg.text.split("\n");
+  const isLong = lines.length > 6;
+  const displayText = !expanded && isLong ? lines.slice(0, 6).join("\n") + "..." : msg.text;
+
+  const handleTranslate = async () => {
+    if (translated) { setShowKr(!showKr); return; }
+    setTranslating(true);
+    const result = await translateToKo(msg.text);
+    setTranslated(result);
+    setShowKr(true);
+    setTranslating(false);
+  };
+
+  return (
+    <div style={{ padding: "14px 16px", borderBottom: "1px solid #1f2937" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ ...S, fontSize: 11, fontWeight: 700, color: "#f59e0b" }}>Wells Crypto</span>
+        <span style={{ ...S, fontSize: 10, color: "#555" }}>{tgTimeAgo(msg.date)}</span>
+      </div>
+
+      <p style={{ ...S, fontSize: 13, color: "#e0e0e0", lineHeight: 1.7, margin: 0, whiteSpace: "pre-wrap" }}>
+        {displayText}
+      </p>
+
+      {isLong && !expanded && (
+        <button
+          onClick={() => setExpanded(true)}
+          style={{ ...S, fontSize: 11, color: "#f59e0b", background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: 4 }}
+        >
+          더보기
+        </button>
+      )}
+
+      {msg.imageUrl && (
+        <img
+          src={msg.imageUrl}
+          alt=""
+          loading="lazy"
+          style={{ maxWidth: "100%", borderRadius: 6, marginTop: 8, border: "1px solid #1a1a1a" }}
+        />
+      )}
+
+      {showKr && translated && (
+        <p style={{
+          ...S, fontSize: 13, color: "#ffffff", lineHeight: 1.7, margin: "8px 0 0",
+          background: "#0d1117", padding: "8px 12px", borderRadius: 6,
+          borderLeft: "2px solid #f59e0b", whiteSpace: "pre-wrap",
+        }}>
+          {translated}
+        </p>
+      )}
+
+      <button
+        onClick={handleTranslate}
+        style={{
+          marginTop: 8, ...S, fontSize: 11,
+          color: translating ? "#9ca3af" : showKr ? "#6b7280" : "#f59e0b",
+          background: "none", border: "none", cursor: "pointer", padding: 0,
+        }}
+      >
+        {translating ? "번역 중..." : showKr ? "원문 보기" : "🇰🇷 번역"}
+      </button>
+    </div>
+  );
+}
+
+function WellsCryptoFeed() {
+  const [messages, setMessages] = useState<TgMsg[]>([]);
+  const [oldestId, setOldestId] = useState<number | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch("/api/telegram/channel?channel=wells_crypto")
+      .then(r => r.json())
+      .then(json => {
+        if (json.ok) {
+          setMessages(json.messages || []);
+          setOldestId(json.oldestId ?? null);
+          setHasMore(json.hasMore ?? false);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const loadMore = async () => {
+    if (!oldestId || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/telegram/channel?channel=wells_crypto&before=${oldestId}`);
+      const json = await res.json();
+      if (json.ok) {
+        const older: TgMsg[] = json.messages || [];
+        if (older.length === 0) {
+          setHasMore(false);
+        } else {
+          setMessages(prev => {
+            const ids = new Set(prev.map(m => m.id));
+            return [...prev, ...older.filter(m => !ids.has(m.id))];
+          });
+          setOldestId(json.oldestId ?? null);
+          setHasMore(json.hasMore ?? false);
+        }
+      }
+    } catch { /* */ }
+    finally { setLoadingMore(false); }
+  };
+
+  return (
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px" }}>
+      <h2 style={{ ...S, fontSize: 15, fontWeight: 700, color: "#f59e0b", marginBottom: 16 }}>
+        Wells Crypto 텔레그램
+      </h2>
+
+      {loading ? (
+        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8 }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} style={{ padding: "14px 16px", borderBottom: "1px solid #1f2937" }}>
+              <div style={{ height: 10, width: 80, background: "#1a1a1a", borderRadius: 3, marginBottom: 8 }} />
+              <div style={{ height: 14, width: "90%", background: "#1a1a1a", borderRadius: 3, marginBottom: 6 }} />
+              <div style={{ height: 14, width: "70%", background: "#151515", borderRadius: 3 }} />
+            </div>
+          ))}
+        </div>
+      ) : messages.length === 0 ? (
+        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8, padding: "40px 16px", textAlign: "center", ...S, fontSize: 12, color: "#6b7280" }}>
+          메시지 없음
+        </div>
+      ) : (
+        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8 }}>
+          {messages.map(msg => (
+            <TgCard key={msg.id} msg={msg} />
+          ))}
+
+          {hasMore && (
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              style={{
+                width: "100%", padding: "12px", background: "none",
+                border: "none", borderTop: "1px solid #1f2937",
+                color: "#60a5fa", ...S, fontSize: 12, cursor: "pointer",
+                opacity: loadingMore ? 0.5 : 1,
+              }}
+            >
+              {loadingMore ? "불러오는 중..." : "이전 글 더 보기"}
+            </button>
+          )}
+
+          {!hasMore && messages.length > 0 && (
+            <div style={{ padding: "16px", textAlign: "center", ...S, fontSize: 11, color: "#4b5563", borderTop: "1px solid #1f2937" }}>
+              모든 메시지를 불러왔습니다
             </div>
           )}
         </div>
