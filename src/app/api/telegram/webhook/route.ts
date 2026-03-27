@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
 
+export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
@@ -61,8 +62,9 @@ async function upsertSubscriber(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    console.log("[telegram webhook] received:", JSON.stringify(body));
     const message = body.message;
-    if (!message?.text) return NextResponse.json({ ok: true });
+    if (!message?.text) return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
 
     const chatId = message.chat.id as number;
     const username = message.from?.username ?? message.from?.first_name ?? "";
@@ -151,9 +153,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
   } catch (e) {
     console.error("[telegram-webhook]", e);
-    return NextResponse.json({ ok: true }); // Always 200 to Telegram
+    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }); // Always 200 to Telegram
   }
 }
