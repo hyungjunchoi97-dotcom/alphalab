@@ -30,10 +30,7 @@ async function reply(chatId: string, text: string, replyMarkup?: object) {
 
 const KEYBOARD = {
   keyboard: [
-    [{ text: "전체 구독" }, { text: "주식만" }],
-    [{ text: "매크로만" }, { text: "크립토만" }],
-    [{ text: "부동산만" }, { text: "내 구독 확인" }],
-    [{ text: "구독 취소" }],
+    [{ text: "구독하기" }, { text: "구독 취소" }],
   ],
   resize_keyboard: true,
 };
@@ -63,7 +60,7 @@ async function upsertSubscriber(
         alerts_stock: updates.alerts_stock ?? true,
         alerts_macro: updates.alerts_macro ?? true,
         alerts_crypto: updates.alerts_crypto ?? true,
-        alerts_realestate: updates.alerts_realestate ?? false,
+        alerts_realestate: updates.alerts_realestate ?? true,
         is_active: updates.is_active ?? true,
       });
   }
@@ -93,39 +90,19 @@ export async function POST(req: NextRequest) {
     const full = text;
 
     if (cmd === "/start") {
-      await reply(
-        chatId,
-        "AlphaLab 데일리 브리핑 봇입니다.\n\n아래에서 받고 싶은 알림을 선택하세요.",
-        KEYBOARD
-      );
       await upsertSubscriber(chatId, username, {
         alerts_stock: true, alerts_macro: true, alerts_crypto: true, alerts_realestate: true, is_active: true,
       });
-    } else if (cmd === "/전체" || full === "전체 구독") {
+      await reply(
+        chatId,
+        "AlphaLab 데일리 브리핑 봇입니다.\n\n전체 알림이 구독되었습니다.\n\n- 주식 알림 (평일 09:30)\n- 매크로 브리핑 (매일 08:00)\n- 크립토 브리핑 (매일 08:00)\n- 부동산 브리핑 (매일 08:00)\n\n구독을 취소하려면 '구독 취소' 버튼을 누르세요.",
+        KEYBOARD
+      );
+    } else if (cmd === "/전체" || full === "전체 구독" || full === "구독하기") {
       await upsertSubscriber(chatId, username, {
         alerts_stock: true, alerts_macro: true, alerts_crypto: true, alerts_realestate: true, is_active: true,
       });
       await reply(chatId, "전체 알림을 구독했습니다.\n\n- 주식 알림 (평일 09:30)\n- 매크로 브리핑 (매일 08:00)\n- 크립토 브리핑 (매일 08:00)\n- 부동산 브리핑 (매일 08:00)", KEYBOARD);
-    } else if (cmd === "/주식" || full === "주식만") {
-      await upsertSubscriber(chatId, username, {
-        alerts_stock: true, alerts_macro: false, alerts_crypto: false, alerts_realestate: false, is_active: true,
-      });
-      await reply(chatId, "주식 알림만 구독했습니다.\n발송 시간: 평일 09:30", KEYBOARD);
-    } else if (cmd === "/매크로" || full === "매크로만") {
-      await upsertSubscriber(chatId, username, {
-        alerts_stock: false, alerts_macro: true, alerts_crypto: false, alerts_realestate: false, is_active: true,
-      });
-      await reply(chatId, "매크로 브리핑만 구독했습니다.\n발송 시간: 매일 08:00", KEYBOARD);
-    } else if (cmd === "/크립토" || full === "크립토만") {
-      await upsertSubscriber(chatId, username, {
-        alerts_stock: false, alerts_macro: false, alerts_crypto: true, alerts_realestate: false, is_active: true,
-      });
-      await reply(chatId, "크립토 브리핑만 구독했습니다.\n발송 시간: 매일 08:00", KEYBOARD);
-    } else if (cmd === "/부동산" || full === "부동산만") {
-      await upsertSubscriber(chatId, username, {
-        alerts_stock: false, alerts_macro: false, alerts_crypto: false, alerts_realestate: true, is_active: true,
-      });
-      await reply(chatId, "부동산 브리핑만 구독했습니다.\n발송 시간: 매일 08:00", KEYBOARD);
     } else if (cmd === "/link") {
       const code = text.split(" ")[1]?.toUpperCase().trim();
       if (!code) {
@@ -168,18 +145,18 @@ export async function POST(req: NextRequest) {
                 alerts_stock: true,
                 alerts_macro: true,
                 alerts_crypto: true,
-                alerts_realestate: false,
+                alerts_realestate: true,
                 is_active: true,
               });
           }
 
-          await reply(chatId, "AlphaLab 계정과 연결되었습니다!\n\n이제 뉴스레터를 받을 수 있어요.\n받고 싶은 알림을 선택하세요.", KEYBOARD);
+          await reply(chatId, "AlphaLab 계정과 연결되었습니다!\n\n이제 뉴스레터를 받을 수 있어요.", KEYBOARD);
         }
       }
     } else if (cmd === "/구독취소" || full === "구독 취소") {
       await upsertSubscriber(chatId, username, { is_active: false });
-      await reply(chatId, "모든 알림 구독이 취소되었습니다.\n다시 구독하려면 /start 를 입력하세요.", KEYBOARD);
-    } else if (cmd === "/내구독" || full === "내 구독 확인") {
+      await reply(chatId, "모든 알림 구독이 취소되었습니다.\n다시 구독하려면 '구독하기' 버튼을 누르세요.", KEYBOARD);
+    } else if (cmd === "/내구독") {
       const { data } = await supabaseAdmin
         .from("telegram_subscribers")
         .select("alerts_stock, alerts_macro, alerts_crypto, alerts_realestate, is_active, user_id")
@@ -187,7 +164,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       if (!data || !data.is_active) {
-        await reply(chatId, "현재 구독 중인 알림이 없습니다.\n/start 로 구독을 시작하세요.", KEYBOARD);
+        await reply(chatId, "현재 구독 중인 알림이 없습니다.\n'구독하기' 버튼을 눌러 구독을 시작하세요.", KEYBOARD);
       } else {
         const lines = ["현재 구독 상태:"];
         lines.push(`- 주식 알림: ${data.alerts_stock ? "ON" : "OFF"}`);
@@ -198,7 +175,7 @@ export async function POST(req: NextRequest) {
         await reply(chatId, lines.join("\n"), KEYBOARD);
       }
     } else {
-      await reply(chatId, "아래 버튼을 사용하거나 명령어를 입력해 주세요.\n\n/전체 /주식 /매크로 /크립토 /부동산 /내구독 /구독취소 /link", KEYBOARD);
+      await reply(chatId, "아래 버튼을 사용하거나 명령어를 입력해 주세요.\n\n/전체 /내구독 /구독취소 /link", KEYBOARD);
     }
 
     return NextResponse.json({ ok: true }, { headers: CACHE_HEADERS });

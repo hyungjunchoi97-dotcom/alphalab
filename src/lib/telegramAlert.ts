@@ -89,7 +89,8 @@ export async function buildMacroAlert(): Promise<string> {
 
     const market = (ticker?.market ?? []) as { label: string; value: number; changePct: number }[];
     const find = (label: string) => market.find(m => m.label === label);
-    const nasdaq = find("NASDAQ");
+    const sp500 = find("S&P 500");
+    const kospi = find("KOSPI");
     const wti = find("WTI Oil");
     const gold = find("Gold");
     const usdkrw = find("USD/KRW");
@@ -105,7 +106,8 @@ export async function buildMacroAlert(): Promise<string> {
 
     let msg = `AlphaLab 매크로 브리핑 - ${today()}\n\n`;
     if (fgScore != null) msg += `Fear &amp; Greed: ${fgScore} (${fgLabel})\n`;
-    if (nasdaq) msg += `나스닥: ${fmt(nasdaq.value)} (${fmtPct(nasdaq.changePct)})\n`;
+    if (sp500) msg += `S&amp;P500: ${fmt(sp500.value)} (${fmtPct(sp500.changePct)})\n`;
+    if (kospi) msg += `KOSPI: ${fmt(kospi.value)} (${fmtPct(kospi.changePct)})\n`;
     if (wti) msg += `WTI 유가: $${fmt(wti.value)} (${fmtPct(wti.changePct)})\n`;
     if (gold) msg += `금: $${fmt(gold.value)} (${fmtPct(gold.changePct)})\n`;
     if (usdkrw) msg += `원달러 환율: ${fmt(usdkrw.value)}원 (${fmtPct(usdkrw.changePct)})\n`;
@@ -151,13 +153,14 @@ export async function buildCryptoAlert(): Promise<string> {
     if (btc) msg += `비트코인: $${fmt(btc.value)} (${fmtPct(btc.changePct)})\n`;
     if (eth) msg += `이더리움: $${fmt(eth.value)} (${fmtPct(eth.changePct)})\n`;
 
-    const news = (newsJson?.news ?? []).slice(0, 3) as { title: string; titleKr?: string; url?: string }[];
+    const news = (newsJson?.news ?? []).slice(0, 3) as { title: string; titleKr?: string; url?: string; link?: string }[];
     if (news.length > 0) {
       msg += `\n주요 뉴스\n`;
-      news.forEach((n, i) => {
+      news.forEach((n: { title: string; titleKr?: string; url?: string; link?: string }, i: number) => {
         const title = n.titleKr || n.title;
-        if (n.url) {
-          msg += `${i + 1}. <a href="${n.url}">${title}</a>\n`;
+        const url = n.url || n.link;
+        if (url) {
+          msg += `${i + 1}. <a href="${url}">${title}</a>\n`;
         } else {
           msg += `${i + 1}. ${title}\n`;
         }
