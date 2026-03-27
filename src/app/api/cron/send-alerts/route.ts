@@ -85,6 +85,7 @@ export async function GET(req: NextRequest) {
         .not("chat_id", "is", null)
         .not("district", "is", null);
 
+      console.log("[realestate] subs:", realestateSubs?.length);
       const districtCache: Record<string, string> = {};
       let reSent = 0, reFailed = 0;
       for (const sub of realestateSubs ?? []) {
@@ -93,6 +94,7 @@ export async function GET(req: NextRequest) {
           districtCache[district] = await buildRealestateAlert(district);
         }
         const msg = districtCache[district];
+        console.log("[realestate] msg for", district, ":", msg?.length, "chars");
         if (!msg) continue;
         const ok = await sendMessage(String(sub.chat_id), msg, "HTML");
         if (ok) reSent++; else reFailed++;

@@ -119,12 +119,17 @@ export async function buildCryptoAlert(): Promise<string> {
 
 export async function buildRealestateAlert(district: string): Promise<string> {
   try {
-    const res = await fetch(`${APP_URL}/api/realestate/seoul`, { signal: AbortSignal.timeout(30000) });
+    console.log("[realestate alert] fetching for district:", district);
+    const res = await fetch(`${APP_URL}/api/realestate/seoul`, { signal: AbortSignal.timeout(55000) });
     const json = await res.json();
+    console.log("[realestate alert] districtStatsMap keys:", Object.keys(json.districtStatsMap ?? {}).slice(0, 3));
     if (!json.ok) return "";
 
     const districtData = json.districtStatsMap?.[district];
-    if (!districtData) return "";
+    if (!districtData) {
+      console.log("[realestate alert] district not found:", district, "available:", Object.keys(json.districtStatsMap ?? {}));
+      return "";
+    }
 
     const topDeals = (districtData.topDeals ?? []).slice(0, 5);
     if (topDeals.length === 0) return "";
