@@ -326,7 +326,7 @@ Given these values:
 Write 2-3 sentences explaining the current liquidity regime and what to watch. Be specific about numbers. Write in Korean. No disclaimers.`;
 
           const res = await anthropic.messages.create({
-            model: "claude-sonnet-4-20250514",
+            model: "claude-haiku-4-5-20251001",
             max_tokens: 500,
             messages: [{ role: "user", content: prompt }],
           });

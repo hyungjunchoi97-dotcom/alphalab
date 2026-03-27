@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // 1. Fetch Walter Bloomberg messages from last 24h
+    // 1. Fetch Walter Bloomberg messages from last 12h
     const res = await fetch(`${APP_URL}/api/telegram/feed?channel=WalterBloomberg`, {
       signal: AbortSignal.timeout(30000),
     });
@@ -28,50 +28,68 @@ export async function GET(req: NextRequest) {
     }
 
     const now = Date.now();
-    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const twelveHoursAgo = now - 12 * 60 * 60 * 1000;
+
     const messages = (json.messages ?? [])
-      .filter((m: { date: number; text: string }) => m.date > oneDayAgo && m.text.length > 10)
-      .slice(0, 30);
+      .filter((m: { date: number; text: string }) => m.date > twelveHoursAgo && m.text.length > 10)
+      .slice(0, 40);
 
     if (messages.length === 0) {
-      return NextResponse.json({ ok: true, message: "No messages in last 24h" });
+      return NextResponse.json({ ok: true, message: "No messages in last 12h" });
     }
 
-    // 2. Build prompt
-    const today = new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" });
+    // 2. Build news text
     const newsText = messages
-      .map((m: { text: string }, i: number) => `${i + 1}. ${m.text.slice(0, 300)}`)
+      .map((m: { text: string }, i: number) => `${i + 1}. ${m.text.replace(/\(@WalterBloomberg\)/g, "").trim().slice(0, 300)}`)
       .join("\n\n");
 
-    const prompt = `너는 AlphaLab 글로벌 뉴스 요약 봇임.
-아래는 오늘 Walter Bloomberg 텔레그램 채널에서 수집한 글로벌 뉴스 헤드라인들임.
+    // 3. Determine AM/PM
+    const kstHour = new Date().getUTCHours() + 9;
+    const timeLabel = kstHour < 12 ? "오전" : "오후";
+    const today = new Date().toLocaleDateString("ko-KR", {
+      year: "numeric", month: "2-digit", day: "2-digit"
+    }).replace(/\. /g, ".").replace(/\.$/, "");
 
-[뉴스 원문]
+    const prompt = `너는 글로벌 금융 시장 전문 애널리스트임.
+아래는 지난 12시간 동안 Walter Bloomberg 텔레그램에서 수집한 글로벌 속보 헤드라인들임.
+
+[헤드라인 목록]
 ${newsText}
 
-[작성 조건]
-- 음슴체 사용 (~임, ~함, ~보임)
-- 투자자 관점에서 핵심만 요약
-- AI 느낌 나는 문장 금지
-- 이모지 적절히 사용
-- 섹션 구분: 지정학/전쟁, 미국 경제/연준, 시장/주식, 크립토, 기타
+[작성 규칙]
+- 음슴체 사용 (~임, ~함, ~보임, ~한 상황임)
+- 투자자 관점에서 핵심만 간결하게
+- 감탄사/AI 느낌 문장 금지
+- 이모지 섹션별 1개씩만
+- 중복/유사 뉴스는 합쳐서 하나로 요약
+- 각 섹션에 해당 뉴스 없으면 해당 섹션 완전히 생략
 
-[글 구조]
-제목: ${today} 글로벌 마켓 브리핑
+[출력 구조 - 해당 내용 없는 섹션은 생략할 것]
+제목: ${today} ${timeLabel} 글로벌 마켓 브리핑
 
-본문:
-1. 📌 핵심 요약 (3줄 이내)
-2. 🌍 지정학/전쟁
-3. 🇺🇸 미국 경제/연준
-4. 📈 시장/주식
-5. ₿ 크립토
-6. 💡 투자 시사점 (2-3줄)
+📌 핵심 요약
+(가장 중요한 시장 이슈 3줄 이내)
 
-마지막 줄: "자세한 글로벌 속보는 AlphaLab 헤드라인 탭에서 확인 가능함"
+🌍 지정학/전쟁
+(지정학, 전쟁, 외교 관련 뉴스만. 없으면 이 섹션 전체 생략)
+
+🇺🇸 미국 경제/연준
+(금리, 고용, 물가, GDP, 연준 발언 등. 없으면 생략)
+
+📈 주식/시장
+(주요 지수, 섹터, 개별주 이슈. 없으면 생략)
+
+₿ 크립토
+(비트코인, 이더리움, 주요 알트 이슈. 없으면 생략)
+
+💡 투자 시사점
+(이 뉴스들이 시장에 미치는 영향 2-3줄)
+
+마지막 줄: "자세한 속보는 AlphaLab 글로벌속보 탭에서 확인 가능함"
 
 다른 설명 없이 제목과 본문만 출력할 것.`;
 
-    // 3. Call Claude Haiku
+    // 4. Call Claude Haiku
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -94,12 +112,12 @@ ${newsText}
     const raw: string = claudeJson.content?.[0]?.text ?? "";
 
     // Parse title and content
-    const titleMatch = raw.match(/제목:\s*(.+)/);
-    const bodyMatch = raw.match(/본문:\s*([\s\S]+)/);
-    const title = titleMatch?.[1]?.trim() ?? `${today} 글로벌 마켓 브리핑`;
-    const content = bodyMatch?.[1]?.trim() ?? raw.trim();
+    const lines = raw.trim().split("\n");
+    const titleLine = lines.find(l => l.startsWith("제목:"));
+    const title = titleLine?.replace("제목:", "").trim() ?? `${today} ${timeLabel} 글로벌 마켓 브리핑`;
+    const content = raw.replace(titleLine ?? "", "").trim();
 
-    // 4. Insert post to community
+    // 5. Insert post to community as news_run
     const { data, error } = await supabaseAdmin.from("posts").insert({
       title,
       content,

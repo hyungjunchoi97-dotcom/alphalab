@@ -705,7 +705,23 @@ function HolderTable({ title, loading, rows, btcPrice, total, showRank, note }: 
 
 // ── NewsTab ─────────────────────────────────────────────────
 
-// ── Wells Crypto Telegram Feed ──────────────────────────────
+// ── Crypto News Feed ────────────────────────────────────────
+
+const CRYPTO_CHANNELS = ["wells_crypto", "cointelegraph", "bitcoin", "whale_alert"];
+
+const CHANNEL_COLOR: Record<string, string> = {
+  wells_crypto: "#f97316",
+  cointelegraph: "#3b82f6",
+  bitcoin: "#f59e0b",
+  whale_alert: "#8b5cf6",
+};
+
+const CHANNEL_LABEL: Record<string, string> = {
+  wells_crypto: "Wells Crypto",
+  cointelegraph: "CoinTelegraph",
+  bitcoin: "Bitcoin",
+  whale_alert: "Whale Alert",
+};
 
 interface TgMsg {
   id: number;
@@ -758,7 +774,14 @@ function TgCard({ msg }: { msg: TgMsg }) {
   return (
     <div style={{ padding: "14px 16px", borderBottom: "1px solid #1a1a1a" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: "#f97316" }}>Wells Crypto</span>
+        <span style={{
+          fontSize: 11, fontWeight: 700,
+          color: CHANNEL_COLOR[msg.channel] || "#f97316",
+          background: `${CHANNEL_COLOR[msg.channel] || "#f97316"}15`,
+          padding: "2px 8px", borderRadius: 3,
+        }}>
+          {CHANNEL_LABEL[msg.channel] || msg.channelTitle}
+        </span>
         <span style={{ fontSize: 11, color: "#6b7280", fontFamily: "monospace" }}>{tgTimeAgo(msg.date)}</span>
       </div>
 
@@ -810,48 +833,39 @@ function TgCard({ msg }: { msg: TgMsg }) {
 
 function WellsCryptoFeed() {
   const [messages, setMessages] = useState<TgMsg[]>([]);
-  const [oldestId, setOldestId] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(20);
 
   useEffect(() => {
     setLoading(true);
-    fetch("/api/telegram/channel?channel=wells_crypto")
+    fetch("/api/telegram/feed")
       .then(r => r.json())
       .then(json => {
         if (json.ok) {
-          setMessages(json.messages || []);
-          setOldestId(json.oldestId ?? null);
-          setHasMore(json.hasMore ?? false);
+          const filtered = (json.messages as TgMsg[] || [])
+            .filter(m => CRYPTO_CHANNELS.includes(m.channel))
+            .sort((a, b) => b.date - a.date);
+          setMessages(filtered);
+          setHasMore(filtered.length > 20);
         }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const loadMore = async () => {
-    if (!oldestId || loadingMore) return;
+  const loadMore = () => {
     setLoadingMore(true);
-    try {
-      const res = await fetch(`/api/telegram/channel?channel=wells_crypto&before=${oldestId}`);
-      const json = await res.json();
-      if (json.ok) {
-        const older: TgMsg[] = json.messages || [];
-        if (older.length === 0) {
-          setHasMore(false);
-        } else {
-          setMessages(prev => {
-            const ids = new Set(prev.map(m => m.id));
-            return [...prev, ...older.filter(m => !ids.has(m.id))];
-          });
-          setOldestId(json.oldestId ?? null);
-          setHasMore(json.hasMore ?? false);
-        }
-      }
-    } catch { /* */ }
-    finally { setLoadingMore(false); }
+    setVisibleCount(prev => {
+      const next = prev + 20;
+      if (next >= messages.length) setHasMore(false);
+      return next;
+    });
+    setLoadingMore(false);
   };
+
+  const displayed = messages.slice(0, visibleCount);
 
   return (
     <div style={{ maxWidth: "min(760px, 100%)", margin: "0 auto", padding: "20px 12px" }}>
@@ -869,14 +883,14 @@ function WellsCryptoFeed() {
             </div>
           ))}
         </div>
-      ) : messages.length === 0 ? (
+      ) : displayed.length === 0 ? (
         <div style={{ padding: "40px 16px", textAlign: "center", fontSize: 12, color: "#6b7280" }}>
           메시지 없음
         </div>
       ) : (
         <div>
-          {messages.map(msg => (
-            <TgCard key={msg.id} msg={msg} />
+          {displayed.map(msg => (
+            <TgCard key={`${msg.channel}-${msg.id}`} msg={msg} />
           ))}
 
           {hasMore && (
@@ -894,7 +908,7 @@ function WellsCryptoFeed() {
             </button>
           )}
 
-          {!hasMore && messages.length > 0 && (
+          {!hasMore && displayed.length > 0 && (
             <div style={{ padding: "16px", textAlign: "center", fontSize: 11, color: "#4b5563", borderTop: "1px solid #1a1a1a" }}>
               모든 메시지를 불러왔습니다
             </div>
