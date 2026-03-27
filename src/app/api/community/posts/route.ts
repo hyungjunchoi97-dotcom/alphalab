@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     }
 
     const validCategories = [
-      "stock_discussion", "realestate", "macro", "free",
+      "stock_discussion", "realestate", "news_run", "macro", "free",
       // legacy
       "stock", "crypto", "overseas", "politics", "discussion", "idea", "question", "news",
     ];
