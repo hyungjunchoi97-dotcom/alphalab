@@ -123,13 +123,13 @@ export async function POST(req: NextRequest) {
     }
 
     const validCategories = [
-      "stock_discussion", "macro", "free",
+      "stock_discussion", "realestate", "macro", "free",
       // legacy
       "stock", "crypto", "overseas", "politics", "discussion", "idea", "question", "news",
     ];
-    const cat = validCategories.includes(category) ? category : "free";
+    const cat = validCategories.includes(category) ? category : "stock_discussion";
 
-    const validSubcategories = ["domestic", "overseas", "crypto", "commodity", "bond"];
+    const validSubcategories = ["domestic", "overseas", "crypto"];
     const sub = subcategory && validSubcategories.includes(subcategory) ? subcategory : null;
 
     // subcategory required for stock_discussion

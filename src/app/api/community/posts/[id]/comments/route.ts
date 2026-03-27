@@ -100,10 +100,19 @@ export async function POST(
       }
     }
 
+    // Fetch nickname
+    const { data: profileRow } = await supabaseAdmin
+      .from("profiles")
+      .select("nickname")
+      .eq("user_id", user.id)
+      .single();
+    const authorNickname = profileRow?.nickname || null;
+
     const insertData: Record<string, unknown> = {
       post_id: id,
       user_id: user.id,
       author_email: user.email,
+      author_nickname: authorNickname,
       content: content.trim(),
     };
     if (parent_id) insertData.parent_id = parent_id;

@@ -11,39 +11,35 @@ import type { MessageKey } from "@/lib/i18n";
 
 // ── Constants ──────────────────────────────────────────────────
 
-type MainCategory = "all" | "stock_discussion" | "macro" | "free" | "ai";
-type Subcategory = "all" | "domestic" | "overseas" | "crypto" | "commodity" | "bond";
+type MainCategory = "all" | "stock_discussion" | "realestate" | "ai";
+type Subcategory = "all" | "domestic" | "overseas" | "crypto";
 type SortMode = "hot" | "new" | "top" | "rising";
 
-const MAIN_CATEGORIES: MainCategory[] = ["all", "stock_discussion", "macro", "free", "ai"];
+const MAIN_CATEGORIES: MainCategory[] = ["all", "stock_discussion", "realestate", "ai"];
 
 const MAIN_CAT_LABEL: Record<MainCategory, MessageKey> = {
   all: "catAll",
   stock_discussion: "catStockDiscussion",
-  macro: "catMacroNew",
-  free: "catFreeNew",
+  realestate: "catRealestate",
   ai: "catAi",
 };
 
-const SUBCATEGORIES: Subcategory[] = ["all", "domestic", "overseas", "crypto", "commodity", "bond"];
+const SUBCATEGORIES: Subcategory[] = ["all", "domestic", "overseas", "crypto"];
 
 const SUB_LABEL: Record<Subcategory, MessageKey> = {
   all: "subAll",
   domestic: "subDomestic",
   overseas: "subOverseas",
   crypto: "subCrypto",
-  commodity: "subCommodity",
-  bond: "subBond",
 };
 
-// Create categories for editor: stock_discussion, macro, free
-const CREATE_CATEGORIES: MainCategory[] = ["stock_discussion", "macro", "free"];
+// Create categories for editor
+const CREATE_CATEGORIES: MainCategory[] = ["stock_discussion", "realestate"];
 
 const CAT_BADGE_COLOR: Record<string, string> = {
   stock_discussion: "bg-blue-500/20 text-blue-400",
-  macro: "bg-cyan-500/20 text-cyan-400",
-  free: "bg-gray-500/20 text-gray-400",
-  ai: "bg-emerald-500/20 text-emerald-400",
+  realestate: "bg-emerald-500/20 text-emerald-400",
+  ai: "bg-amber-500/20 text-amber-400",
   // legacy
   stock: "bg-blue-500/20 text-blue-400",
   crypto: "bg-orange-500/20 text-orange-400",
@@ -347,9 +343,9 @@ function EditorOverlay({
               <option key={c} value={c}>
                 {c === "stock_discussion"
                   ? (lang === "kr" ? "종목 토론방" : "Stock Discussion")
-                  : c === "macro"
-                  ? (lang === "kr" ? "매크로" : "Macro")
-                  : (lang === "kr" ? "자유" : "Free")}
+                  : c === "realestate"
+                  ? (lang === "kr" ? "부동산" : "Real Estate")
+                  : c}
               </option>
             ))}
           </select>
@@ -552,7 +548,8 @@ export default function CommunityPage() {
 
   const catLabel = (cat: string) => {
     const mapped = mapCategory(cat);
-    if (mapped === "stock_discussion") return "종목";
+    if (mapped === "stock_discussion") return "종토";
+    if (mapped === "realestate") return "부동산";
     if (mapped === "macro") return "매크로";
     if (mapped === "free") return "자유";
     return cat;
@@ -561,6 +558,7 @@ export default function CommunityPage() {
   const catColor = (cat: string) => {
     const mapped = mapCategory(cat);
     if (mapped === "stock_discussion") return "#60a5fa";
+    if (mapped === "realestate") return "#34d399";
     if (mapped === "macro") return "#22d3ee";
     if (mapped === "free") return "#9ca3af";
     return "#9ca3af";

@@ -78,6 +78,7 @@ interface Reply {
   post_id: string;
   user_id: string;
   author_email: string | null;
+  author_nickname: string | null;
   content: string;
   parent_id: string;
   likes?: number;
@@ -89,6 +90,7 @@ interface CommentWithReplies {
   post_id: string;
   user_id: string;
   author_email: string | null;
+  author_nickname: string | null;
   content: string;
   parent_id: null;
   likes?: number;
@@ -332,21 +334,31 @@ export default function PostDetailPage() {
             </div>
           )}
 
-          <div className="mt-4 flex items-center gap-3 border-t border-card-border pt-3">
+          <div className="mt-4 flex items-center justify-center gap-3 border-t border-card-border pt-4 pb-1">
             <button
               onClick={handleLike}
-              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                liked
-                  ? "border-accent/40 bg-accent/10 text-accent"
-                  : "border-card-border text-muted hover:text-foreground"
-              }`}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "8px 20px", borderRadius: 4, fontSize: 13, fontWeight: 700,
+                background: liked ? "rgba(245,158,11,0.15)" : "rgba(245,158,11,0.08)",
+                border: liked ? "1px solid rgba(245,158,11,0.4)" : "1px solid rgba(245,158,11,0.2)",
+                color: "#f59e0b", cursor: "pointer", transition: "all 0.15s",
+              }}
             >
-              <svg className="h-4 w-4" fill={liked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-              </svg>
-              {post.likes}
+              추천 {post.likes > 0 && <span style={{ fontVariantNumeric: "tabular-nums" }}>{post.likes}</span>}
             </button>
-            <span className="text-xs text-muted">
+            <button
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "8px 20px", borderRadius: 4, fontSize: 13, fontWeight: 700,
+                background: "rgba(107,114,128,0.08)",
+                border: "1px solid rgba(107,114,128,0.2)",
+                color: "#6b7280", cursor: "pointer", transition: "all 0.15s",
+              }}
+            >
+              비추천
+            </button>
+            <span style={{ marginLeft: 8, fontSize: 12, color: "#555" }}>
               {post.commentCount} {t("commComments")}
             </span>
           </div>
@@ -405,27 +417,26 @@ export default function PostDetailPage() {
             comments.map((c) => (
               <div key={c.id}>
                 {/* Top-level comment */}
-                <div className="rounded-xl border border-card-border bg-card-bg p-3">
-                  <div className="flex items-center gap-1.5 text-[10px] text-muted">
-                    <span className="font-medium text-foreground/80">{c.author_email?.split("@")[0] || "anon"}</span>
-                    <span>&middot;</span>
-                    <span>{timeAgo(c.created_at)}</span>
+                <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8, padding: "12px 16px" }}>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "#e0e0e0", fontWeight: 600 }}>{c.author_nickname || c.author_email?.split("@")[0] || "anon"}</span>
+                    <span style={{ fontSize: 12, color: "#888", marginLeft: 6 }}>{timeAgo(c.created_at)}</span>
                   </div>
-                  <p className="mt-1.5 text-[12px] leading-relaxed text-foreground/90">{c.content}</p>
-                  <div className="mt-2 flex items-center">
+                  <p style={{ fontSize: 14, color: "#d1d5db", lineHeight: 1.7, marginTop: 6, marginBottom: 0 }}>{c.content}</p>
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center" }}>
                     <button
                       onClick={() => {
                         setReplyTo(replyTo === c.id ? null : c.id);
                         setReplyText("");
                       }}
-                      className="text-[10px] text-accent hover:underline"
+                      style={{ fontSize: 11, color: "#f59e0b", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                     >
                       {lang === "kr" ? "답글" : "Reply"}
                     </button>
                     {(session?.user?.email === c.author_email || session?.user?.email === ADMIN_EMAIL) && (
                       <button
                         onClick={() => handleDeleteComment(c.id)}
-                        style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", marginLeft: 8 }}
+                        style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", marginLeft: 10, padding: 0 }}
                       >
                         삭제
                       </button>
@@ -461,19 +472,18 @@ export default function PostDetailPage() {
 
                 {/* Nested replies (indented, depth 1 only) */}
                 {c.replies.length > 0 && (
-                  <div className="pl-8 mt-1.5 space-y-1.5 border-l border-white/10">
+                  <div style={{ paddingLeft: 32, marginTop: 6, borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
                     {c.replies.map((reply) => (
-                      <div key={reply.id} className="rounded-xl border border-card-border/60 bg-card-bg/60 p-3">
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted">
-                          <span className="font-medium text-foreground/70">{reply.author_email?.split("@")[0] || "anon"}</span>
-                          <span>&middot;</span>
-                          <span>{timeAgo(reply.created_at)}</span>
+                      <div key={reply.id} style={{ background: "#0d0d0d", border: "1px solid #1a1a1a", borderRadius: 6, padding: "10px 14px", marginBottom: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <span style={{ fontSize: 12, color: "#c0c0c0", fontWeight: 500 }}>{reply.author_nickname || reply.author_email?.split("@")[0] || "anon"}</span>
+                          <span style={{ fontSize: 11, color: "#666", marginLeft: 6 }}>{timeAgo(reply.created_at)}</span>
                         </div>
-                        <p className="mt-1 text-[11px] leading-relaxed text-foreground/80">{reply.content}</p>
+                        <p style={{ fontSize: 13, color: "#b0b0b0", lineHeight: 1.6, marginTop: 4, marginBottom: 0 }}>{reply.content}</p>
                         {(session?.user?.email === reply.author_email || session?.user?.email === ADMIN_EMAIL) && (
                           <button
                             onClick={() => handleDeleteComment(reply.id)}
-                            style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", marginTop: 4 }}
+                            style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", marginTop: 4, padding: 0 }}
                           >
                             삭제
                           </button>
