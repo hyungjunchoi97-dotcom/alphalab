@@ -11,17 +11,16 @@ import type { MessageKey } from "@/lib/i18n";
 
 // ── Constants ──────────────────────────────────────────────────
 
-type MainCategory = "all" | "stock_discussion" | "realestate" | "ai";
+type MainCategory = "all" | "stock_discussion" | "realestate";
 type Subcategory = "all" | "domestic" | "overseas" | "crypto";
 type SortMode = "hot" | "new" | "top" | "rising";
 
-const MAIN_CATEGORIES: MainCategory[] = ["all", "stock_discussion", "realestate", "ai"];
+const MAIN_CATEGORIES: MainCategory[] = ["all", "stock_discussion", "realestate"];
 
 const MAIN_CAT_LABEL: Record<MainCategory, MessageKey> = {
   all: "catAll",
   stock_discussion: "catStockDiscussion",
   realestate: "catRealestate",
-  ai: "catAi",
 };
 
 const SUBCATEGORIES: Subcategory[] = ["all", "domestic", "overseas", "crypto"];
@@ -472,20 +471,17 @@ export default function CommunityPage() {
   const [subcategory, setSubcategory] = useState<Subcategory>("all");
   const [sortMode, setSortMode] = useState<SortMode>("hot");
   const [showEditor, setShowEditor] = useState(false);
-  const [viewTab, setViewTab] = useState<"all" | "popular" | "bot">("all");
+  const [viewTab, setViewTab] = useState<"all" | "popular">("all");
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (category === "ai") {
-        params.set("is_bot", "true");
-      } else if (category !== "all") {
+      if (category !== "all") {
         params.set("category", category);
-      } else {
-        params.set("is_bot", "false");
       }
+      params.set("is_bot", "false");
       if (category === "stock_discussion" && subcategory !== "all") {
         params.set("subcategory", subcategory);
       }
@@ -530,7 +526,6 @@ export default function CommunityPage() {
   // Filter by view tab
   let filtered = sortPosts(posts, sortMode);
   if (viewTab === "popular") filtered = filtered.filter(p => p.likes >= 3);
-  if (viewTab === "bot") filtered = filtered.filter(p => (p as Post & { is_bot?: boolean }).is_bot);
 
   const isAdmin = session?.user?.email === "hyungjunchoi97@gmail.com";
 
@@ -650,7 +645,6 @@ export default function CommunityPage() {
           {([
             { key: "all" as const, label: "전체글" },
             { key: "popular" as const, label: "개념글" },
-            { key: "bot" as const, label: "AI 분석" },
           ]).map((tab) => (
             <button
               key={tab.key}
