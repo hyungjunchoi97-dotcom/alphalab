@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -60,15 +60,6 @@ function Skel({ h = 20, w = "100%" }: { h?: number; w?: string | number }) {
   return <div className="animate-pulse rounded" style={{ height: h, width: w, background: "#1a1a1a" }} />;
 }
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return mins + "분 전";
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return hours + "시간 전";
-  return Math.floor(hours / 24) + "일 전";
-}
-
 // ── Section Title ────────────────────────────────────────────
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -81,7 +72,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 // ── Main ─────────────────────────────────────────────────────
 
-type CryptoTab = "supply" | "news" | "telegram";
+type CryptoTab = "supply" | "news";
 
 export default function CryptoClient() {
   const [activeTab, setActiveTab] = useState<CryptoTab>("supply");
@@ -136,7 +127,6 @@ export default function CryptoClient() {
             {([
               { key: "supply" as CryptoTab, label: "비트코인 공급" },
               { key: "news" as CryptoTab, label: "뉴스" },
-              { key: "telegram" as CryptoTab, label: "텔레그램" },
             ]).map(tab => (
               <button
                 key={tab.key}
@@ -156,10 +146,7 @@ export default function CryptoClient() {
         </div>
 
         {/* News tab */}
-        {activeTab === "news" && <NewsTab />}
-
-        {/* Telegram tab */}
-        {activeTab === "telegram" && <WellsCryptoFeed />}
+        {activeTab === "news" && <WellsCryptoFeed />}
 
         {/* Supply tab */}
         {activeTab === "supply" && (
@@ -705,154 +692,6 @@ function HolderTable({ title, loading, rows, btcPrice, total, showRank, note }: 
 
 // ── NewsTab ─────────────────────────────────────────────────
 
-interface NewsItem {
-  id: number;
-  title: string;
-  titleKr?: string;
-  url: string;
-  source: string;
-  publishedAt: string;
-  currencies: string[];
-}
-
-const NEWS_PAGE_SIZE = 20;
-
-function NewsTab() {
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const offsetRef = useRef(0);
-
-  const fetchNews = useCallback(async (offset: number, append: boolean) => {
-    if (append) setLoadingMore(true);
-    else setLoading(true);
-
-    try {
-      const res = await fetch(`/api/crypto/news?offset=${offset}&limit=${NEWS_PAGE_SIZE}`);
-      const json = await res.json();
-      if (json.ok) {
-        const items: NewsItem[] = json.news ?? [];
-        if (append) {
-          setNews(prev => {
-            const ids = new Set(prev.map(n => n.id));
-            return [...prev, ...items.filter(n => !ids.has(n.id))];
-          });
-        } else {
-          setNews(items);
-        }
-        setHasMore(json.hasMore ?? false);
-        offsetRef.current = offset + items.length;
-      }
-    } catch { /* */ }
-    finally { setLoading(false); setLoadingMore(false); }
-  }, []);
-
-  useEffect(() => {
-    fetchNews(0, false);
-    const iv = setInterval(() => { offsetRef.current = 0; fetchNews(0, false); }, 10 * 60 * 1000);
-    return () => clearInterval(iv);
-  }, [fetchNews]);
-
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
-          fetchNews(offsetRef.current, true);
-        }
-      },
-      { rootMargin: "200px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [hasMore, loadingMore, loading, fetchNews]);
-
-  return (
-    <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px" }}>
-      <h2 style={{ ...S, fontSize: 15, fontWeight: 700, color: "#f59e0b", marginBottom: 16 }}>
-        크립토 핫 뉴스
-      </h2>
-
-      {loading ? (
-        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8 }}>
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} style={{ padding: "14px 16px", borderBottom: "1px solid #1f2937" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <div style={{ height: 10, width: 60, background: "#1a1a1a", borderRadius: 3 }} />
-                <div style={{ height: 10, width: 24, background: "#1a1a1a", borderRadius: 3 }} />
-              </div>
-              <div style={{ height: 14, width: "85%", background: "#1a1a1a", borderRadius: 3, marginBottom: 6 }} />
-              <div style={{ height: 12, width: "60%", background: "#151515", borderRadius: 3 }} />
-            </div>
-          ))}
-        </div>
-      ) : news.length === 0 ? (
-        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8, padding: "40px 16px", textAlign: "center", ...S, fontSize: 12, color: "#6b7280" }}>
-          뉴스 데이터 없음
-        </div>
-      ) : (
-        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8 }}>
-          {news.map((n, i) => (
-            <a
-              key={n.id}
-              href={n.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "block", padding: "14px 16px",
-                borderBottom: i < news.length - 1 ? "1px solid #1f2937" : "none",
-                textDecoration: "none", transition: "background 0.15s",
-                cursor: "pointer",
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.03)"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-            >
-              {/* Source + time */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                {n.source ? (
-                  <span style={{ ...S, fontSize: 10, fontWeight: 600, color: "#f59e0b", background: "rgba(245,158,11,0.1)", padding: "2px 7px", borderRadius: 3 }}>
-                    {n.source}
-                  </span>
-                ) : <span />}
-                <span style={{ ...S, fontSize: 10, color: "#4b5563", flexShrink: 0 }}>{timeAgo(n.publishedAt)}</span>
-              </div>
-
-              {/* English title */}
-              <div style={{ ...S, fontSize: 14, fontWeight: 600, color: "#ffffff", lineHeight: 1.6 }}>
-                {n.title}
-              </div>
-
-              {/* Korean translation */}
-              {n.titleKr && (
-                <div style={{ ...S, fontSize: 13, fontWeight: 500, color: "#e8e8e8", lineHeight: 1.5, marginTop: 4 }}>
-                  {n.titleKr}
-                </div>
-              )}
-            </a>
-          ))}
-
-          <div ref={sentinelRef} style={{ height: 1 }} />
-
-          {loadingMore && (
-            <div style={{ padding: "16px", textAlign: "center", ...S, fontSize: 11, color: "#6b7280" }}>
-              로딩 중...
-            </div>
-          )}
-
-          {!hasMore && news.length > 0 && (
-            <div style={{ padding: "16px", textAlign: "center", ...S, fontSize: 11, color: "#4b5563", borderTop: "1px solid #1f2937" }}>
-              모든 뉴스를 불러왔습니다
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Wells Crypto Telegram Feed ──────────────────────────────
 
 interface TgMsg {
@@ -936,7 +775,7 @@ function TgCard({ msg }: { msg: TgMsg }) {
         <p style={{
           ...S, fontSize: 13, color: "#ffffff", lineHeight: 1.7, margin: "8px 0 0",
           background: "#0d1117", padding: "8px 12px", borderRadius: 6,
-          borderLeft: "2px solid #f59e0b", whiteSpace: "pre-wrap",
+          borderLeft: "3px solid #f59e0b", whiteSpace: "pre-wrap",
         }}>
           {translated}
         </p>
@@ -1004,7 +843,7 @@ function WellsCryptoFeed() {
   return (
     <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px" }}>
       <h2 style={{ ...S, fontSize: 15, fontWeight: 700, color: "#f59e0b", marginBottom: 16 }}>
-        Wells Crypto 텔레그램
+        크립토 뉴스
       </h2>
 
       {loading ? (

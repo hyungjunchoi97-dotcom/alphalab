@@ -21,6 +21,17 @@ function timeAgo(ts: number): string {
   return `${Math.floor(diff / 86400)}d`;
 }
 
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&#036;/g, "$")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
 async function translateText(text: string): Promise<string> {
   try {
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=${encodeURIComponent(text)}`;
@@ -36,6 +47,7 @@ function HeadlineCard({ msg }: { msg: Message }) {
   const [translated, setTranslated] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
   const [showKr, setShowKr] = useState(false);
+  const decodedText = decodeHtmlEntities(msg.text);
 
   const handleTranslate = async () => {
     if (translated) {
@@ -43,7 +55,7 @@ function HeadlineCard({ msg }: { msg: Message }) {
       return;
     }
     setTranslating(true);
-    const result = await translateText(msg.text);
+    const result = await translateText(decodedText);
     setTranslated(result);
     setShowKr(true);
     setTranslating(false);
@@ -53,25 +65,26 @@ function HeadlineCard({ msg }: { msg: Message }) {
     <div
       style={{
         borderBottom: "1px solid #1a1a1a",
-        padding: "12px 16px",
+        padding: "14px 16px",
         transition: "background 0.1s",
       }}
       onMouseEnter={e => (e.currentTarget.style.background = "#111")}
       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 700 }}>🚨 Bloomberg</span>
-        <span style={{ fontSize: 10, color: "#555", fontFamily: "monospace" }}>{timeAgo(msg.date)}</span>
+        <span style={{ fontSize: 12, color: "#ef4444", fontWeight: 700 }}>🚨 Bloomberg</span>
+        <span style={{ fontSize: 11, color: "#6b7280", fontFamily: "monospace" }}>{timeAgo(msg.date)}</span>
       </div>
 
       <p style={{
-        fontSize: 14,
-        color: "#e0e0e0",
-        lineHeight: 1.7,
+        fontSize: 15,
+        color: "#f0f0f0",
+        lineHeight: 1.8,
         margin: 0,
         fontFamily: "monospace",
+        fontWeight: 400,
       }}>
-        {msg.text}
+        {decodedText}
       </p>
 
       {msg.imageUrl && (
@@ -88,11 +101,11 @@ function HeadlineCard({ msg }: { msg: Message }) {
         <p style={{
           fontSize: 15,
           color: "#ffffff",
-          lineHeight: 1.8,
+          lineHeight: 1.9,
           fontWeight: 500,
-          margin: "8px 0 0",
+          margin: "10px 0 0",
           background: "#0d1117",
-          padding: "10px 14px",
+          padding: "12px 16px",
           borderRadius: 6,
           borderLeft: "3px solid #f59e0b",
         }}>
