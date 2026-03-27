@@ -116,3 +116,35 @@ export async function buildCryptoAlert(): Promise<string> {
     return "";
   }
 }
+
+export async function buildRealestateAlert(district: string): Promise<string> {
+  try {
+    const res = await fetch(`${APP_URL}/api/realestate/seoul`, { signal: AbortSignal.timeout(30000) });
+    const json = await res.json();
+    if (!json.ok) return "";
+
+    const districtData = json.districtStatsMap?.[district];
+    if (!districtData) return "";
+
+    const topDeals = (districtData.topDeals ?? []).slice(0, 5);
+    if (topDeals.length === 0) return "";
+
+    const avgBillion = districtData.avgPrice ? (Math.round(districtData.avgPrice / 1000) / 10) : 0;
+
+    let msg = `AlphaLab 부동산 브리핑 - ${today()}\n`;
+    msg += `\n서울 ${district} 최근 거래\n`;
+    msg += `평균가: ${avgBillion}억 | 거래 ${districtData.count}건\n`;
+
+    topDeals.forEach((deal: { name: string; dong: string; area: number; floor: number; price: number; date: string }, i: number) => {
+      const billion = Math.round(deal.price / 1000) / 10;
+      msg += `\n${i + 1}. ${deal.name} (${deal.dong})`;
+      msg += `\n   ${billion}억 | ${deal.area}㎡ | ${deal.floor}층`;
+      msg += `\n   거래일: ${deal.date}`;
+    });
+
+    msg += `\n\nthealphalabs.net/realestate`;
+    return msg;
+  } catch {
+    return "";
+  }
+}

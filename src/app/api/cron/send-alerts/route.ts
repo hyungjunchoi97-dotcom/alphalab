@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
-import { sendMessage, buildStockAlert, buildMacroAlert, buildCryptoAlert } from "@/lib/telegramAlert";
+import { sendMessage, buildStockAlert, buildMacroAlert, buildCryptoAlert, buildRealestateAlert } from "@/lib/telegramAlert";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -76,6 +76,29 @@ export async function GET(req: NextRequest) {
         results.push({ type: "crypto", sent, failed });
       } else {
         results.push({ type: "crypto", sent: 0, failed: 0, error: "No crypto data" });
+      }
+
+      // Realestate - per user district preference
+      const { data: realestateSubs } = await supabaseAdmin
+        .from("telegram_realestate_watch")
+        .select("chat_id, district")
+        .not("chat_id", "is", null)
+        .not("district", "is", null);
+
+      const districtCache: Record<string, string> = {};
+      let reSent = 0, reFailed = 0;
+      for (const sub of realestateSubs ?? []) {
+        const district = sub.district;
+        if (!districtCache[district]) {
+          districtCache[district] = await buildRealestateAlert(district);
+        }
+        const msg = districtCache[district];
+        if (!msg) continue;
+        const ok = await sendMessage(String(sub.chat_id), msg, "HTML");
+        if (ok) reSent++; else reFailed++;
+      }
+      if (reSent > 0 || reFailed > 0) {
+        results.push({ type: "realestate", sent: reSent, failed: reFailed });
       }
     }
 
