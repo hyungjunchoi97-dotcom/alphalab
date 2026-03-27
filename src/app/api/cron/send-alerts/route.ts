@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseServer";
-import { sendMessage, buildStockAlert, buildMacroAlert, buildCryptoAlert, buildRealestateAlert } from "@/lib/telegramAlert";
+import { sendMessage, buildStockAlert, buildMacroAlert, buildCryptoAlert, buildRealestateAlert, buildHeadlineAlert } from "@/lib/telegramAlert";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -93,6 +93,34 @@ export async function GET(req: NextRequest) {
           if (ok) reSent++; else reFailed++;
         }
         results.push({ type: "realestate", sent: reSent, failed: reFailed });
+      }
+
+      // Headline alert
+      const headlineMsg = await buildHeadlineAlert();
+      if (headlineMsg) {
+        const { data: headlineSubs } = await supabaseAdmin
+          .from("telegram_subscribers")
+          .select("chat_id")
+          .eq("is_active", true)
+          .eq("alerts_macro", true);
+
+        let hSent = 0, hFailed = 0;
+        for (const sub of headlineSubs ?? []) {
+          const chunks: string[] = [];
+          let remaining = headlineMsg;
+          while (remaining.length > 0) {
+            chunks.push(remaining.slice(0, 4000));
+            remaining = remaining.slice(4000);
+          }
+          let ok = true;
+          for (const chunk of chunks) {
+            const sent = await sendMessage(String(sub.chat_id), chunk, "HTML");
+            if (!sent) { ok = false; break; }
+            await new Promise(r => setTimeout(r, 100));
+          }
+          if (ok) hSent++; else hFailed++;
+        }
+        results.push({ type: "headline", sent: hSent, failed: hFailed });
       }
     }
 

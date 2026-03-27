@@ -118,6 +118,13 @@ export default function CryptoClient() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap');` }} />
+      <style dangerouslySetInnerHTML={{ __html: `
+  @media (max-width: 640px) {
+    .crypto-supply-main { padding: 8px 12px !important; }
+    .crypto-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .crypto-table-wrap > div { min-width: 500px; }
+  }
+` }} />
       <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#f0f0f0" }}>
         <AppHeader active="crypto" />
 
@@ -137,6 +144,8 @@ export default function CryptoClient() {
                   color: activeTab === tab.key ? "#f59e0b" : "#6b7280",
                   borderBottom: activeTab === tab.key ? "2px solid #f59e0b" : "2px solid transparent",
                   transition: "all 0.15s",
+                  flex: "1",
+                  textAlign: "center" as const,
                 }}
               >
                 {tab.label}
@@ -150,7 +159,7 @@ export default function CryptoClient() {
 
         {/* Supply tab */}
         {activeTab === "supply" && (
-        <main style={{ padding: "12px 16px", maxWidth: 1200, margin: "0 auto" }}>
+        <main className="crypto-supply-main" style={{ padding: "12px 16px", maxWidth: 1200, margin: "0 auto" }}>
 
           <h1 style={{ ...S, fontSize: 18, fontWeight: 700, color: "#ffffff", marginBottom: 16 }}>
             <span style={{ color: "#f59e0b" }}>BITCOIN</span> SUPPLY
@@ -648,40 +657,44 @@ function HolderTable({ title, loading, rows, btcPrice, total, showRank, note }: 
         <div>{Array.from({ length: 5 }).map((_, i) => <div key={i} style={{ marginBottom: 8 }}><Skel h={14} /></div>)}</div>
       ) : (
         <>
-          {/* Header */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: showRank ? "28px 1fr 90px 90px" : "1fr 90px 90px",
-            padding: "4px 0", borderBottom: "1px solid #2a3441",
-          }}>
-            {showRank && <div style={{ ...S, fontSize: 12, color: "#9ca3af" }}>#</div>}
-            <div style={{ ...S, fontSize: 12, color: "#9ca3af", textTransform: "uppercase" }}>{showRank ? "기업명" : "이름"}</div>
-            <div style={{ ...S, fontSize: 12, color: "#9ca3af", textTransform: "uppercase", textAlign: "right" }}>보유량</div>
-            <div style={{ ...S, fontSize: 12, color: "#9ca3af", textTransform: "uppercase", textAlign: "right" }}>USD 가치</div>
-          </div>
-          {/* Rows */}
-          {rows.map((r, i) => (
-            <div key={r.name} style={{
-              display: "grid",
-              gridTemplateColumns: showRank ? "28px 1fr 90px 90px" : "1fr 90px 90px",
-              padding: "8px 0", borderBottom: "1px solid #1a1a1a",
-            }}>
-              {showRank && <div style={{ ...S, fontSize: 13, color: "#9ca3af" }}>{i + 1}</div>}
-              <div style={{ ...S, fontSize: 13, color: "#f0f0f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
-              <div style={{ ...S, fontSize: 13, color: "#f59e0b", textAlign: "right" }}>{r.holdings.toLocaleString()}</div>
-              <div style={{ ...S, fontSize: 13, color: "#c8cdd6", textAlign: "right" }}>{fmtUsd(r.usdValue || r.holdings * btcPrice)}</div>
+          <div className="crypto-table-wrap">
+            <div>
+              {/* Header */}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: showRank ? "28px 1fr 90px 90px" : "1fr 90px 90px",
+                padding: "4px 0", borderBottom: "1px solid #2a3441",
+              }}>
+                {showRank && <div style={{ ...S, fontSize: 12, color: "#9ca3af" }}>#</div>}
+                <div style={{ ...S, fontSize: 12, color: "#9ca3af", textTransform: "uppercase" }}>{showRank ? "기업명" : "이름"}</div>
+                <div style={{ ...S, fontSize: 12, color: "#9ca3af", textTransform: "uppercase", textAlign: "right" }}>보유량</div>
+                <div style={{ ...S, fontSize: 12, color: "#9ca3af", textTransform: "uppercase", textAlign: "right" }}>USD 가치</div>
+              </div>
+              {/* Rows */}
+              {rows.map((r, i) => (
+                <div key={r.name} style={{
+                  display: "grid",
+                  gridTemplateColumns: showRank ? "28px 1fr 90px 90px" : "1fr 90px 90px",
+                  padding: "8px 0", borderBottom: "1px solid #1a1a1a",
+                }}>
+                  {showRank && <div style={{ ...S, fontSize: 13, color: "#9ca3af" }}>{i + 1}</div>}
+                  <div style={{ ...S, fontSize: 13, color: "#f0f0f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
+                  <div style={{ ...S, fontSize: 13, color: "#f59e0b", textAlign: "right" }}>{r.holdings.toLocaleString()}</div>
+                  <div style={{ ...S, fontSize: 13, color: "#c8cdd6", textAlign: "right" }}>{fmtUsd(r.usdValue || r.holdings * btcPrice)}</div>
+                </div>
+              ))}
+              {/* Footer */}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: showRank ? "28px 1fr 90px 90px" : "1fr 90px 90px",
+                padding: "8px 0", borderTop: "1px solid #2a3441",
+              }}>
+                {showRank && <div />}
+                <div style={{ ...S, fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>합계</div>
+                <div style={{ ...S, fontSize: 13, fontWeight: 700, color: "#f59e0b", textAlign: "right" }}>{total.toLocaleString()}</div>
+                <div style={{ ...S, fontSize: 13, fontWeight: 700, color: "#c8cdd6", textAlign: "right" }}>{fmtUsd(total * btcPrice)}</div>
+              </div>
             </div>
-          ))}
-          {/* Footer */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: showRank ? "28px 1fr 90px 90px" : "1fr 90px 90px",
-            padding: "8px 0", borderTop: "1px solid #2a3441",
-          }}>
-            {showRank && <div />}
-            <div style={{ ...S, fontSize: 13, fontWeight: 700, color: "#f0f0f0" }}>합계</div>
-            <div style={{ ...S, fontSize: 13, fontWeight: 700, color: "#f59e0b", textAlign: "right" }}>{total.toLocaleString()}</div>
-            <div style={{ ...S, fontSize: 13, fontWeight: 700, color: "#c8cdd6", textAlign: "right" }}>{fmtUsd(total * btcPrice)}</div>
           </div>
           {note && <div style={{ ...S, fontSize: 12, color: "#9ca3af", marginTop: 6 }}>{note}</div>}
         </>
@@ -841,7 +854,7 @@ function WellsCryptoFeed() {
   };
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px" }}>
+    <div style={{ maxWidth: "min(760px, 100%)", margin: "0 auto", padding: "20px 12px" }}>
       <h2 style={{ ...S, fontSize: 15, fontWeight: 700, color: "#f59e0b", marginBottom: 16 }}>
         크립토 뉴스
       </h2>

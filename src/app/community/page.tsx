@@ -566,6 +566,21 @@ export default function CommunityPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "#0a0a0a", color: "#e0e0e0" }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+  @media (max-width: 768px) {
+    .dc-table-header .col-num,
+    .dc-table-header .col-likes,
+    .dc-table-row .col-num,
+    .dc-table-row .col-likes { display: none !important; }
+    .dc-table-header, .dc-table-row {
+      grid-template-columns: 50px 1fr 60px 44px 36px !important;
+    }
+    .dc-table-header span, .dc-table-row span,
+    .dc-table-header > div, .dc-table-row > div { font-size: 12px !important; }
+    .dc-cat-tabs, .dc-sub-tabs, .dc-view-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .dc-cat-tabs::-webkit-scrollbar, .dc-sub-tabs::-webkit-scrollbar, .dc-view-tabs::-webkit-scrollbar { display: none; }
+  }
+` }} />
       <AppHeader active="community" />
 
       <main style={{ maxWidth: 900, margin: "0 auto", padding: "16px 12px" }}>
@@ -592,7 +607,7 @@ export default function CommunityPage() {
         </div>
 
         {/* Category tabs (horizontal) */}
-        <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #1f2937", marginBottom: 0 }}>
+        <div className="dc-cat-tabs" style={{ display: "flex", gap: 0, borderBottom: "1px solid #1f2937", marginBottom: 0, flexWrap: "nowrap" }}>
           {MAIN_CATEGORIES.map((cat) => (
             <button
               key={cat}
@@ -612,7 +627,7 @@ export default function CommunityPage() {
 
         {/* Subcategory tabs */}
         {category === "stock_discussion" && (
-          <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #111", background: "#0d0d0d" }}>
+          <div className="dc-sub-tabs" style={{ display: "flex", gap: 0, borderBottom: "1px solid #111", background: "#0d0d0d" }}>
             {SUBCATEGORIES.map((sub) => (
               <button
                 key={sub}
@@ -631,7 +646,7 @@ export default function CommunityPage() {
         )}
 
         {/* View tabs + sort */}
-        <div style={{ display: "flex", alignItems: "center", gap: 0, borderBottom: "1px solid #1a1a1a", background: "#0d0d0d" }}>
+        <div className="dc-view-tabs" style={{ display: "flex", alignItems: "center", gap: 0, borderBottom: "1px solid #1a1a1a", background: "#0d0d0d" }}>
           {([
             { key: "all" as const, label: "전체글" },
             { key: "popular" as const, label: "개념글" },
@@ -669,24 +684,24 @@ export default function CommunityPage() {
         </div>
 
         {/* Table header */}
-        <div style={{
+        <div className="dc-table-header" style={{
           display: "grid", gridTemplateColumns: "50px 60px 1fr 80px 60px 40px 40px",
           padding: "6px 4px", borderBottom: "1px solid #1f2937",
           fontSize: 10, color: "#555", fontWeight: 600,
         }}>
-          <span>번호</span>
+          <span className="col-num">번호</span>
           <span>말머리</span>
           <span>제목</span>
           <span>글쓴이</span>
           <span>작성일</span>
-          <span style={{ textAlign: "center" }}>추천</span>
+          <span className="col-likes" style={{ textAlign: "center" }}>추천</span>
           <span style={{ textAlign: "center" }}>댓글</span>
         </div>
 
         {/* Post rows */}
         {loading ? (
           Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "50px 60px 1fr 80px 60px 40px 40px", padding: "8px 4px", borderBottom: "1px solid #111" }}>
+            <div key={i} className="dc-table-row" style={{ display: "grid", gridTemplateColumns: "50px 60px 1fr 80px 60px 40px 40px", padding: "8px 4px", borderBottom: "1px solid #111" }}>
               <div style={{ height: 12, width: 24, background: "#111", borderRadius: 2 }} />
               <div style={{ height: 12, width: 36, background: "#111", borderRadius: 2 }} />
               <div style={{ height: 12, width: "70%", background: "#111", borderRadius: 2 }} />
@@ -704,6 +719,7 @@ export default function CommunityPage() {
           filtered.map((post, idx) => (
             <div
               key={post.id}
+              className="dc-table-row"
               onClick={() => router.push(`/community/${post.id}`)}
               style={{
                 display: "grid", gridTemplateColumns: "50px 60px 1fr 80px 60px 40px 40px",
@@ -714,7 +730,7 @@ export default function CommunityPage() {
               onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
             >
               {/* 번호 */}
-              <span style={{ fontSize: 11, color: "#555", fontVariantNumeric: "tabular-nums" }}>
+              <span className="col-num" style={{ fontSize: 11, color: "#555", fontVariantNumeric: "tabular-nums" }}>
                 {filtered.length - idx}
               </span>
 
@@ -760,7 +776,7 @@ export default function CommunityPage() {
               </span>
 
               {/* 추천 */}
-              <span style={{ fontSize: 11, color: post.likes > 0 ? "#f59e0b" : "#333", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
+              <span className="col-likes" style={{ fontSize: 11, color: post.likes > 0 ? "#f59e0b" : "#333", textAlign: "center", fontVariantNumeric: "tabular-nums" }}>
                 {post.likes}
               </span>
 

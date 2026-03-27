@@ -142,7 +142,7 @@ export default function ProfilePage() {
     <div className="min-h-screen" style={{ background: "#080c12", color: "#e8e8e8" }}>
       <AppHeader active="community" />
       <main className="pt-0">
-        <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className="mx-auto px-4 py-8" style={{ maxWidth: "min(600px, 100%)" }}>
 
           {/* Header */}
           <div className="mb-6 relative" style={{ textAlign: "center" }}>
@@ -352,12 +352,13 @@ export default function ProfilePage() {
                 <div style={{ marginTop: 24 }}>
                   <div style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
+                    flexWrap: "wrap", gap: 4,
                     marginBottom: 12,
                   }}>
                     <h2 style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.1em", textTransform: "uppercase" }}>
                       관리자
                     </h2>
-                    <span style={{ fontSize: 10, color: "#374151", fontFamily: "monospace" }}>
+                    <span style={{ fontSize: 10, color: "#374151", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {ADMIN_EMAIL}
                     </span>
                   </div>

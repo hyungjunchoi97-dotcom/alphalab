@@ -247,3 +247,50 @@ export async function buildRealestateAlert(): Promise<string> {
     return "";
   }
 }
+
+export async function buildHeadlineAlert(): Promise<string> {
+  try {
+    const res = await fetch(`${APP_URL}/api/telegram/feed?channel=WalterBloomberg`, {
+      signal: AbortSignal.timeout(30000),
+    });
+    const json = await res.json();
+    if (!json.ok) return "";
+
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+
+    const messages = (json.messages ?? [])
+      .filter((m: { date: number }) => m.date > oneDayAgo)
+      .slice(0, 15);
+
+    if (messages.length === 0) return "";
+
+    const translated: { text: string; kr: string }[] = [];
+    for (const msg of messages) {
+      try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=${encodeURIComponent(msg.text.slice(0, 300))}`;
+        const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        const data = await r.json();
+        const kr = data[0].map((item: [string]) => item[0]).join("");
+        translated.push({ text: msg.text.slice(0, 200), kr });
+      } catch {
+        translated.push({ text: msg.text.slice(0, 200), kr: "" });
+      }
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    let msg = `🚨 AlphaLab 글로벌 속보 - ${today()}\n`;
+    msg += `via Bloomberg | 지난 24시간\n\n`;
+
+    translated.forEach((item, i) => {
+      msg += `${i + 1}. ${item.text}\n`;
+      if (item.kr) msg += `   → ${item.kr}\n`;
+      msg += `\n`;
+    });
+
+    msg += `thealphalabs.net/headline`;
+    return msg;
+  } catch {
+    return "";
+  }
+}

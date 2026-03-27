@@ -473,14 +473,14 @@ export default function PostDetailPage() {
 
                 {/* Nested replies (indented, depth 1 only) */}
                 {c.replies.length > 0 && (
-                  <div style={{ paddingLeft: 32, marginTop: 6, borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ paddingLeft: 32, marginTop: 6, borderLeft: "1px solid #1f2937" }}>
                     {c.replies.map((reply) => (
                       <div key={reply.id} style={{ background: "#0d0d0d", border: "1px solid #1a1a1a", borderRadius: 6, padding: "10px 14px", marginBottom: 6 }}>
                         <div style={{ display: "flex", alignItems: "center" }}>
-                          <span style={{ fontSize: 12, color: "#c0c0c0", fontWeight: 500 }}>{reply.author_nickname || reply.author_email?.split("@")[0] || "anon"}</span>
-                          <span style={{ fontSize: 11, color: "#666", marginLeft: 6 }}>{timeAgo(reply.created_at)}</span>
+                          <span style={{ fontSize: 12, color: "#ffffff", fontWeight: 600 }}>{reply.author_nickname || reply.author_email?.split("@")[0] || "anon"}</span>
+                          <span style={{ fontSize: 11, color: "#888888", marginLeft: 6 }}>{timeAgo(reply.created_at)}</span>
                         </div>
-                        <p style={{ fontSize: 13, color: "#b0b0b0", lineHeight: 1.6, marginTop: 4, marginBottom: 0 }}>{reply.content}</p>
+                        <p style={{ fontSize: 13, color: "#e0e0e0", lineHeight: 1.7, marginTop: 4, marginBottom: 0 }}>{reply.content}</p>
                         {(session?.user?.email === reply.author_email || session?.user?.email === ADMIN_EMAIL) && (
                           <button
                             onClick={() => handleDeleteComment(reply.id)}

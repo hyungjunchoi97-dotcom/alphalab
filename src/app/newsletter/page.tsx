@@ -141,8 +141,15 @@ export default function NewsletterPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#e0e0e0" }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+  @media (max-width: 640px) {
+    .newsletter-main { padding: 20px 12px !important; }
+    .newsletter-code { font-size: 24px !important; letter-spacing: 0.15em !important; }
+    .newsletter-cta { width: 100%; justify-content: center; }
+  }
+` }} />
       <AppHeader active="newsletter" />
-      <main style={{ maxWidth: 800, margin: "0 auto", padding: "32px 16px" }}>
+      <main className="newsletter-main" style={{ maxWidth: "min(800px, 100%)", margin: "0 auto", padding: "32px 16px" }}>
 
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
@@ -285,11 +292,11 @@ export default function NewsletterPage() {
                 <div>
                   {/* Code display */}
                   <div style={{
-                    display: "inline-flex", alignItems: "center", gap: 12,
+                    display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 12,
                     background: "#0d1117", border: "1px solid #1f2937", borderRadius: 8,
                     padding: "16px 24px", marginBottom: 16,
                   }}>
-                    <span style={{ ...S, fontSize: 28, fontWeight: 700, color: "#f59e0b", letterSpacing: "0.2em" }}>
+                    <span className="newsletter-code" style={{ ...S, fontSize: 28, fontWeight: 700, color: "#f59e0b", letterSpacing: "0.2em" }}>
                       {linkCode}
                     </span>
                     <button
@@ -381,6 +388,7 @@ export default function NewsletterPage() {
             href="https://t.me/AlphaLabForUserBot"
             target="_blank"
             rel="noopener noreferrer"
+            className="newsletter-cta"
             style={{
               ...S, display: "inline-flex", alignItems: "center", gap: 8,
               padding: "12px 28px", borderRadius: 8, fontWeight: 700, fontSize: 14,

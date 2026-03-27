@@ -83,6 +83,7 @@ function HeadlineCard({ msg }: { msg: Message }) {
         margin: 0,
         fontFamily: "monospace",
         fontWeight: 400,
+        wordBreak: "break-word",
       }}>
         {decodedText}
       </p>
@@ -108,6 +109,7 @@ function HeadlineCard({ msg }: { msg: Message }) {
           padding: "12px 16px",
           borderRadius: 6,
           borderLeft: "3px solid #f59e0b",
+          wordBreak: "break-word",
         }}>
           {translated}
         </p>
@@ -190,9 +192,9 @@ export default function HeadlinePage() {
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#e0e0e0" }}>
       <AppHeader active="headline" />
-      <main style={{ maxWidth: 800, margin: "0 auto", padding: "0 0 40px" }}>
+      <main style={{ maxWidth: "min(800px, 100%)", margin: "0 auto", padding: "0 0 40px" }}>
         {/* Header */}
-        <div style={{ padding: "20px 16px 12px", borderBottom: "1px solid #1a1a1a" }}>
+        <div style={{ padding: "16px 12px 10px", borderBottom: "1px solid #1a1a1a" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 18, fontWeight: 700, color: "#ef4444", fontFamily: "monospace" }}>
               HEADLINE
