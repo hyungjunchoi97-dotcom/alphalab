@@ -63,7 +63,8 @@ const CHANNEL_COLORS: Record<string, string> = {
   aetherjapanresearch: "#34d399",
   daegurr: "#a78bfa",
   dntjd0903: "#f43f5e",
-  report_figure_by_offset: "#06b6d4",
+  dancoininvestor: "#06b6d4",
+  survival_DoPB: "#e879f9",
   yieldnspread: "#84cc16",
   Barbarian_Global_Tech: "#fb923c",
 };

@@ -487,6 +487,8 @@ export default function CommunityPage() {
         params.set("is_bot", "true");
       } else if (category !== "all") {
         params.set("category", category);
+      } else {
+        params.set("is_bot", "false");
       }
       if (category === "stock_discussion" && subcategory !== "all") {
         params.set("subcategory", subcategory);
@@ -846,7 +848,7 @@ function PostCard({
       </div>
 
       {/* Content */}
-      <div className="flex-1 py-1.5 px-2 sm:px-3 min-w-0">
+      <div className="flex-1 py-2 px-2 sm:px-3 min-w-0 min-h-[90px]">
         {/* Meta row */}
         <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted leading-none">
           <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold ${CAT_BADGE_COLOR[post.category] || CAT_BADGE_COLOR[mapCategory(post.category)] || "bg-muted/20 text-muted"}`}>
@@ -873,8 +875,8 @@ function PostCard({
 
         {/* Preview text */}
         {post.content && (
-          <p className="mt-0.5 text-xs text-muted/80 line-clamp-6 leading-relaxed">
-            {post.content.length > 400 ? post.content.slice(0, 400) + "..." : post.content}
+          <p className="mt-0.5 text-xs text-muted/80 line-clamp-4 leading-relaxed">
+            {post.content.length > 200 ? post.content.slice(0, 200) + "..." : post.content}
           </p>
         )}
 

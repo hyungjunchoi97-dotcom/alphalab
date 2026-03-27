@@ -25,7 +25,8 @@ export const CHANNELS: ChannelConfig[] = [
   { username: "apt2me", title: "apt2me" },
   { username: "itcenstorwa", title: "itcenstorwa" },
   { username: "dntjd0903", title: "dntjd0903" },
-  { username: "report_figure_by_offset", title: "Report Figure" },
+  { username: "dancoininvestor", title: "Dan Coin Investor" },
+  { username: "survival_DoPB", title: "Survival DoPB" },
   { username: "yieldnspread", title: "Yield N Spread" },
   { username: "Barbarian_Global_Tech", title: "Barbarian Global Tech" },
 ];

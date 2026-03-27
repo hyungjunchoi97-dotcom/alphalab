@@ -19,8 +19,13 @@ export async function GET(req: NextRequest) {
 
     if (isBot === "true") {
       query = query.eq("is_bot", true);
-    } else if (category && category !== "all") {
-      query = query.eq("category", category);
+    } else {
+      if (isBot === "false") {
+        query = query.or("is_bot.is.null,is_bot.eq.false");
+      }
+      if (category && category !== "all") {
+        query = query.eq("category", category);
+      }
     }
     if (subcategory && subcategory !== "all") {
       query = query.eq("subcategory", subcategory);

@@ -146,10 +146,10 @@ export default function NewsletterPage() {
 
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <h1 style={{ ...S, fontSize: 24, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>
+          <h1 style={{ ...S, fontSize: 28, fontWeight: 700, color: "#ffffff", marginBottom: 8 }}>
             AlphaLab 데일리 브리핑
           </h1>
-          <p style={{ ...S, fontSize: 13, color: "#9ca3af", lineHeight: 1.6 }}>
+          <p style={{ ...S, fontSize: 14, color: "#d1d5db", lineHeight: 1.6 }}>
             매일 아침 시장 핵심 데이터를 텔레그램으로 받아보세요.
           </p>
         </div>
@@ -331,15 +331,15 @@ export default function NewsletterPage() {
                 borderTop: `3px solid ${card.color}`, padding: "20px 16px",
               }}
             >
-              <h3 style={{ ...S, fontSize: 14, fontWeight: 700, color: "#ffffff", marginBottom: 4 }}>
+              <h3 style={{ ...S, fontSize: 15, fontWeight: 700, color: "#ffffff", marginBottom: 4 }}>
                 {card.title}
               </h3>
-              <p style={{ ...S, fontSize: 10, color: card.color, marginBottom: 12 }}>
+              <p style={{ ...S, fontSize: 11, color: card.color, marginBottom: 12 }}>
                 {card.time}
               </p>
               <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
                 {card.items.map((item, i) => (
-                  <li key={i} style={{ ...S, fontSize: 12, color: "#9ca3af", lineHeight: 1.8, paddingLeft: 12, position: "relative" }}>
+                  <li key={i} style={{ ...S, fontSize: 13, color: "#d1d5db", lineHeight: 2, paddingLeft: 12, position: "relative" }}>
                     <span style={{ position: "absolute", left: 0, color: "#4b5563" }}>-</span>
                     {item}
                   </li>
@@ -359,13 +359,13 @@ export default function NewsletterPage() {
               <div
                 key={msg.title}
                 style={{
-                  background: "#0d1117", border: "1px solid #1f2937", borderRadius: 8,
+                  background: "#111", border: "1px solid #2a2a2a", borderRadius: 8,
                   padding: 16, overflow: "hidden",
                 }}
               >
-                <p style={{ ...S, fontSize: 10, color: "#6b7280", marginBottom: 8 }}>{msg.title}</p>
+                <p style={{ ...S, fontSize: 11, color: "#6b7280", marginBottom: 8 }}>{msg.title}</p>
                 <pre style={{
-                  ...S, fontSize: 11, color: "#c8cdd6", lineHeight: 1.6,
+                  ...S, fontSize: 13, color: "#ffffff", lineHeight: 1.8, fontWeight: 400,
                   whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0,
                 }}>
                   {msg.text}
