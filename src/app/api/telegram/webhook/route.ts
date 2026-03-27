@@ -72,8 +72,7 @@ export async function POST(req: NextRequest) {
 
     const message = body?.message;
     // Keep chat_id as string to avoid JS number precision loss for large IDs
-    const rawChatId = message?.chat?.id;
-    const chatId = rawChatId != null ? String(rawChatId) : "";
+    const chatId = String(message?.chat?.id ?? "");
     if (!chatId) return NextResponse.json({ ok: true }, { headers: CACHE_HEADERS });
 
     const text = (message?.text ?? "").trim();
