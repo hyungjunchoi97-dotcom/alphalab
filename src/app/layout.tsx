@@ -1,38 +1,37 @@
 import type { Metadata } from "next";
-import { Inter, Geist_Mono, Noto_Sans_KR, Rajdhani, JetBrains_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, JetBrains_Mono, Noto_Sans_KR, Oswald } from "next/font/google";
 import { LangProvider } from "@/lib/LangContext";
 import { AuthProvider } from "@/context/AuthContext";
 import AuthModal from "@/components/AuthModal";
 import Script from "next/script";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const notoSansKR = Noto_Sans_KR({
-  variable: "--font-noto-sans-kr",
+const plusJakartaSans = Plus_Jakarta_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-});
-
-const rajdhani = Rajdhani({
-  variable: "--font-rajdhani",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains",
+  variable: "--font-mono",
   subsets: ["latin"],
   weight: ["400", "500", "700"],
+  display: "swap",
+});
+
+const notoSansKR = Noto_Sans_KR({
+  variable: "--font-kr",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const oswald = Oswald({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -104,7 +103,7 @@ export default function RootLayout({
     <html lang="ko">
       <head />
       <body
-        className={`${inter.variable} ${geistMono.variable} ${notoSansKR.variable} ${rajdhani.variable} ${jetbrainsMono.variable} antialiased`}
+        className={`${plusJakartaSans.variable} ${jetbrainsMono.variable} ${notoSansKR.variable} ${oswald.variable} antialiased`}
       >
         <Script async src="https://www.googletagmanager.com/gtag/js?id=G-QYC0DL6BE5" strategy="afterInteractive" />
         <Script id="gtag-init" strategy="afterInteractive">{`
