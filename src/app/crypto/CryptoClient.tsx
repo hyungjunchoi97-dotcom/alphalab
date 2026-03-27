@@ -756,20 +756,20 @@ function TgCard({ msg }: { msg: TgMsg }) {
   };
 
   return (
-    <div style={{ padding: "14px 16px", borderBottom: "1px solid #1f2937" }}>
+    <div style={{ padding: "14px 16px", borderBottom: "1px solid #1a1a1a" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ ...S, fontSize: 11, fontWeight: 700, color: "#f59e0b" }}>Wells Crypto</span>
-        <span style={{ ...S, fontSize: 10, color: "#555" }}>{tgTimeAgo(msg.date)}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#f97316" }}>Wells Crypto</span>
+        <span style={{ fontSize: 11, color: "#6b7280", fontFamily: "monospace" }}>{tgTimeAgo(msg.date)}</span>
       </div>
 
-      <p style={{ ...S, fontSize: 13, color: "#e0e0e0", lineHeight: 1.7, margin: 0, whiteSpace: "pre-wrap" }}>
+      <p style={{ fontSize: 15, color: "#f0f0f0", lineHeight: 1.8, margin: 0, fontFamily: "monospace", fontWeight: 400, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
         {displayText}
       </p>
 
       {isLong && !expanded && (
         <button
           onClick={() => setExpanded(true)}
-          style={{ ...S, fontSize: 11, color: "#f59e0b", background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: 4 }}
+          style={{ fontSize: 12, color: "#60a5fa", background: "none", border: "none", cursor: "pointer", padding: 0, marginTop: 4 }}
         >
           더보기
         </button>
@@ -780,15 +780,15 @@ function TgCard({ msg }: { msg: TgMsg }) {
           src={msg.imageUrl}
           alt=""
           loading="lazy"
-          style={{ maxWidth: "100%", borderRadius: 6, marginTop: 8, border: "1px solid #1a1a1a" }}
+          style={{ maxWidth: "100%", borderRadius: 8, marginTop: 10, border: "1px solid #1a1a1a" }}
         />
       )}
 
       {showKr && translated && (
         <p style={{
-          ...S, fontSize: 13, color: "#ffffff", lineHeight: 1.7, margin: "8px 0 0",
-          background: "#0d1117", padding: "8px 12px", borderRadius: 6,
-          borderLeft: "3px solid #f59e0b", whiteSpace: "pre-wrap",
+          fontSize: 15, color: "#ffffff", lineHeight: 1.9, fontWeight: 500,
+          margin: "10px 0 0", background: "#0d1117", padding: "12px 16px",
+          borderRadius: 6, borderLeft: "3px solid #f59e0b", whiteSpace: "pre-wrap", wordBreak: "break-word",
         }}>
           {translated}
         </p>
@@ -797,7 +797,7 @@ function TgCard({ msg }: { msg: TgMsg }) {
       <button
         onClick={handleTranslate}
         style={{
-          marginTop: 8, ...S, fontSize: 11,
+          marginTop: 8, fontSize: 12,
           color: translating ? "#9ca3af" : showKr ? "#6b7280" : "#f59e0b",
           background: "none", border: "none", cursor: "pointer", padding: 0,
         }}
@@ -860,9 +860,9 @@ function WellsCryptoFeed() {
       </h2>
 
       {loading ? (
-        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8 }}>
+        <div>
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} style={{ padding: "14px 16px", borderBottom: "1px solid #1f2937" }}>
+            <div key={i} style={{ padding: "14px 16px", borderBottom: "1px solid #1a1a1a" }}>
               <div style={{ height: 10, width: 80, background: "#1a1a1a", borderRadius: 3, marginBottom: 8 }} />
               <div style={{ height: 14, width: "90%", background: "#1a1a1a", borderRadius: 3, marginBottom: 6 }} />
               <div style={{ height: 14, width: "70%", background: "#151515", borderRadius: 3 }} />
@@ -870,11 +870,11 @@ function WellsCryptoFeed() {
           ))}
         </div>
       ) : messages.length === 0 ? (
-        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8, padding: "40px 16px", textAlign: "center", ...S, fontSize: 12, color: "#6b7280" }}>
+        <div style={{ padding: "40px 16px", textAlign: "center", fontSize: 12, color: "#6b7280" }}>
           메시지 없음
         </div>
       ) : (
-        <div style={{ background: "#111", border: "1px solid #1f2937", borderRadius: 8 }}>
+        <div>
           {messages.map(msg => (
             <TgCard key={msg.id} msg={msg} />
           ))}
@@ -885,8 +885,8 @@ function WellsCryptoFeed() {
               disabled={loadingMore}
               style={{
                 width: "100%", padding: "12px", background: "none",
-                border: "none", borderTop: "1px solid #1f2937",
-                color: "#60a5fa", ...S, fontSize: 12, cursor: "pointer",
+                border: "none", borderTop: "1px solid #1a1a1a",
+                color: "#60a5fa", fontSize: 12, cursor: "pointer",
                 opacity: loadingMore ? 0.5 : 1,
               }}
             >
@@ -895,7 +895,7 @@ function WellsCryptoFeed() {
           )}
 
           {!hasMore && messages.length > 0 && (
-            <div style={{ padding: "16px", textAlign: "center", ...S, fontSize: 11, color: "#4b5563", borderTop: "1px solid #1f2937" }}>
+            <div style={{ padding: "16px", textAlign: "center", fontSize: 11, color: "#4b5563", borderTop: "1px solid #1a1a1a" }}>
               모든 메시지를 불러왔습니다
             </div>
           )}
