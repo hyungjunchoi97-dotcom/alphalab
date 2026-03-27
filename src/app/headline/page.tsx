@@ -59,18 +59,14 @@ function HeadlineCard({ msg }: { msg: Message }) {
       onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 700 }}>WALTER BLOOMBERG</span>
+        <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 700 }}>🚨 Bloomberg</span>
         <span style={{ fontSize: 10, color: "#555", fontFamily: "monospace" }}>{timeAgo(msg.date)}</span>
-        <a href={msg.link} target="_blank" rel="noopener noreferrer"
-          style={{ marginLeft: "auto", fontSize: 10, color: "#f59e0b", textDecoration: "none" }}>
-          원문 &rarr;
-        </a>
       </div>
 
       <p style={{
-        fontSize: 13,
-        color: showKr ? "#9ca3af" : "#e0e0e0",
-        lineHeight: 1.6,
+        fontSize: 14,
+        color: "#e0e0e0",
+        lineHeight: 1.7,
         margin: 0,
         fontFamily: "monospace",
       }}>
@@ -79,14 +75,15 @@ function HeadlineCard({ msg }: { msg: Message }) {
 
       {showKr && translated && (
         <p style={{
-          fontSize: 13,
+          fontSize: 15,
           color: "#ffffff",
-          lineHeight: 1.7,
+          lineHeight: 1.8,
+          fontWeight: 500,
           margin: "8px 0 0",
           background: "#0d1117",
-          padding: "8px 12px",
+          padding: "10px 14px",
           borderRadius: 6,
-          borderLeft: "2px solid #f59e0b",
+          borderLeft: "3px solid #f59e0b",
         }}>
           {translated}
         </p>
@@ -96,15 +93,15 @@ function HeadlineCard({ msg }: { msg: Message }) {
         onClick={handleTranslate}
         style={{
           marginTop: 8,
-          fontSize: 11,
-          color: showKr ? "#6b7280" : "#f59e0b",
+          fontSize: 12,
+          color: translating ? "#9ca3af" : showKr ? "#6b7280" : "#f59e0b",
           background: "none",
           border: "none",
           cursor: "pointer",
           padding: 0,
         }}
       >
-        {translating ? "번역 중..." : showKr ? "원문 보기" : "한국어 번역"}
+        {translating ? "번역 중..." : showKr ? "원문 보기" : "🇰🇷 한국어 번역"}
       </button>
     </div>
   );
@@ -176,15 +173,12 @@ export default function HeadlinePage() {
             <span style={{ fontSize: 18, fontWeight: 700, color: "#ef4444", fontFamily: "monospace" }}>
               HEADLINE
             </span>
-            <span style={{ fontSize: 11, color: "#555", fontFamily: "monospace" }}>
-              via Walter Bloomberg
-            </span>
             <span style={{ marginLeft: "auto", fontSize: 11, color: "#555", fontFamily: "monospace" }}>
               {messages.length}
             </span>
           </div>
-          <p style={{ fontSize: 12, color: "#555", margin: "4px 0 0" }}>
-            글로벌 속보 · 실시간 번역
+          <p style={{ fontSize: 12, color: "#9ca3af", margin: "4px 0 0" }}>
+            글로벌 속보
           </p>
         </div>
 
