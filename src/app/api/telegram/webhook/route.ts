@@ -5,8 +5,9 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
+const CACHE_HEADERS = { "Cache-Control": "no-store, no-cache, must-revalidate" };
 
-async function reply(chatId: number, text: string, replyMarkup?: object) {
+async function reply(chatId: string, text: string, replyMarkup?: object) {
   if (!BOT_TOKEN) {
     console.log("[reply] no BOT_TOKEN");
     return;
@@ -35,7 +36,7 @@ const KEYBOARD = {
 };
 
 async function upsertSubscriber(
-  chatId: number,
+  chatId: string,
   username: string,
   updates: { alerts_stock?: boolean; alerts_macro?: boolean; alerts_crypto?: boolean; is_active?: boolean }
 ) {
@@ -70,8 +71,10 @@ export async function POST(req: NextRequest) {
     console.log("[telegram webhook] received:", JSON.stringify(body));
 
     const message = body?.message;
-    const chatId = Number(message?.chat?.id);
-    if (!chatId || isNaN(chatId)) return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
+    // Keep chat_id as string to avoid JS number precision loss for large IDs
+    const rawChatId = message?.chat?.id;
+    const chatId = rawChatId != null ? String(rawChatId) : "";
+    if (!chatId) return NextResponse.json({ ok: true }, { headers: CACHE_HEADERS });
 
     const text = (message?.text ?? "").trim();
     const command = text.split(" ")[0].toLowerCase();
@@ -79,11 +82,10 @@ export async function POST(req: NextRequest) {
 
     console.log("[telegram webhook] chatId:", chatId, "text:", text);
 
-    if (!text) return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
+    if (!text) return NextResponse.json({ ok: true }, { headers: CACHE_HEADERS });
 
-    // Match commands (/start) or button text ("전체 구독")
-    const cmd = command; // first word, lowercased
-    const full = text;   // full text for button matches
+    const cmd = command;
+    const full = text;
 
     if (cmd === "/start") {
       await reply(
@@ -137,9 +139,9 @@ export async function POST(req: NextRequest) {
       await reply(chatId, "아래 버튼을 사용하거나 명령어를 입력해 주세요.\n\n/전체 /주식 /매크로 /크립토 /내구독 /구독취소", KEYBOARD);
     }
 
-    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
+    return NextResponse.json({ ok: true }, { headers: CACHE_HEADERS });
   } catch (e) {
     console.error("[telegram-webhook]", e);
-    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } }); // Always 200 to Telegram
+    return NextResponse.json({ ok: true }, { headers: CACHE_HEADERS });
   }
 }

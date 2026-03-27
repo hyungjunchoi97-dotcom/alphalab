@@ -1,7 +1,7 @@
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://alphalab-kappa.vercel.app";
 
-export async function sendMessage(chatId: number, text: string, parseMode = "HTML"): Promise<boolean> {
+export async function sendMessage(chatId: string, text: string, parseMode = "HTML"): Promise<boolean> {
   if (!BOT_TOKEN) return false;
   try {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
