@@ -42,36 +42,40 @@ export async function GET(req: NextRequest) {
       .map((m: { text: string }) => m.text.replace(/\(@WalterBloomberg\)/g, "").trim().slice(0, 300))
       .join("\n");
 
-    const prompt = `너는 글로벌 매크로 투자 리포트를 작성하는 AlphaLab 분석 봇임.
+    const prompt = `너는 글로벌 매크로 투자 전문 애널리스트임. 아래 블룸버그 속보를 바탕으로 한국 개인투자자를 위한 심층 데일리 리포트를 작성해줘.
 
-아래는 최근 12시간 블룸버그 속보 헤드라인 목록임:
-
+[헤드라인 목록]
 ${headlines}
 
 ---
 
 [작성 규칙]
 
-1. 헤드라인을 분석해서 아래 카테고리 중 실제로 등장한 것만 골라서 섹션을 구성할 것. 없는 카테고리는 절대 만들지 말 것.
+1. 아래 카테고리 중 헤드라인에 실제로 등장한 것만 섹션 구성. 없는 카테고리는 절대 만들지 말 것.
 
-카테고리 목록:
-- 🇺🇸 미국 정치/트럼프 (트럼프 발언, 행정명령, 대통령 관련)
-- 🌍 지정학/분쟁 (이란, 러시아, 중동, NATO, 우크라이나 등)
-- 📊 경제지표 (고용, 물가, 소비, 주택, GDP 등)
-- 🏦 연준/금리 (Fed, 금리, 테이퍼링, FOMC 관련)
-- 📈 시장/자산가격 (주가지수, 채권, 달러, 원자재)
-- 🪙 크립토 (비트코인, 이더리움, 알트코인)
-- ⚡ 기타 속보 (자연재해, 사건사고, 기타 돌발)
+카테고리:
+- 🇺🇸 미국 정치/트럼프
+- 🌍 지정학/분쟁
+- 📊 경제지표
+- 🏦 연준/금리
+- 📈 시장/자산가격
+- 🪙 크립토
+- ⚡ 기타 속보
 
-2. 각 섹션은 2~3줄로 핵심만 요약. 음슴체 사용 (~함, ~보임, ~임, ~한 상황임)
+2. 각 섹션 작성 방식:
+- 단순 사실 나열 금지. 각 섹션당 해당 뉴스의 배경, 의미, 한국 시장/투자자 관점에서의 시사점까지 포함해서 3~5줄로 작성
+- 음슴체 사용 (~함, ~보임, ~임, ~한 상황임, ~할 가능성 있음)
+- 숫자/수치가 있으면 반드시 포함
 
-3. 섹션이 1개뿐일 경우: 해당 섹션만 집중적으로 4~5줄로 확장해서 작성할 것
+3. 섹션이 1~2개뿐일 경우: 해당 섹션을 6~8줄로 더 깊게 분석
 
-4. 마지막 줄은 항상: "📌 출처: Bloomberg (@WalterBloomberg) | AlphaLab 자동 리포트"
+4. 마지막에 [오늘의 핵심 요약] 섹션 추가:
+- 오늘 가장 중요한 뉴스 2~3개를 한 줄씩 bullet로 정리
+- 한국 투자자 관점 코멘트 1줄
 
-5. 총 글자수 500~800자 유지
+5. 맨 마지막 줄: "📌 출처: Bloomberg (@WalterBloomberg) | AlphaLab 자동 리포트"
 
-6. 투자 권유 절대 금지. AI 냄새 나는 문장 금지. 다른 설명 없이 본문만 출력.`;
+6. 총 글자수 800~1200자. 투자 권유 절대 금지. AI 냄새 나는 문장 금지. 다른 설명 없이 본문만 출력.`;
 
     // 4. Call Claude Haiku
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
@@ -83,7 +87,7 @@ ${headlines}
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1500,
+        max_tokens: 1200,
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -104,8 +108,7 @@ ${headlines}
     const yyyy = kst.getUTCFullYear();
     const mm = String(kst.getUTCMonth() + 1).padStart(2, "0");
     const dd = String(kst.getUTCDate()).padStart(2, "0");
-    const hh = String(kst.getUTCHours()).padStart(2, "0");
-    const title = `BBG_REPORT_${yyyy}${mm}${dd}_${hh}`;
+    const title = `데일리 리포트 ${yyyy}년 ${mm}월 ${dd}일`;
 
     // 6. Insert post
     const { data, error } = await supabaseAdmin.from("posts").insert({
