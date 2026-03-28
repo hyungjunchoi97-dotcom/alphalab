@@ -40,6 +40,24 @@ export default function CommunityWritePage() {
 
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const savedRangeRef = useRef<Range | null>(null);
+
+  const saveSelection = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      savedRangeRef.current = sel.getRangeAt(0);
+    }
+  };
+
+  const restoreSelection = () => {
+    const range = savedRangeRef.current;
+    if (!range) return;
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  };
 
   // Draft restore
   useEffect(() => {
@@ -73,8 +91,10 @@ export default function CommunityWritePage() {
   }, []);
 
   const exec = (cmd: string, value?: string) => {
+    restoreSelection();
     document.execCommand(cmd, false, value);
     editorRef.current?.focus();
+    saveSelection();
   };
 
   const handleSaveDraft = () => {
@@ -185,6 +205,8 @@ export default function CommunityWritePage() {
       </table>
     </div><p><br></p>`;
 
+    editorRef.current.focus();
+    restoreSelection();
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
       const range = sel.getRangeAt(0);
@@ -201,6 +223,7 @@ export default function CommunityWritePage() {
 
     setShowTableConfig(false);
     editorRef.current.focus();
+    saveSelection();
   };
 
   const insertImage = (file: File) => {
@@ -215,9 +238,12 @@ export default function CommunityWritePage() {
   };
 
   const insertHr = (style: string) => {
+    editorRef.current?.focus();
+    restoreSelection();
     document.execCommand("insertHTML", false, `<hr style="${style}"><p><br></p>`);
     setShowHrMenu(false);
     editorRef.current?.focus();
+    saveSelection();
   };
 
   // Toolbar button helper
@@ -403,14 +429,20 @@ export default function CommunityWritePage() {
                     <div style={{ fontSize: 10, color: "#888", marginBottom: 6 }}>글자색</div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 3 }}>
                       {["#ffffff", "#e0e0e0", "#fbbf24", "#4ade80", "#f87171", "#93c5fd", "#c4b5fd", "#f97316"].map(c => (
-                        <button key={c} onMouseDown={(e) => { e.preventDefault(); exec("foreColor", c); setSelectedColor(c); setShowColorPalette(false); }}
-                          style={{ width: 18, height: 18, borderRadius: 3, background: c, border: "1px solid #333", cursor: "pointer" }} />
+                        <button key={c} onMouseDown={(e) => { e.preventDefault(); restoreSelection(); exec("foreColor", c); setSelectedColor(c); setShowColorPalette(false); }}
+                          style={{ width: 18, height: 18, borderRadius: 3, background: c, border: selectedColor === c ? "2px solid #fff" : "1px solid #333", cursor: "pointer" }} />
+                      ))}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 3, marginTop: 3 }}>
+                      {["#ff6b6b", "#ffd93d", "#6bcb77", "#4d96ff", "#ff6bff", "#ff9f43", "#a29bfe", "#fd79a8"].map(c => (
+                        <button key={c} onMouseDown={(e) => { e.preventDefault(); restoreSelection(); exec("foreColor", c); setSelectedColor(c); setShowColorPalette(false); }}
+                          style={{ width: 18, height: 18, borderRadius: 3, background: c, border: selectedColor === c ? "2px solid #fff" : "1px solid #333", cursor: "pointer" }} />
                       ))}
                     </div>
                     <div style={{ fontSize: 10, color: "#888", marginTop: 8, marginBottom: 4 }}>형광펜</div>
                     <div style={{ display: "flex", gap: 3 }}>
                       {["rgba(245,158,11,0.3)", "rgba(74,222,128,0.3)", "rgba(248,113,113,0.3)", "rgba(96,165,250,0.3)", "rgba(167,139,250,0.3)"].map(c => (
-                        <button key={c} onMouseDown={(e) => { e.preventDefault(); exec("hiliteColor", c); setShowColorPalette(false); }}
+                        <button key={c} onMouseDown={(e) => { e.preventDefault(); restoreSelection(); exec("hiliteColor", c); setShowColorPalette(false); }}
                           style={{ width: 18, height: 18, borderRadius: 3, background: c, border: "1px solid #333", cursor: "pointer" }} />
                       ))}
                     </div>
@@ -459,19 +491,16 @@ export default function CommunityWritePage() {
                         key={item.label}
                         onMouseDown={(e) => {
                           e.preventDefault();
+                          editorRef.current?.focus();
+                          restoreSelection();
                           if (item.html) {
                             document.execCommand("insertHTML", false, item.html);
                           } else {
-                            document.execCommand("insertUnorderedList");
-                            const sel = window.getSelection();
-                            if (sel && sel.rangeCount > 0) {
-                              const range = sel.getRangeAt(0);
-                              const li = range.startContainer.parentElement?.closest("ul");
-                              if (li) (li as HTMLElement).style.listStyleType = item.style!;
-                            }
+                            document.execCommand("insertHTML", false, `<ul style="list-style:${item.style};padding-left:24px;margin:8px 0"><li style="color:#e0e0e0;margin:4px 0">&nbsp;</li></ul><p><br></p>`);
                           }
                           setShowBulletMenu(false);
                           editorRef.current?.focus();
+                          saveSelection();
                         }}
                         style={{ display: "block", width: "100%", textAlign: "left", padding: "5px 8px", background: "transparent", border: "none", color: "#ccc", fontSize: 12, cursor: "pointer", borderRadius: 4, fontFamily: "'IBM Plex Mono', monospace" }}
                         onMouseEnter={(e) => e.currentTarget.style.background = "#2a2a2a"}
@@ -591,6 +620,8 @@ export default function CommunityWritePage() {
                   caretColor: "#f59e0b",
                 }}
                 data-placeholder={lang === "kr" ? "내용을 입력하세요..." : "Write here..."}
+                onMouseUp={saveSelection}
+                onKeyUp={saveSelection}
                 onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f?.type.startsWith("image/")) insertImage(f); }}
                 onDragOver={(e) => e.preventDefault()}
               />
