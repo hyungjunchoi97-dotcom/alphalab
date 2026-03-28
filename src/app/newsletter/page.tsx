@@ -19,30 +19,56 @@ interface EligibilityData {
   };
 }
 
+const CARD_ICONS: Record<string, (color: string) => React.ReactNode> = {
+  stock: (c) => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round">
+      <line x1="18" y1="2" x2="18" y2="6"/><line x1="18" y1="10" x2="18" y2="22"/>
+      <line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="14"/>
+      <rect x="8" y="6" width="8" height="8" rx="1"/><rect x="14" y="10" width="8" height="8" rx="1"/>
+    </svg>
+  ),
+  macro: (c) => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+    </svg>
+  ),
+  crypto: (c) => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M9 9h4.5a1.5 1.5 0 010 3H9m4.5 0H9m4.5 0a1.5 1.5 0 010 3H9m1-9v10m3-10v10"/>
+    </svg>
+  ),
+  realestate: (c) => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+  ),
+};
+
 const ALERT_CARDS = [
   {
-    emoji: "📊",
+    icon: "stock",
     title: "주식 알림",
     time: "매일 오전 9:30 (평일)",
     items: ["전일 거래량 급증 TOP 3 종목", "VOLUME SPIKE / BREAKOUT / MOMO 시그널", "등락률, 거래량 배수"],
     color: "#3b82f6",
   },
   {
-    emoji: "🌍",
+    icon: "macro",
     title: "매크로 브리핑",
     time: "매일 오전 8:00",
     items: ["Fear & Greed 지수", "나스닥, WTI 유가, 금, 원달러 환율", "전일 대비 등락 포함"],
     color: "#f59e0b",
   },
   {
-    emoji: "₿",
+    icon: "crypto",
     title: "크립토 브리핑",
     time: "매일 오전 8:00",
     items: ["비트코인 가격 + 등락률", "주요 뉴스 2개 (한국어 요약)"],
     color: "#8b5cf6",
   },
   {
-    emoji: "🏠",
+    icon: "realestate",
     title: "부동산 브리핑",
     time: "매일 오전 8:00",
     items: ["서울 아파트 주요 거래", "구별 시세 변동", "부동산 관련 주요 뉴스"],
@@ -50,65 +76,6 @@ const ALERT_CARDS = [
   },
 ];
 
-const PREVIEW_MESSAGES = [
-  {
-    title: "주식 알림 예시",
-    channel: "AlphaLab Stock",
-    text: `AlphaLab 주식 알림 - 2026.03.27
-
-거래량 급증 종목 TOP 3
-
-1. 삼성전자 (005930)
-   거래량: 평균 대비 4.2배
-   등락률: +3.8%
-   시그널: VOLUME SPIKE
-
-2. SK하이닉스 (000660)
-   거래량: 평균 대비 3.1배
-   등락률: +2.5%
-   시그널: BREAKOUT
-
-3. NAVER (035420)
-   거래량: 평균 대비 2.8배
-   등락률: -1.2%
-   시그널: MOMO
-
-thealphalabs.net/ideas`,
-  },
-  {
-    title: "매크로 브리핑 예시",
-    channel: "AlphaLab Macro",
-    text: `AlphaLab 매크로 브리핑 - 2026.03.27
-
-Fear & Greed: 42 (Fear)
-나스닥: 18,245 (+0.8%)
-WTI 유가: $71.2 (-1.3%)
-금: $3,052 (+0.5%)
-원달러 환율: 1,432원 (-0.2%)
-
-thealphalabs.net/macro`,
-  },
-  {
-    title: "크립토 브리핑 예시",
-    channel: "AlphaLab Crypto",
-    text: `AlphaLab 크립토 브리핑 - 2026.03.27
-
-비트코인: $87,450 (+2.1%)
-
-주요 뉴스
-
-1. 미 SEC, 이더리움 현물 ETF 승인 최종 결정 임박
-2. 마이크로스트래티지, 비트코인 1만개 추가 매입
-
-thealphalabs.net/crypto`,
-  },
-];
-
-const TG_ICON = (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="#60a5fa">
-    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-  </svg>
-);
 
 export default function NewsletterPage() {
   const { user, session, loading: authLoading, openAuthModal } = useAuth();
@@ -159,7 +126,6 @@ export default function NewsletterPage() {
           .nl-main { padding: 24px 16px !important; }
           .nl-hero h1 { font-size: 28px !important; }
           .nl-cards-grid { grid-template-columns: 1fr !important; }
-          .nl-preview-grid { grid-template-columns: 1fr !important; }
           .nl-code { font-size: 22px !important; letter-spacing: 0.12em !important; }
           .nl-cta-btn { width: 100%; justify-content: center; }
         }
@@ -370,7 +336,12 @@ export default function NewsletterPage() {
                 onMouseLeave={e => { e.currentTarget.style.borderColor = "#1f2937"; e.currentTarget.style.borderLeftColor = card.color; }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                  <span style={{ fontSize: 20 }}>{card.emoji}</span>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                    background: `${card.color}26`, flexShrink: 0,
+                  }}>
+                    {CARD_ICONS[card.icon]?.(card.color)}
+                  </div>
                   <div>
                     <h3 style={{ fontSize: 16, fontWeight: 700, color: "#ffffff", margin: 0 }}>
                       {card.title}
@@ -397,34 +368,6 @@ export default function NewsletterPage() {
           </div>
         </div>
 
-        {/* ── Preview Section ────────────────────────────── */}
-        <div style={{ marginBottom: 56 }}>
-          <h2 style={{ ...S, fontSize: 13, fontWeight: 700, color: "#6b7280", marginBottom: 20, letterSpacing: "0.05em", textTransform: "uppercase" as const, textAlign: "center" }}>
-            실제 알림 미리보기
-          </h2>
-          <div className="nl-preview-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-            {PREVIEW_MESSAGES.map((msg) => (
-              <div
-                key={msg.title}
-                style={{
-                  background: "#0d1117", border: "1px solid #1f2937", borderRadius: 16,
-                  padding: 20, overflow: "hidden",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid #1f2937" }}>
-                  {TG_ICON}
-                  <span style={{ ...S, fontSize: 11, fontWeight: 600, color: "#60a5fa" }}>{msg.channel}</span>
-                </div>
-                <pre style={{
-                  ...S, fontSize: 11, color: "#e0e0e0", lineHeight: 1.8, fontWeight: 400,
-                  whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0,
-                }}>
-                  {msg.text}
-                </pre>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* ── Bottom CTA ─────────────────────────────────── */}
         <div style={{ textAlign: "center", paddingBottom: 48 }}>
