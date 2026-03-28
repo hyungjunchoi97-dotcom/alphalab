@@ -29,7 +29,10 @@ export const CHANNELS: ChannelConfig[] = [
   { username: "yieldnspread", title: "Yield N Spread" },
   { username: "Barbarian_Global_Tech", title: "Barbarian Global Tech" },
   { username: "WalterBloomberg", title: "Walter Bloomberg" },
-  { username: "wells_crypto", title: "Wells Crypto" },
+  { username: "whalealertkorean", title: "고래 알림 한국" },
+  { username: "whaleliq", title: "Whale Liq" },
+  { username: "dogeland01", title: "Doge Land" },
+  { username: "emperorcoin", title: "Emperor Coin" },
 ];
 
 interface CacheEntry {

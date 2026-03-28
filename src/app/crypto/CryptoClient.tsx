@@ -707,20 +707,20 @@ function HolderTable({ title, loading, rows, btcPrice, total, showRank, note }: 
 
 // ── Crypto News Feed ────────────────────────────────────────
 
-const CRYPTO_CHANNELS = ["wells_crypto", "cointelegraph", "bitcoin", "whale_alert"];
+const CRYPTO_CHANNELS = ["whalealertkorean", "whaleliq", "dogeland01", "emperorcoin"];
 
 const CHANNEL_COLOR: Record<string, string> = {
-  wells_crypto: "#f97316",
-  cointelegraph: "#3b82f6",
-  bitcoin: "#f59e0b",
-  whale_alert: "#8b5cf6",
+  whalealertkorean: "#3b82f6",
+  whaleliq: "#8b5cf6",
+  dogeland01: "#f59e0b",
+  emperorcoin: "#ef4444",
 };
 
 const CHANNEL_LABEL: Record<string, string> = {
-  wells_crypto: "Wells Crypto",
-  cointelegraph: "CoinTelegraph",
-  bitcoin: "Bitcoin",
-  whale_alert: "Whale Alert",
+  whalealertkorean: "고래 알림 한국",
+  whaleliq: "Whale Liq",
+  dogeland01: "Doge Land",
+  emperorcoin: "Emperor Coin",
 };
 
 interface TgMsg {
@@ -776,8 +776,8 @@ function TgCard({ msg }: { msg: TgMsg }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <span style={{
           fontSize: 11, fontWeight: 700,
-          color: CHANNEL_COLOR[msg.channel] || "#f97316",
-          background: `${CHANNEL_COLOR[msg.channel] || "#f97316"}15`,
+          color: CHANNEL_COLOR[msg.channel] || "#6b7280",
+          background: `${CHANNEL_COLOR[msg.channel] || "#6b7280"}15`,
           padding: "2px 8px", borderRadius: 3,
         }}>
           {CHANNEL_LABEL[msg.channel] || msg.channelTitle}
@@ -836,36 +836,73 @@ function WellsCryptoFeed() {
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(20);
+  const [oldestIds, setOldestIds] = useState<Record<string, number>>({});
 
   useEffect(() => {
     setLoading(true);
-    fetch("/api/telegram/feed")
-      .then(r => r.json())
-      .then(json => {
-        if (json.ok) {
-          const filtered = (json.messages as TgMsg[] || [])
-            .filter(m => CRYPTO_CHANNELS.includes(m.channel))
-            .sort((a, b) => b.date - a.date);
-          setMessages(filtered);
-          setHasMore(filtered.length > 20);
+    Promise.allSettled(
+      CRYPTO_CHANNELS.map(ch =>
+        fetch(`/api/telegram/feed?channel=${ch}`).then(r => r.json())
+      )
+    ).then(results => {
+      const allMsgs: TgMsg[] = [];
+      const ids: Record<string, number> = {};
+      results.forEach((r, i) => {
+        if (r.status === "fulfilled" && r.value.ok) {
+          const msgs: TgMsg[] = r.value.messages || [];
+          allMsgs.push(...msgs);
+          if (msgs.length > 0) {
+            ids[CRYPTO_CHANNELS[i]] = Math.min(...msgs.map(m => m.id));
+          }
         }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      });
+      const sorted = allMsgs.sort((a, b) => b.date - a.date);
+      setMessages(sorted);
+      setOldestIds(ids);
+      setHasMore(Object.keys(ids).length > 0);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const loadMore = () => {
+  const loadMore = async () => {
+    if (loadingMore) return;
     setLoadingMore(true);
-    setVisibleCount(prev => {
-      const next = prev + 20;
-      if (next >= messages.length) setHasMore(false);
-      return next;
-    });
-    setLoadingMore(false);
+    try {
+      const results = await Promise.allSettled(
+        CRYPTO_CHANNELS.filter(ch => oldestIds[ch]).map(ch =>
+          fetch(`/api/telegram/feed?channel=${ch}&before=${oldestIds[ch]}`)
+            .then(r => r.json())
+            .then(json => ({ channel: ch, json }))
+        )
+      );
+      const newMsgs: TgMsg[] = [];
+      const newIds = { ...oldestIds };
+      let anyNew = false;
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value.json.ok) {
+          const msgs: TgMsg[] = r.value.json.messages || [];
+          if (msgs.length > 0) {
+            newMsgs.push(...msgs);
+            newIds[r.value.channel] = Math.min(...msgs.map(m => m.id));
+            anyNew = true;
+          } else {
+            delete newIds[r.value.channel];
+          }
+        }
+      }
+      if (newMsgs.length > 0) {
+        setMessages(prev => {
+          const existingKeys = new Set(prev.map(m => `${m.channel}-${m.id}`));
+          const unique = newMsgs.filter(m => !existingKeys.has(`${m.channel}-${m.id}`));
+          return [...prev, ...unique].sort((a, b) => b.date - a.date);
+        });
+      }
+      setOldestIds(newIds);
+      if (!anyNew || Object.keys(newIds).length === 0) setHasMore(false);
+    } catch { /* */ }
+    finally { setLoadingMore(false); }
   };
 
-  const displayed = messages.slice(0, visibleCount);
+  const displayed = messages;
 
   return (
     <div style={{ maxWidth: "min(760px, 100%)", margin: "0 auto", padding: "20px 12px" }}>
