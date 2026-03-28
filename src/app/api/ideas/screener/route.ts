@@ -356,7 +356,9 @@ async function fetchStockData(stock: StockDef, krxPriceMap?: Map<string, { price
       ? meta.regularMarketPrice
       : lastClose;
     const prevClose = meta.chartPreviousClose ?? closes[closes.length - 2];
-    let chg1d = ((price - prevClose) / prevClose) * 100;
+    let chg1d = meta.regularMarketChangePercent != null
+      ? meta.regularMarketChangePercent
+      : ((price - prevClose) / prevClose) * 100;
 
     // Override with KRX data for accurate KR prices
     const krxData = krxPriceMap?.get(stock.ticker);
