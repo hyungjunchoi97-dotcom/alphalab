@@ -1302,8 +1302,6 @@ export default function IdeasPage() {
                           <tr className="border-b border-card-border">
                             <th className={TH}>Symbol</th>
                             <th className={TH}>Name</th>
-                            <th className={`${TH} text-right`}>Price</th>
-                            <th className={`${TH} text-right`}>Chg%</th>
                             <th className={`${TH} text-right`}>{lang === "kr" ? "거래대금" : "Value"}</th>
                             <th className={`${TH} text-right`}>{lang === "kr" ? "거래량" : "Volume"}</th>
                             <th className={`${TH} text-right`}>Vol Ratio</th>
@@ -1325,8 +1323,6 @@ export default function IdeasPage() {
                               >
                                 <td className={`${TD} pl-2 text-accent font-medium`}>{r.symbol}</td>
                                 <td className={`${TD} text-muted truncate max-w-[120px]`}>{r.name}</td>
-                                <td className={`${TD} text-right tabular-nums`}>${r.price.toFixed(2)}</td>
-                                <td className={`${TD} text-right tabular-nums`}><ChgPct v={r.changePct} /></td>
                                 <td className={`${TD} text-right tabular-nums text-muted`}>
                                   {r.tradingValue >= 1e9
                                     ? `$${(r.tradingValue / 1e9).toFixed(1)}B`

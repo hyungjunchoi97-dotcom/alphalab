@@ -415,9 +415,38 @@ export default function PostDetailPage() {
                 )}
               </div>
 
-              {post.content && (
+              {post.category === "news_run" && !session ? (
+                <div style={{ position: "relative", marginTop: 12 }}>
+                  <div style={{ filter: "blur(4px)", userSelect: "none", pointerEvents: "none" }}>
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                      {"글로벌 시장 리포트 내용이 여기에 표시됩니다. 로그인 후 전체 내용을 확인할 수 있습니다. 각 섹션별 상세 분석과 투자 시사점을 포함하고 있습니다.\n\n🇺🇸 미국 정치/경제 관련 주요 이슈 분석...\n🌍 지정학적 리스크 및 분쟁 상황 요약...\n📈 주요 자산 가격 동향 및 시장 전망...\n💡 한국 투자자 관점에서의 핵심 시사점..."}
+                    </p>
+                  </div>
+                  <div style={{
+                    position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <div style={{
+                      background: "rgba(13,17,23,0.95)", border: "1px solid #1f2937", borderRadius: 12,
+                      padding: "24px 32px", textAlign: "center",
+                    }}>
+                      <p style={{ fontSize: 14, color: "#e0e0e0", marginBottom: 16, fontWeight: 500 }}>
+                        리포트는 로그인 후 열람 가능합니다
+                      </p>
+                      <button
+                        onClick={() => requireAuth(() => {})}
+                        style={{
+                          fontSize: 13, fontWeight: 700, padding: "10px 28px", borderRadius: 6,
+                          background: "#f59e0b", color: "#000", border: "none", cursor: "pointer",
+                        }}
+                      >
+                        로그인
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : post.content ? (
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{post.content}</p>
-              )}
+              ) : null}
             </>
           )}
 
@@ -463,6 +492,8 @@ export default function PostDetailPage() {
           </div>
         </div>
 
+        {/* Comment section - hidden for non-logged-in news_run viewers */}
+        {!(post.category === "news_run" && !session) && (<>
         {/* Comment input */}
         <div className="rounded-xl border border-card-border bg-card-bg p-4">
           <textarea
@@ -595,6 +626,7 @@ export default function PostDetailPage() {
             ))
           )}
         </div>
+        </>)}
       </main>
 
       {/* Full-size image overlay */}
