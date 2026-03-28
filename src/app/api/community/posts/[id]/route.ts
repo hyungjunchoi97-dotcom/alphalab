@@ -50,6 +50,75 @@ export async function GET(
   }
 }
 
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) {
+      return NextResponse.json({ ok: false, error: "Not authenticated" }, { status: 401 });
+    }
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace("Bearer ", "")
+    );
+    if (authError || !user) {
+      return NextResponse.json({ ok: false, error: "Invalid token" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    const { data: post, error: postError } = await supabaseAdmin
+      .from("posts")
+      .select("id, author_email")
+      .eq("id", id)
+      .single();
+
+    if (postError || !post) {
+      return NextResponse.json({ ok: false, error: "Post not found" }, { status: 404 });
+    }
+
+    if (post.author_email !== user.email && !ADMIN_EMAILS.includes(user.email ?? "")) {
+      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { title, content } = body;
+
+    if (!title?.trim()) {
+      return NextResponse.json({ ok: false, error: "Title required" }, { status: 400 });
+    }
+    if (title.trim().length > 200) {
+      return NextResponse.json({ ok: false, error: "Title too long (max 200)" }, { status: 400 });
+    }
+    if (content && content.length > 50000) {
+      return NextResponse.json({ ok: false, error: "Content too long (max 50000)" }, { status: 400 });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("posts")
+      .update({
+        title: title.trim(),
+        content: (content || "").trim(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, post: data });
+  } catch (err) {
+    return NextResponse.json(
+      { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

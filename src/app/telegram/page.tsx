@@ -146,6 +146,28 @@ export default function TelegramPage() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [countdown, setCountdown] = useState(REFRESH_INTERVAL / 1000);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [pinnedChannels, setPinnedChannels] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const saved = localStorage.getItem("tg_pinned");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const togglePin = (username: string) => {
+    setPinnedChannels(prev => {
+      const next = new Set(prev);
+      if (next.has(username)) next.delete(username);
+      else next.add(username);
+      localStorage.setItem("tg_pinned", JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  const clearPins = () => {
+    setPinnedChannels(new Set());
+    localStorage.removeItem("tg_pinned");
+  };
 
   // Pagination state per channel
   const [oldestIds, setOldestIds] = useState<Record<string, number | null>>({});
@@ -322,8 +344,10 @@ export default function TelegramPage() {
     () =>
       activeChannel
         ? allMessages.filter((m) => m.channel === activeChannel)
-        : allMessages,
-    [allMessages, activeChannel]
+        : pinnedChannels.size > 0
+          ? allMessages.filter((m) => pinnedChannels.has(m.channel))
+          : allMessages,
+    [allMessages, activeChannel, pinnedChannels]
   );
 
   const displayMessages = filteredMessages.slice(0, visibleCount);
@@ -391,41 +415,67 @@ export default function TelegramPage() {
           {/* Left sidebar */}
           <aside className={`hidden md:block shrink-0 transition-all duration-200 ${channelSidebarOpen ? "w-56" : "w-0 overflow-hidden"} border-r border-[#1e1e1e]`}>
             <div className="sticky top-4 rounded-xl p-3 overflow-y-auto max-h-[calc(100vh-120px)] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-track]:bg-transparent" style={{ background: "#0d0d0d", border: "1px solid #1a1a1a" }}>
-              <button
-                onClick={() => setActiveChannel(null)}
-                className={`w-full rounded-lg py-1.5 px-2.5 text-left transition-colors ${
-                  activeChannel === null
-                    ? "bg-gray-800 border-l-2 border-yellow-500 text-white font-semibold text-xs"
-                    : "border-l-2 border-transparent text-xs font-medium text-gray-200 hover:bg-gray-800/50"
-                }`}
-              >
-                <span className="flex items-center justify-between">
-                  <span>{lang === "kr" ? "전체보기" : "All Channels"}</span>
-                  <span className="text-xs bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded-full">{allMessages.length}</span>
-                </span>
-              </button>
+              <div>
+                <button
+                  onClick={() => setActiveChannel(null)}
+                  className={`w-full rounded-lg py-1.5 px-2.5 text-left transition-colors ${
+                    activeChannel === null
+                      ? "bg-gray-800 border-l-2 border-yellow-500 text-white font-semibold text-xs"
+                      : "border-l-2 border-transparent text-xs font-medium text-gray-200 hover:bg-gray-800/50"
+                  }`}
+                >
+                  <span className="flex items-center justify-between">
+                    <span>{lang === "kr" ? "전체보기" : "All Channels"}</span>
+                    <span className="text-xs bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded-full">{allMessages.length}</span>
+                  </span>
+                </button>
+                {pinnedChannels.size > 0 && (
+                  <div className="flex items-center gap-2 px-2.5 mt-1">
+                    <span style={{ fontSize: 10, color: "#f59e0b" }}>
+                      📌 {pinnedChannels.size}개 필터
+                    </span>
+                    <button
+                      onClick={clearPins}
+                      style={{ fontSize: 10, color: "#6b7280", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+                    >
+                      필터 해제
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <div className="mt-2 space-y-0.5">
                 {channels.map((ch) => {
                   const isActive = activeChannel === ch.username;
                   const isEmpty = emptyChannels.has(ch.username);
+                  const isPinned = pinnedChannels.has(ch.username);
                   return (
-                    <button
-                      key={ch.username}
-                      onClick={() => setActiveChannel(ch.username)}
-                      className={`w-full rounded-lg py-1.5 px-2.5 text-left transition-all ${
-                        isActive
-                          ? "bg-gray-800 border-l-2 border-yellow-500 text-white font-semibold text-xs"
-                          : `border-l-2 border-transparent text-xs font-medium hover:bg-gray-800/50 ${isEmpty ? "text-gray-600 line-through" : "text-gray-200"}`
-                      }`}
-                    >
-                      <span className="flex items-center justify-between">
-                        <span>{ch.title}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${isEmpty ? "bg-gray-800 text-gray-600" : "bg-gray-700 text-gray-300"}`}>
-                          {channelCounts.get(ch.username) || 0}
+                    <div key={ch.username} className="flex items-center">
+                      <button
+                        onClick={() => setActiveChannel(ch.username)}
+                        className={`flex-1 min-w-0 rounded-lg py-1.5 px-2.5 text-left transition-all ${
+                          isActive
+                            ? "bg-gray-800 border-l-2 border-yellow-500 text-white font-semibold text-xs"
+                            : `border-l-2 border-transparent text-xs font-medium hover:bg-gray-800/50 ${isEmpty ? "text-gray-600 line-through" : "text-gray-200"}`
+                        }`}
+                      >
+                        <span className="flex items-center justify-between">
+                          <span className="truncate">{ch.title}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full shrink-0 ${isEmpty ? "bg-gray-800 text-gray-600" : "bg-gray-700 text-gray-300"}`}>
+                            {channelCounts.get(ch.username) || 0}
+                          </span>
                         </span>
-                      </span>
-                    </button>
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); togglePin(ch.username); }}
+                        style={{ padding: "4px", background: "none", border: "none", cursor: "pointer", flexShrink: 0 }}
+                        title={isPinned ? "필터 해제" : "필터에 추가"}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill={isPinned ? "#f59e0b" : "none"} stroke={isPinned ? "#f59e0b" : "#333"} strokeWidth="2">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                        </svg>
+                      </button>
+                    </div>
                   );
                 })}
               </div>
@@ -446,30 +496,44 @@ export default function TelegramPage() {
             </button>
             {/* Mobile channel tabs */}
             <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 md:hidden">
-              <button
-                onClick={() => setActiveChannel(null)}
-                className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors"
-                style={{
-                  background: activeChannel === null ? "#60a5fa" : "#1a1a1a",
-                  color: activeChannel === null ? "#000" : "#888",
-                  border: "1px solid #222222",
-                }}
-              >
-                {lang === "kr" ? "전체" : "All"}
-              </button>
-              {channels.map((ch) => (
+              <div className="shrink-0 flex flex-col items-center">
                 <button
-                  key={ch.username}
-                  onClick={() => setActiveChannel(ch.username)}
+                  onClick={() => setActiveChannel(null)}
                   className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors"
                   style={{
-                    background: activeChannel === ch.username ? "#60a5fa" : "#1a1a1a",
-                    color: activeChannel === ch.username ? "#000" : "#888",
+                    background: activeChannel === null ? "#60a5fa" : "#1a1a1a",
+                    color: activeChannel === null ? "#000" : "#888",
                     border: "1px solid #222222",
                   }}
                 >
-                  {ch.title}
+                  {lang === "kr" ? "전체" : "All"}
                 </button>
+                {pinnedChannels.size > 0 && (
+                  <span style={{ fontSize: 9, color: "#f59e0b", marginTop: 2 }}>📌 {pinnedChannels.size}</span>
+                )}
+              </div>
+              {channels.map((ch) => (
+                <div key={ch.username} className="shrink-0 flex items-center gap-0.5">
+                  <button
+                    onClick={() => setActiveChannel(ch.username)}
+                    className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors"
+                    style={{
+                      background: activeChannel === ch.username ? "#60a5fa" : pinnedChannels.has(ch.username) ? "rgba(245,158,11,0.15)" : "#1a1a1a",
+                      color: activeChannel === ch.username ? "#000" : pinnedChannels.has(ch.username) ? "#f59e0b" : "#888",
+                      border: pinnedChannels.has(ch.username) ? "1px solid rgba(245,158,11,0.3)" : "1px solid #222222",
+                    }}
+                  >
+                    {ch.title}
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); togglePin(ch.username); }}
+                    style={{ padding: 2, background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill={pinnedChannels.has(ch.username) ? "#f59e0b" : "none"} stroke={pinnedChannels.has(ch.username) ? "#f59e0b" : "#333"} strokeWidth="2">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                    </svg>
+                  </button>
+                </div>
               ))}
             </div>
 

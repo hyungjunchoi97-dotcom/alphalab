@@ -741,35 +741,12 @@ function tgTimeAgo(ts: number): string {
   return `${Math.floor(diff / 86400)}d`;
 }
 
-async function translateToKo(text: string): Promise<string> {
-  try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=ko&dt=t&q=${encodeURIComponent(text)}`;
-    const res = await fetch(url);
-    const json = await res.json();
-    return json[0].map((i: [string]) => i[0]).join("");
-  } catch {
-    return "번역 실패";
-  }
-}
-
 function TgCard({ msg }: { msg: TgMsg }) {
   const [expanded, setExpanded] = useState(false);
-  const [translated, setTranslated] = useState<string | null>(null);
-  const [translating, setTranslating] = useState(false);
-  const [showKr, setShowKr] = useState(false);
 
   const lines = msg.text.split("\n");
   const isLong = lines.length > 6;
   const displayText = !expanded && isLong ? lines.slice(0, 6).join("\n") + "..." : msg.text;
-
-  const handleTranslate = async () => {
-    if (translated) { setShowKr(!showKr); return; }
-    setTranslating(true);
-    const result = await translateToKo(msg.text);
-    setTranslated(result);
-    setShowKr(true);
-    setTranslating(false);
-  };
 
   return (
     <div style={{ padding: "14px 16px", borderBottom: "1px solid #1a1a1a" }}>
@@ -806,27 +783,6 @@ function TgCard({ msg }: { msg: TgMsg }) {
           style={{ maxWidth: "100%", borderRadius: 8, marginTop: 10, border: "1px solid #1a1a1a" }}
         />
       )}
-
-      {showKr && translated && (
-        <p style={{
-          fontSize: 15, color: "#ffffff", lineHeight: 1.9, fontWeight: 500,
-          margin: "10px 0 0", background: "#0d1117", padding: "12px 16px",
-          borderRadius: 6, borderLeft: "3px solid #f59e0b", whiteSpace: "pre-wrap", wordBreak: "break-word",
-        }}>
-          {translated}
-        </p>
-      )}
-
-      <button
-        onClick={handleTranslate}
-        style={{
-          marginTop: 8, fontSize: 12,
-          color: translating ? "#9ca3af" : showKr ? "#6b7280" : "#f59e0b",
-          background: "none", border: "none", cursor: "pointer", padding: 0,
-        }}
-      >
-        {translating ? "번역 중..." : showKr ? "원문 보기" : "🇰🇷 번역"}
-      </button>
     </div>
   );
 }

@@ -132,6 +132,10 @@ export default function PostDetailPage() {
   const [replyText, setReplyText] = useState("");
   const [imageExpanded, setImageExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   const fetchPost = useCallback(async () => {
     try {
@@ -228,6 +232,36 @@ export default function PostDetailPage() {
     setDeleting(false);
   };
 
+  const startEditing = () => {
+    if (!post) return;
+    setEditTitle(post.title);
+    setEditContent(post.content || "");
+    setEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!session || !post) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/community/posts/${post.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ title: editTitle, content: editContent }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setPost(prev => prev ? { ...prev, title: json.post.title, content: json.post.content } : prev);
+        setEditing(false);
+      } else {
+        alert(json.error || "수정 실패");
+      }
+    } catch { alert("오류가 발생했습니다"); }
+    setEditSaving(false);
+  };
+
   const handleDeleteComment = async (commentId: string) => {
     if (!session) return;
     if (!confirm("댓글을 삭제하시겠습니까?")) return;
@@ -306,21 +340,85 @@ export default function PostDetailPage() {
             <span>{timeAgo(post.created_at)}</span>
           </div>
 
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="text-lg font-bold leading-snug">{post.title}</h1>
-            {canDelete && (
-              <button
-                onClick={handleDeletePost}
-                disabled={deleting}
-                style={{ fontSize: 11, color: "#ef4444", background: "none", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 4, padding: "2px 8px", cursor: "pointer", flexShrink: 0 }}
-              >
-                {deleting ? "삭제 중..." : "삭제"}
-              </button>
-            )}
-          </div>
+          {editing ? (
+            <>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={e => setEditTitle(e.target.value)}
+                maxLength={200}
+                style={{
+                  width: "100%", fontSize: 16, fontWeight: 700, padding: "8px 12px",
+                  background: "#0a0a0a", border: "1px solid #1f2937", borderRadius: 6,
+                  color: "#e8e8e8", outline: "none",
+                }}
+                onFocus={e => e.currentTarget.style.borderColor = "rgba(245,158,11,0.4)"}
+                onBlur={e => e.currentTarget.style.borderColor = "#1f2937"}
+              />
+              <textarea
+                value={editContent}
+                onChange={e => setEditContent(e.target.value)}
+                maxLength={50000}
+                rows={10}
+                style={{
+                  width: "100%", fontSize: 14, padding: "8px 12px", marginTop: 8,
+                  background: "#0a0a0a", border: "1px solid #1f2937", borderRadius: 6,
+                  color: "#e8e8e8", outline: "none", resize: "vertical", lineHeight: 1.7,
+                }}
+                onFocus={e => e.currentTarget.style.borderColor = "rgba(245,158,11,0.4)"}
+                onBlur={e => e.currentTarget.style.borderColor = "#1f2937"}
+              />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={editSaving || !editTitle.trim()}
+                  style={{
+                    fontSize: 12, fontWeight: 600, padding: "6px 16px", borderRadius: 4,
+                    background: "#f59e0b", color: "#000", border: "none", cursor: "pointer",
+                    opacity: editSaving || !editTitle.trim() ? 0.5 : 1,
+                  }}
+                >
+                  {editSaving ? "저장 중..." : "저장"}
+                </button>
+                <button
+                  onClick={() => setEditing(false)}
+                  style={{
+                    fontSize: 12, padding: "6px 16px", borderRadius: 4,
+                    background: "transparent", color: "#9ca3af",
+                    border: "1px solid #1f2937", cursor: "pointer",
+                  }}
+                >
+                  취소
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-start justify-between gap-3">
+                <h1 className="text-lg font-bold leading-snug">{post.title}</h1>
+                {canDelete && (
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button
+                      onClick={startEditing}
+                      style={{ fontSize: 11, color: "#f59e0b", background: "none", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}
+                    >
+                      수정
+                    </button>
+                    <button
+                      onClick={handleDeletePost}
+                      disabled={deleting}
+                      style={{ fontSize: 11, color: "#ef4444", background: "none", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}
+                    >
+                      {deleting ? "삭제 중..." : "삭제"}
+                    </button>
+                  </div>
+                )}
+              </div>
 
-          {post.content && (
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{post.content}</p>
+              {post.content && (
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{post.content}</p>
+              )}
+            </>
           )}
 
           {post.image_url && (

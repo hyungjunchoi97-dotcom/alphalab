@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/daily-news-run",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/bloomberg-report",
+      "schedule": "0 0,12 * * *"
     }
   ]
 }
