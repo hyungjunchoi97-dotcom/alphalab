@@ -1302,6 +1302,7 @@ export default function IdeasPage() {
                           <tr className="border-b border-card-border">
                             <th className={TH}>Symbol</th>
                             <th className={TH}>Name</th>
+                            <th className={`${TH} text-right`}>Price</th>
                             <th className={`${TH} text-right`}>{lang === "kr" ? "거래대금" : "Value"}</th>
                             <th className={`${TH} text-right`}>{lang === "kr" ? "거래량" : "Volume"}</th>
                             <th className={`${TH} text-right`}>Vol Ratio</th>
@@ -1323,6 +1324,7 @@ export default function IdeasPage() {
                               >
                                 <td className={`${TD} pl-2 text-accent font-medium`}>{r.symbol}</td>
                                 <td className={`${TD} text-muted truncate max-w-[120px]`}>{r.name}</td>
+                                <td className={`${TD} text-right tabular-nums`}>${r.price.toFixed(2)}</td>
                                 <td className={`${TD} text-right tabular-nums text-muted`}>
                                   {r.tradingValue >= 1e9
                                     ? `$${(r.tradingValue / 1e9).toFixed(1)}B`
@@ -1515,7 +1517,6 @@ export default function IdeasPage() {
                               [lang === "kr" ? "거래량" : "Volume", formatVol(s.volume)],
                               [lang === "kr" ? "20일 평균 거래량" : "Avg Volume (20D)", formatVol(s.avgVolume)],
                               [lang === "kr" ? "거래량비" : "Vol Ratio", `${s.volumeRatio.toFixed(2)}x`],
-                              [lang === "kr" ? "등락률" : "Change", `${s.changePct >= 0 ? "+" : ""}${s.changePct.toFixed(2)}%`],
                             ] as const).map(([label, val]) => (
                               <div key={label} className="flex items-center justify-between">
                                 <span className="text-[11px] text-[#888]">{label}</span>
