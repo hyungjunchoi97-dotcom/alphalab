@@ -11,16 +11,17 @@ import type { MessageKey } from "@/lib/i18n";
 
 // ── Constants ──────────────────────────────────────────────────
 
-type MainCategory = "all" | "stock_discussion" | "realestate" | "news_run";
+type MainCategory = "all" | "stock_discussion" | "realestate" | "free" | "news_run";
 type Subcategory = "all" | "domestic" | "overseas" | "crypto";
 type SortMode = "hot" | "new" | "top" | "rising";
 
-const MAIN_CATEGORIES: MainCategory[] = ["all", "stock_discussion", "realestate", "news_run"];
+const MAIN_CATEGORIES: MainCategory[] = ["all", "stock_discussion", "realestate", "free", "news_run"];
 
 const MAIN_CAT_LABEL: Record<MainCategory, MessageKey> = {
   all: "catAll",
   stock_discussion: "catStockDiscussion",
   realestate: "catRealestate",
+  free: "catFree",
   news_run: "catNewsRun",
 };
 
@@ -34,11 +35,12 @@ const SUB_LABEL: Record<Subcategory, MessageKey> = {
 };
 
 // Create categories for editor
-const CREATE_CATEGORIES: MainCategory[] = ["stock_discussion", "realestate"];
+const CREATE_CATEGORIES: MainCategory[] = ["stock_discussion", "realestate", "free"];
 
 const CAT_BADGE_COLOR: Record<string, string> = {
   stock_discussion: "bg-blue-500/20 text-blue-400",
   realestate: "bg-emerald-500/20 text-emerald-400",
+  free: "bg-gray-500/20 text-gray-400",
   news_run: "bg-red-500/20 text-red-400",
   ai: "bg-amber-500/20 text-amber-400",
   // legacy
